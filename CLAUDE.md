@@ -8,25 +8,47 @@ Google Play で配布予定。
 
 | パス | 内容 |
 |---|---|
-| web/index.html | ゲーム本体。単一 HTML の試作 |
+| docs/index.html | ゲーム本体。単一 HTML の試作。GitHub Pages の配信元 |
+| docs/v27.html / docs/v28.html | 比較用に残した過去版（2.7 / 2.8）。3.0 の実機確認が済むまで残す |
 | GAME-SPEC.md | ゲームの仕様書 |
 | DESIGN.md | デザイントークン（配色・文字・寸法・動き・リスト画面のルール） |
-| make10.py | 問題データ生成 |
 | DATA-SPEC.md | データ生成の仕様書 |
-| make10.db | 生成済みの問題データ |
+| make10.py | 問題データ生成 |
 | test_make10.py | make10.py の単体テスト |
+| verify_render_roundtrip.py | 生成済み DB の検証（GAME-SPEC 12 章の往復チェック）。`solutions.display` を独立実装のパーサで読み直し、その木から値・`uses_fraction`・`score` を計算し直して DB の値と突き合わせる。make10.py は一切参照しない |
+| make10.db | 生成済みの問題データ（生成物。**`.gitignore` で除外**） |
+| make10_puzzles.json | make10.db から書き出す、ゲーム本体が読む JSON（生成物。形式は DATA-SPEC 8 章） |
+| make10_backup_0099.db / make10_backup_full.db | 生成途中のバックアップ DB（**`.gitignore` で除外**） |
+| assets/icons-ref/ | アイコンの参考画像 |
+| assets/mockup-play-screen.png | 問題画面のモックアップ |
+| __pycache__/ | Python のキャッシュ（**`.gitignore` で除外**） |
 
 ## ファイルの配置
 
-- ゲーム本体は `web/` 配下にある（`web/index.html`）。仕様書・データ生成・DB は
-  リポジトリ直下。**`web/` の中と外に同名のディレクトリを作らない**
-  （過去に `assets/fonts/` を直下だけ消して `web/assets/fonts/` を残す取り違えをした）
+- ゲーム本体は `docs/` 配下にある（`docs/index.html`）。仕様書・データ生成・DB は
+  リポジトリ直下。**`docs/` の中と外に同名のディレクトリを作らない**
+  （過去に `assets/fonts/` を直下だけ消して `docs/assets/fonts/` を残す取り違えをした）
 - ファイルを削除・移動したときは、**同名のものが他の階層に残っていないか `find` で
   確認してから**完了報告を書く
-- GitHub Pages での公開は `web/index.html` をリポジトリ側の `index.html` として
-  アップロードする運用（**要確認**：この行は未確認。実際の公開手順を確認して直す）
+- GitHub Pages は `main` ブランチの **`docs/` フォルダ**から配信される。
+  手元の `docs/index.html` がそのまま公開されるので、
+  **コピーやアップロードの手作業は要らない**
+- 公開 URL は https://ihudodo-k.github.io/make10/ 。
+  `docs/v27.html` `docs/v28.html` も同時に公開され、
+  `.../v27.html` `.../v28.html` で比較できる
 
 ## 毎回守ること
+
+### バージョン管理
+
+- このプロジェクトは Git 管理下にある。**作業を始める前に `git status` で
+  作業ツリーがきれいなことを確認する。** 未コミットの変更が残っていたら、
+  何が残っているかを報告してから作業に入る
+- **完了報告に `git diff --stat` と `git diff` の出力を貼る。**
+  報告文の説明より、実際に変わった行のほうが正確なため
+- **コミットはしない。** 変更を残したまま報告する。コミットするかどうかは
+  こちらが差分を見てから判断する
+- `git push` も行わない
 
 ### バージョンと変更履歴
 
@@ -34,6 +56,7 @@ Google Play で配布予定。
 - 小数第一位を 1 ずつ上げる（1.4 → 1.5、1.9 の次は 2.0）
 - 1 回の作業で上げるのは 1 回だけ
 - このファイルの変更履歴に 1 行追記する
+- **過去の変更履歴の行は書き換えない。当時の記録として残す**
 
 ### 仕様書を実装と一緒に直す
 

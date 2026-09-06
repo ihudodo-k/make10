@@ -1,7 +1,7 @@
 # Make10 デザイントークン
 
 メニュー・設定など新しい画面を作るときの共通の物差し。
-値はすべて `web/index.html` の実装から抜いたもので、問題画面（`#play`）は
+値はすべて `docs/index.html` の実装から抜いたもので、問題画面（`#play`）は
 実機で調整を重ねた結果なので、そこにある値を正とする。
 
 **この文書の使い方**
@@ -195,11 +195,12 @@
 ## 6. リスト画面（設定・メニュー）のルール
 
 対象は `#settings` `#stats` `#help` `#home` `#heldpick`。実機で確認し **3.0 で確定**
-（LIST-TRIAL 2.8 / COLOR-TRIAL 2.9 とも採用）。以下の値は `web/index.html` の実装そのもの。
+（LIST-TRIAL 2.8 / COLOR-TRIAL 2.9 とも採用）。以下の値は `docs/index.html` の実装そのもの。
 `@media (max-height:700px)` はリスト画面の要素を再指定しない（全高で同じ見た目）。
 
-比較用の `web/v27.html`（2.7・LIST-TRIAL 前）と `web/v28.html`（2.8・COLOR-TRIAL 前）は
-**Git 導入まで残す**。まだバージョン管理下に無く、実装を戻せる手段がこの 2 ファイルしかない。
+比較用の `docs/v27.html`（2.7・LIST-TRIAL 前）と `docs/v28.html`（2.8・COLOR-TRIAL 前）は
+**3.0 の実機確認が済むまで残す**。GitHub Pages で `.../v27.html` `.../v28.html` として
+実機で並べて見比べられるため。
 
 ### 6-1. 節の面と行（`#settings` `#stats`）
 
