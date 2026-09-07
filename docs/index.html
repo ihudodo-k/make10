@@ -63,7 +63,7 @@ body{background:linear-gradient(180deg,
  display:flex;align-items:center;justify-content:center;overflow:hidden;
  background:var(--panel);border-top:min(1px,var(--bannerH)) solid var(--edge);
  font-size:11px;color:#3E5170;letter-spacing:.04em}
-#gear{position:absolute;top:10px;right:12px;z-index:50;width:38px;height:38px;
+#gear{position:absolute;top:10px;right:12px;z-index:50;width:var(--gearW);height:var(--gearW);
  border-radius:11px;font-size:19px;line-height:1;padding:0;display:flex;
  align-items:center;justify-content:center;opacity:.85}
 .sheet{flex:1 1 auto;overflow-y:auto;padding-bottom:12px;min-height:0}
@@ -152,7 +152,7 @@ button:active{background:var(--edge)}
 .top{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:4px}
 .top button{font-size:12px;padding:6px 11px}
 /* 丸アイコンボタン (ホーム / 全部消す / ヒント) */
-.iconbtn{width:44px;height:44px;padding:0;border-radius:50%;background:none;
+.iconbtn{width:var(--btnW);height:var(--btnW);padding:0;border-radius:50%;background:none;
  border:1.5px solid color-mix(in srgb,var(--paper) 34%,transparent);
  color:var(--paper);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .iconbtn:active{background:color-mix(in srgb,var(--paper) 12%,transparent)}
@@ -211,7 +211,7 @@ button:active{background:var(--edge)}
 /* 数字はタイルではなく素の文字。塗り・角丸・影なし。
    寸法は JS の TOKEN_METRICS から流し込まれる（CSS と二重管理にしない） */
 .num{width:var(--numW);height:var(--tokH);flex:0 0 auto;background:none;color:var(--paper);
- display:flex;align-items:center;justify-content:center;font-size:46px;font-weight:700;
+ display:flex;align-items:center;justify-content:center;font-size:var(--numF);font-weight:700;
  font-variant-numeric:tabular-nums;margin:0 var(--numMx)}
 @keyframes pop{0%{transform:translateY(0)}45%{transform:translateY(-13px)}100%{transform:translateY(0)}}
 .num.pop{animation:pop .42s var(--ease)}
@@ -220,9 +220,9 @@ button:active{background:var(--edge)}
 .tok{flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:600;
  color:color-mix(in srgb,var(--paper) 76%,transparent);
  cursor:grab;user-select:none;touch-action:none;transition:color .15s,opacity .15s}
-.tok.op{width:var(--opW);height:var(--tokH);font-size:31px}
-.tok.fac{width:var(--facW);height:var(--tokH);font-size:31px;margin-left:var(--facMl)}
-.tok.lp,.tok.rp{width:var(--parW);height:var(--tokH);font-size:37px;font-weight:500;
+.tok.op{width:var(--opW);height:var(--tokH);font-size:var(--opF)}
+.tok.fac{width:var(--facW);height:var(--tokH);font-size:var(--facF);margin-left:var(--facMl)}
+.tok.lp,.tok.rp{width:var(--parW);height:var(--tokH);font-size:var(--parF);font-weight:500;
  color:color-mix(in srgb,var(--paper) 58%,transparent)}
 .tok.lone{color:var(--coral)}
 .tok.dead{color:var(--slate);opacity:.45}
@@ -330,14 +330,12 @@ button:active{background:var(--edge)}
   .eq.idle{font-size:17px}
   .eq.hit{font-size:42px}
   .eq.part{font-size:25px}
-  /* 幅と高さは JS の TOKEN_METRICS.compact が CSS 変数として流し込む。
-     ここで指定すると二重管理になるので、文字サイズだけを持つ */
-  .num{font-size:36px}
-  .tok.op,.tok.fac{font-size:26px}
-  .tok.lp,.tok.rp{font-size:31px}
+  /* トークンの幅・高さ・文字サイズと .iconbtn / #gear は、JS の TOKEN_METRICS が
+     CSS 変数として流し込む（SIZE-TRIAL 3.3 でスライダー調整の対象にした）。
+     ここに数値を書くと二重管理になるので書かない */
   .chip{height:42px;font-size:26px}
   .tray{padding:4px;border-radius:16px}
-  .iconbtn,.plainbtn{width:38px;height:38px}
+  .plainbtn{width:38px;height:38px}
   .foot{margin:0 6px 8px}
   .top{margin-bottom:0}
   .field{padding:6px;margin-bottom:6px;min-height:72px}
@@ -475,6 +473,34 @@ button:active{background:var(--edge)}
       <div class="dv"><span>圧縮の下限（ZONE_MIN）</span><b id="dv-zoneMin-v"></b></div>
       <input type="range" id="dv-zoneMin" min="16" max="36" step="1">
       <button id="dv-reset" style="margin-top:10px">既定値に戻す</button>
+      <!-- SIZE-TRIAL（3.3・実機で値が決まったら撤去する）。動かすのは normal だけで、
+           compact は既定値どうしの比で追従する。既定値は TOKEN_METRICS.normal -->
+      <h3>SIZE-TRIAL（寸法・決定後に撤去）</h3>
+      <div class="dv"><span>数字の文字サイズ（.num）</span><b id="dv-numF-v"></b></div>
+      <input type="range" id="dv-numF" min="36" max="64" step="1">
+      <div class="dv"><span>数字の箱幅（TOKEN_METRICS.num）</span><b id="dv-num-v"></b></div>
+      <input type="range" id="dv-num" min="22" max="40" step="1">
+      <div class="dv"><span>階乗の文字サイズ（.tok.fac）</span><b id="dv-facF-v"></b></div>
+      <input type="range" id="dv-facF" min="24" max="48" step="1">
+      <div class="dv"><span>階乗の箱幅（TOKEN_METRICS.fac）</span><b id="dv-fac-v"></b></div>
+      <input type="range" id="dv-fac" min="14" max="32" step="1">
+      <div class="dv"><span>演算子の文字サイズ（.tok.op）</span><b id="dv-opF-v"></b></div>
+      <input type="range" id="dv-opF" min="24" max="48" step="1">
+      <div class="dv"><span>演算子の箱幅（TOKEN_METRICS.op）</span><b id="dv-op-v"></b></div>
+      <input type="range" id="dv-op" min="26" max="48" step="1">
+      <div class="dv"><span>括弧の文字サイズ（.tok.lp / .tok.rp）</span><b id="dv-parF-v"></b></div>
+      <input type="range" id="dv-parF" min="28" max="52" step="1">
+      <div class="dv"><span>括弧の箱幅（TOKEN_METRICS.par）</span><b id="dv-par-v"></b></div>
+      <input type="range" id="dv-par" min="16" max="32" step="1">
+      <div class="dv"><span>トークンの高さ（TOKEN_METRICS.h）</span><b id="dv-h-v"></b></div>
+      <input type="range" id="dv-h" min="48" max="88" step="1">
+      <div class="dv"><span>丸ボタン（.iconbtn）</span><b id="dv-btn-v"></b></div>
+      <input type="range" id="dv-btn" min="40" max="64" step="1">
+      <div class="dv"><span>設定ボタン（#gear）</span><b id="dv-gear-v"></b></div>
+      <input type="range" id="dv-gear" min="36" max="60" step="1">
+      <div class="dv"><span>compact（高さ700px以下）の追従値</span><b></b></div>
+      <div id="dv-compact-v" style="font-size:10px;opacity:.7;font-variant-numeric:tabular-nums;word-break:break-all;margin:-2px 0 5px"></div>
+      <button id="dv-size-reset" style="margin-top:10px">SIZE-TRIAL を既定値に戻す</button>
       <h3>実測値（読み取り専用・今つまんでいる記号について）</h3>
       <div class="dv"><span>隙間の上限</span><b id="dv-zbase-v"></b></div>
       <div class="dv"><span>通常時の隙間幅（--zoneW・採用値）</span><b id="dv-zused-v"></b></div>
@@ -484,9 +510,9 @@ button:active{background:var(--edge)}
       <div class="dv"><span>その差（Δ）</span><b id="dv-zdelta-v"></b></div>
       <div class="dv"><span>途中式の大きさ</span><b id="dv-scale-v"></b></div>
       <div class="dv"><span>10ができたときの文字の大きさ</span><b id="dv-eqsize-v"></b></div>
-      <div class="dv"><span>数字の描画幅 normal（46px）最大／片側余白</span><b id="dv-dwN-v"></b></div>
+      <div class="dv"><span>数字の描画幅 normal（<span id="dv-dwN-px"></span>）最大／片側余白</span><b id="dv-dwN-v"></b></div>
       <div id="dv-dwN-all" style="font-size:10px;opacity:.7;font-variant-numeric:tabular-nums;word-break:break-all;margin:-2px 0 5px"></div>
-      <div class="dv"><span>数字の描画幅 compact（36px）最大／片側余白</span><b id="dv-dwC-v"></b></div>
+      <div class="dv"><span>数字の描画幅 compact（<span id="dv-dwC-px"></span>）最大／片側余白</span><b id="dv-dwC-v"></b></div>
       <div id="dv-dwC-all" style="font-size:10px;opacity:.7;font-variant-numeric:tabular-nums;word-break:break-all;margin:-2px 0 5px"></div>
       <div class="dv"><span>幅の整合（tokensWidth() ／ .expr 実測 offsetWidth）</span><b id="dv-wchk-v"></b></div>
       <h3>現在値（コードの初期値に反映するときの受け渡し用）</h3>
@@ -557,7 +583,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="3.2";
+const APP_VERSION="3.3";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -21926,17 +21952,42 @@ function pwr(a,b){if(!isInt(b))return null;const e=b.n,m=e<0n?-e:e;if(m>24n)retu
    ドラッグ中の縮小率を「開いたあとの最終値」として先に確定させるのに使う。
    CSS 側に同じ数字を書くと片方だけ変えたときに崩れるので、必ずここだけに書く。 */
 const TOKEN_METRICS={
-  normal :{num:28,numMx:2,op:34,fac:19,par:20,h:64},   // 通常（実機調整で確定）
-  compact:{num:23,numMx:1,op:29,fac:16,par:18,h:50},   // 高さ700px以下
+  // num/op/fac/par = 箱幅、numF/opF/facF/parF = 文字サイズ、h = トークンの高さ、
+  // btn = .iconbtn、gear = #gear。文字サイズとボタン寸法は 3.3 で CSS から移した
+  // （値は移す前と同じ。CSS 側は var(--numF) 等で受け取る）
+  normal :{num:28,numMx:2,op:34,fac:19,par:20,h:64,
+           numF:46,opF:31,facF:31,parF:37,btn:44,gear:38},   // 通常（実機調整で確定）
+  compact:{num:23,numMx:1,op:29,fac:16,par:18,h:50,
+           numF:36,opF:26,facF:26,parF:31,btn:38,gear:38},   // 高さ700px以下
 };
+/* SIZE-TRIAL（3.3・実機で値が決まったら撤去する）。
+   スライダーで動かすのは normal だけ。compact は「既定値どうしの比」を掛けて
+   追従させる（2.2 で numW をやったときと同じ考え方）。比が妥当かどうかは
+   normal を決めてから別途見る。ここで比を定数に焼き付けず既定値から算出するのは、
+   既定値を書き換えたときに比だけ古くなるのを防ぐため */
+const SIZE_KEYS=["numF","num","facF","fac","opF","op","parF","par","h","btn","gear"];
+const SIZE_RATIO=Object.fromEntries(
+  SIZE_KEYS.map(k=>[k,TOKEN_METRICS.compact[k]/TOKEN_METRICS.normal[k]]));
 const FAC_ML=-2;                             // .tok.fac の margin-left（食い込み）
 const ZONE_BASE={zop:38,zfac:32,zpar:34};    // 枠の標準幅（--zoneShrink を掛ける前）
 const ZONE_MIN=20;                           // 圧縮しても下回らない幅（指で狙える下限）
 const COMPACT_MQ="(max-height:700px)";
 
-let MET=TOKEN_METRICS.normal;
+let MET={...TOKEN_METRICS.normal};
+/* SIZE-TRIAL のスライダーを反映した寸法を返す。devVars に値が無ければ既定のまま。
+   TOKEN_METRICS 自体は書き換えない（既定値は常にここが正） */
+function metricsFor(compact){
+  const m={...(compact?TOKEN_METRICS.compact:TOKEN_METRICS.normal)};
+  const dv=G.devVars||DEV_DEFAULT;
+  for(const k of SIZE_KEYS){
+    const v=dv[k];
+    if(typeof v!=="number"||!isFinite(v))continue;      // 古い保存データへの保険
+    m[k]=compact?Math.round(v*SIZE_RATIO[k]):v;
+  }
+  return m;
+}
 function applyMetrics(){
-  MET=matchMedia(COMPACT_MQ).matches?TOKEN_METRICS.compact:TOKEN_METRICS.normal;
+  MET=metricsFor(matchMedia(COMPACT_MQ).matches);
   const s=document.documentElement.style;
   s.setProperty("--numW",MET.num+"px");
   s.setProperty("--numMx",MET.numMx+"px");
@@ -21945,6 +21996,12 @@ function applyMetrics(){
   s.setProperty("--facMl",FAC_ML+"px");
   s.setProperty("--parW",MET.par+"px");
   s.setProperty("--tokH",MET.h+"px");
+  s.setProperty("--numF",MET.numF+"px");
+  s.setProperty("--opF",MET.opF+"px");
+  s.setProperty("--facF",MET.facF+"px");
+  s.setProperty("--parF",MET.parF+"px");
+  s.setProperty("--btnW",MET.btn+"px");
+  s.setProperty("--gearW",MET.gear+"px");
   return MET;
 }
 /* 式に並ぶトークンの幅の合計（枠は含まない）。DOM は読まない */
@@ -22600,7 +22657,10 @@ $("go-help").onclick=()=>go("help");
    ここはその参照。他は直値。localStorage に古い devVars が残っていると
    load() のマージでそちらが優先されるので、新しい既定値を見るには
    開発者パネルの「初期値に戻す」を一度押す */
-const DEV_DEFAULT={dur:300,shrink:80,catch:40,hotDur:200,zoneMin:ZONE_MIN,delta:18};
+const DEV_DEFAULT={dur:300,shrink:80,catch:40,hotDur:200,zoneMin:ZONE_MIN,delta:18,
+  // SIZE-TRIAL（3.3・決定後に撤去）。既定値は TOKEN_METRICS.normal をそのまま参照する。
+  // ここに数値を書き写すと寸法の定義が 2 箇所になるので書かない
+  ...Object.fromEntries(SIZE_KEYS.map(k=>[k,TOKEN_METRICS.normal[k]]))};
 
 function applyDevVars(){
   const dv=G.devVars||DEV_DEFAULT;
@@ -22626,6 +22686,7 @@ function renderDevPanel(){
   $("dv-hotDur").value=dv.hotDur; $("dv-hotDur-v").textContent=dv.hotDur+"ms";
   $("dv-delta").value=dv.delta; $("dv-delta-v").textContent=dv.delta+"px";
   $("dv-zoneMin").value=dv.zoneMin; $("dv-zoneMin-v").textContent=dv.zoneMin+"px";
+  for(const k of SIZE_KEYS){$("dv-"+k).value=dv[k]; $("dv-"+k+"-v").textContent=dv[k]+"px"}
   renderDevMeasured();
 }
 /* .num と同じ font（body 継承の font-family、font-weight:700、指定 px）で
@@ -22690,8 +22751,13 @@ function renderDevMeasured(){
   $("dv-eqsize-v").textContent=eqPx.toFixed(1)+"px";
   // 数字の描画幅（両モード）と箱幅との差。Canvas 計測なので画面の表示状態に依らない。
   // TOKEN_METRICS を触ったときにこの片側余白がマイナスになっていないか見張る用
-  fillDigitInk(46,TOKEN_METRICS.normal.num ,"dv-dwN-all","dv-dwN-v");
-  fillDigitInk(36,TOKEN_METRICS.compact.num,"dv-dwC-all","dv-dwC-v");
+  // SIZE-TRIAL のスライダーを反映した値で測る（既定値で測ると検算にならない）
+  const mN=metricsFor(false), mC=metricsFor(true);
+  $("dv-dwN-px").textContent=mN.numF+"px";
+  $("dv-dwC-px").textContent=mC.numF+"px";
+  $("dv-compact-v").textContent=SIZE_KEYS.map(k=>`${k}:${mC[k]}`).join("  ");
+  fillDigitInk(mN.numF,mN.num,"dv-dwN-all","dv-dwN-v");
+  fillDigitInk(mC.numF,mC.num,"dv-dwC-all","dv-dwC-v");
   // 幅の算術がずれていないか。hideZones()（枠を閉じる直前）に退避した値を表示。
   // 退避時に live 枠の実測幅を引いてあるので .expr 実測幅＝tokensWidth() のはず
   $("dv-wchk-v").textContent = !xp ? NOZ
@@ -22712,7 +22778,30 @@ function devVarInput(key,suffix){
 }
 devVarInput("dur","ms"); devVarInput("shrink","%"); devVarInput("catch","px");
 devVarInput("hotDur","ms"); devVarInput("delta","px"); devVarInput("zoneMin","px");
-$("dv-reset").onclick=()=>{G.devVars={...DEV_DEFAULT};applyDevVars();save();renderDevPanel()};
+/* SIZE-TRIAL（3.3・決定後に撤去）。寸法は CSS 変数と tokensWidth() の両方に効くので、
+   applyMetrics() で流し込み直してから縮小率を測り直す。問題画面が非表示のあいだは
+   applyScale() 側のガード（3.1）が弾くので、ここで fit() を呼んでも壊れない
+   ―― 見えた瞬間に go("play") → enterPlay() が測り直す */
+function applySizes(){
+  applyMetrics();
+  fit();
+  renderDevMeasured();
+}
+function devSizeInput(key){
+  $("dv-"+key).addEventListener("input",e=>{
+    G.devVars={...DEV_DEFAULT,...(G.devVars||{})};
+    G.devVars[key]=+e.target.value;
+    $("dv-"+key+"-v").textContent=e.target.value+"px";
+    applySizes(); save();
+  });
+}
+for(const k of SIZE_KEYS)devSizeInput(k);
+$("dv-size-reset").onclick=()=>{
+  G.devVars={...DEV_DEFAULT,...(G.devVars||{})};
+  for(const k of SIZE_KEYS)G.devVars[k]=DEV_DEFAULT[k];
+  applySizes(); save(); renderDevPanel();
+};
+$("dv-reset").onclick=()=>{G.devVars={...DEV_DEFAULT};applyDevVars();applySizes();save();renderDevPanel()};
 $("dv-copy").onclick=async()=>{
   try{await navigator.clipboard.writeText($("dv-copyline").value);toast("コピーしました")}
   catch(e){$("dv-copyline").select()}
