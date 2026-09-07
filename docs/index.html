@@ -557,7 +557,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="3.0";
+const APP_VERSION="3.2";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -21867,7 +21867,11 @@ const CHAL_AT=100;
 /* ═══ 進捗（端末に保存） ═══ */
 const SAVE_KEY="make10.progress.v4";
 const G={ci:0,cleared:0,heldC:[],heldT:[],heldF:[],tap:false,fact:false,vib:true,easy:false,theme:'ai',
-  stats:{n:0,sec:0,best:0,band:{}},hist:[],best:{},scoreOn:false,seen:[],swap:{},chalDone:[]};
+  stats:{n:0,sec:0,best:0,band:{}},hist:[],best:{},scoreOn:false,seen:[],swap:{},chalDone:[],
+  // 問題ごとに「見たヒントの最大段階」。セッション変数の hintMax だけだと画面を
+  // 離れた時点で消え、解き直すと倍率が戻ってしまう（G.best は最高点だけを残すので
+  // 一度でも抜け道を通ればその点数が永久に残る）。端末に残して塞ぐ
+  hints:{}};
 function load(){
   try{
     const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
@@ -21879,6 +21883,7 @@ function load(){
       if(s.best&&typeof s.best==='object')G.best=s.best;
       G.scoreOn=!!s.scoreOn;
       if(Array.isArray(s.seen))G.seen=s.seen;
+      if(s.hints&&typeof s.hints==='object')G.hints=s.hints;
       // 既定値とマージする。新しいスライダーを増やしたときに、古い保存データに
       // 無いキーが undefined のまま残って NaN 化する（--zoneW/--zoneHotW が壊れる）
       // のを防ぐ。今後キーを増やしてもこの形のままでよい
@@ -21898,6 +21903,11 @@ function save(){
   saveT=setTimeout(()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(G))}catch(e){}},150);
 }
 let MODE="course", cur=null, t0=0, moves=0, hintMax=0, lastScore=null;
+/* solved = この問題の記録が確定済みか。正解した瞬間に立て、loadPuzzle() で降ろす。
+   立っている間は win() を予約し直さないので、崩して組み直しても記録は動かない。
+   lastWin = 正解カードに出す内容。画面を離れて戻ったときはこれを出し直すだけで
+   スコアを計算し直さない（GAME-SPEC 3・8）*/
+let solved=false, lastWin=null;
 
 /* ═══ 有理数 ═══ */
 const gd=(a,b)=>{a=a<0n?-a:a;b=b<0n?-b:b;while(b){[a,b]=[b,a%b]}return a||1n};
@@ -22044,6 +22054,12 @@ function segValues(){
 let curExprScale=1;
 const MIN_SCALE=.5;                       // 縮小の下限（GAME-SPEC 4-5）
 function applyScale(k){
+  // 問題画面が非表示のときは、幅を測る側（scaleFor / fit）が 0 しか読めない。
+  // scaleFor() は 0/幅 で MIN_SCALE の 0.5 を返し、fit() は 0>0 が false なので
+  // 1 を返す。どちらも見た目を壊すので、呼び出し側を 1 つずつ塞ぐのではなく
+  // ここで一括して止める（2.3 の devSnap はパネルの表示だけを守っていて、
+  // 縮小率そのものは守っていなかった）。見えたときは go("play") が測り直す
+  if($("exprwrap").clientWidth===0)return;
   $("expr").style.transform="scale("+k.toFixed(4)+")";
   curExprScale=k;
   if(G.dev&&!$("devpanel").classList.contains("hide"))renderDevMeasured();
@@ -22121,7 +22137,8 @@ function render(closing){
       const used=c?(c.op==="!"?cnt("fac"):T().filter(x=>x.t==="op"&&x.v===c.op).length):0;
       const okC=!c||used===0;                 // 制約は使用禁止のみ。使っていたら不正解
       if(ten&&okC){eq.classList.add("hit");su.className="sub ok";su.textContent="正解";
-        setTimeout(()=>win(),260)}
+        // 記録は最初の 1 回だけ。崩して組み直しても win() を予約し直さない
+        if(!solved){solved=true;setTimeout(()=>win(),260)}}
       else if(ten){eq.classList.add("miss");su.className="sub warn";
         su.textContent=`${GLYPH[c.op]} は使えません`}
       else{eq.classList.add("miss");su.className="sub";
@@ -22327,44 +22344,71 @@ const totalScore=()=>Object.values(G.best).reduce((a,b)=>a+b,0);
 
 /* ═══ 正解演出 ═══ */
 function win(){
+  if(!solved)return;              // 別の問題へ移った後に発火した予約は無効
+  // record() が G.best を書き換えるので、自己ベスト更新の判定は記録より先に取る
+  const prev=G.best[codeOf(cur)]||0;
   lastScore=calcScore();
-  const el=performance.now()-t0, secs=lastScore.sec;
+  const secs=lastScore.sec;
   const tier = cur.d>=14?3 : cur.d>=9?2 : 1;
   const slow = secs>=60;                       // 苦戦ボーナスは控えめに
   const lv = Math.min(3,tier+(slow?1:0));
+  lastWin={lv,secs,d:cur.d,hint:hintMax,sc:lastScore,beat:prev>0&&lastScore.pts>prev};
+  record(); save();               // 記録はここで 1 回だけ確定する（GAME-SPEC 3）
   document.querySelectorAll(".num").forEach((n,i)=>
     setTimeout(()=>{n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop")},i*70));
   document.querySelectorAll(".tok.op,.tok.fac").forEach((t,i)=>{
     if(lv>=2)setTimeout(()=>t.classList.add("shine"),120+i*70)});
   if(lv>=3){$("bg").classList.remove("flash");void $("bg").offsetWidth;$("bg").classList.add("flash")}
   if(G.vib)navigator.vibrate?.(lv>=3?[18,40,26]:lv>=2?[16,36,18]:16);
-  setTimeout(()=>{
-    const w=$("win");
-    $("wbig").className="big"+(lv>=3?" t3":"");
-    $("wbig").textContent=lv>=3?"お見事":"正解";
-    const sc=lastScore, code=codeOf(cur), prev=G.best[code]||0;
-    if(G.scoreOn){
-      $("wpts").classList.remove("hide");
-      $("wpts").innerHTML=`${sc.pts} 点<span class="st">${stars(sc.stars)}</span>`;
-      $("wmeta").textContent=`難易度 ${cur.d}　${secs}秒`
-        + (hintMax?`　ヒント${hintMax}`:"") + (prev&&sc.pts>prev?"　自己ベスト更新":"");
-    }else{
-      $("wpts").classList.add("hide");
-      $("wmeta").textContent=`難易度 ${cur.d}　${secs}秒`;
-    }
-    w.classList.remove("hide");
-  },520);
+  setTimeout(showWinCard,520);
 }
-$("wnext").onclick=()=>{$("win").classList.add("hide");
+/* 正解カードは lastWin に確定させた内容を出すだけ。設定などから戻ったときも
+   ここを呼び直す（スコアも記録も作り直さない）。点数表示の有無だけは
+   出すたびに G.scoreOn を見る */
+function showWinCard(){
+  if(!solved||!lastWin)return;
+  const w=lastWin;
+  $("wbig").className="big"+(w.lv>=3?" t3":"");
+  $("wbig").textContent=w.lv>=3?"お見事":"正解";
+  if(G.scoreOn){
+    $("wpts").classList.remove("hide");
+    $("wpts").innerHTML=`${w.sc.pts} 点<span class="st">${stars(w.sc.stars)}</span>`;
+    $("wmeta").textContent=`難易度 ${w.d}　${w.secs}秒`
+      + (w.hint?`　ヒント${w.hint}`:"") + (w.beat?"　自己ベスト更新":"");
+  }else{
+    $("wpts").classList.add("hide");
+    $("wmeta").textContent=`難易度 ${w.d}　${w.secs}秒`;
+  }
+  $("win").classList.remove("hide");
+}
+$("wnext").onclick=()=>{
+  if(!solved)return;              // 2 回目以降は無視する（進行を二重に進めない）
+  solved=false;
+  $("win").classList.add("hide");
   if(MODE==="share"){go("home");return}
   advance()};
 
 /* ═══ 進行 ═══ */
 function loadPuzzle(p){
   cur=p;uid=1;S={toks:p.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
-  held=null;t0=performance.now();moves=0;hintMax=0;lastScore=null;hintLv=0;
+  held=null;t0=performance.now();moves=0;lastScore=null;hintLv=0;
+  solved=false;lastWin=null;
+  hintMax=G.hints[codeOf(p)]||0;   // 見たヒントは端末に残る。解き直しても戻らない
   $("win").classList.add("hide");
   showHint();render()}
+/* 「全部消す」。次の問題を読む loadPuzzle() とは別物にする。
+   時間 t0・手数 moves・ヒント hintMax は引き継ぐ（GAME-SPEC 4-3）。
+   waste = moves − トークン数 は「置いては外した空回り」を測るもので、
+   全部消しは空回りそのもの。ここで 0 に戻すと、行き詰まったら全部消せば
+   手際の減点を避けられてしまう */
+function clearAll(){
+  uid=1;S={toks:cur.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
+  held=null;
+  // 正解カードは記録と同じで盤面から独立している。正解済みなら出したままにする
+  // （隠すと「つぎへ」が無くなり先へ進めなくなる）
+  if(!solved)$("win").classList.add("hide");
+  render();
+}
 const rnd=a=>a[Math.floor(Math.random()*a.length)];
 function nextOf(mode){
   if(mode==="course"){
@@ -22396,7 +22440,7 @@ function advance(){
   const code=codeOf(cur), firstClear=!G.seen.includes(code);
   if(firstClear){G.seen.push(code); if(G.seen.length>5000)G.seen.shift()}
   if(MODE==="chal"&&!G.chalDone.includes(code))G.chalDone.push(code);
-  record();
+  // record() は win() で済んでいる（GAME-SPEC 3）。ここは進行だけを進める
   if(MODE==="course"){G.ci++; if(firstClear)G.cleared++}
   else if(MODE==="held"){G.heldC.shift(); if(firstClear)G.cleared++}
   else if(MODE==="heldt"){G.heldT.shift(); if(firstClear)G.cleared++}
@@ -22415,9 +22459,23 @@ function go(s){
   if(s!=="play")$("win").classList.add("hide");   // 画面を離れたら正解カードは必ず隠す
   $("gear").textContent=(s==="home"||s==="play")?"⚙":"←";
   if(s==="home")renderHome();
+  if(s==="play")enterPlay();      // #play の hide を外した後。前に呼ぶとまた 0 を測る
   if(s==="settings")renderSettings();
   if(s==="stats")renderStats();
   if(s==="heldpick")renderHeldPick();
+}
+/* 設定シートで「かんたん表示」「タップで配置する」を切り替えたときに立てる。
+   トグルは設定シートにしか無いので、その場では問題画面を描き直せない
+   （旧 if(SCR==="play")render() は一度も真にならない死んだガードだった）*/
+let playDirty=false;
+/* 問題画面に入った直後の立て直し。render() が二重に走らないよう、
+   描き直しが要るときだけ render() を通し、それ以外は縮小率を測り直すだけにする */
+function enterPlay(){
+  if(!cur)return;
+  if(playDirty){playDirty=false;render()}   // 設定の変更を反映（render 内で測り直す）
+  else if(held)showZones(held);             // タップで記号を持ったまま離れていた場合
+  else fit();                               // 非表示中は applyScale() を止めてある
+  if(solved)showWinCard();                  // 正解カードを出し直す（GAME-SPEC 8）
 }
 function goBack(){
   if(SCR==="play"){go("home");return}
@@ -22489,7 +22547,7 @@ function renderHome(){
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
-    G.ci=0;G.cleared=0;G.heldC=[];G.heldT=[];G.heldF=[];G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];save();
+    G.ci=0;G.cleared=0;G.heldC=[];G.heldT=[];G.heldF=[];G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.hints={};save();
     delete b.dataset.armed;s.textContent="進捗をリセット";toast("リセットしました");return}
   b.dataset.armed="1";s.textContent="もう一度押すと消えます";
   setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent="進捗をリセット"}},3500);
@@ -22530,10 +22588,10 @@ function renderSettings(){
   $("t-tap").classList.toggle("on",G.tap);
 }
 $("t-score").onclick=()=>{G.scoreOn=!G.scoreOn;save();renderSettings()};
-$("t-easy").onclick=()=>{G.easy=!G.easy;save();renderSettings();if(SCR==="play")render()};
+$("t-easy").onclick=()=>{G.easy=!G.easy;save();renderSettings();playDirty=true};
 $("t-vib").onclick=()=>{G.vib=!G.vib;save();renderSettings();buzz(12)};
 $("t-tap").onclick=()=>{G.tap=!G.tap;tapMode=G.tap;save();renderSettings();hideZones();
-  if(SCR==="play")render()};
+  playDirty=true};
 $("go-help").onclick=()=>go("help");
 
 /* 開発者パネル：CSS変数と定数をスライダーで即時調整。値は保存もする */
@@ -22714,7 +22772,7 @@ $("hp-course").onclick=()=>{if(G.heldC.length)start("held")};
 $("hp-chal").onclick=()=>{if(G.heldT.length)start("heldt")};
 $("hp-free").onclick=()=>{if(G.heldF.length)start("heldf")};
 $("back").onclick=()=>goBack();
-$("clear").onclick=()=>loadPuzzle(cur);
+$("clear").onclick=()=>clearAll();
 
 /* 同じ難易度・同じ「階乗/累乗が必須か」を満たす別の問題を探す。
    見つからなければ難易度の許容幅を少しずつ広げる。 */
@@ -22790,7 +22848,12 @@ function showHint(){
   // ボタンの中身は SVG アイコンなので、段階表示は専用のラベル要素に書く
   $("hintlabel").textContent = hintLv>=3 ? "ヒント" : `ヒント ${hintLv}/3`;
 }
-$("hint").onclick=()=>{hintLv=hintLv>=3?0:hintLv+1;hintMax=Math.max(hintMax,hintLv);showHint()};
+$("hint").onclick=()=>{
+  hintLv=hintLv>=3?0:hintLv+1;
+  hintMax=Math.max(hintMax,hintLv);
+  const code=codeOf(cur);
+  if((G.hints[code]||0)<hintMax){G.hints[code]=hintMax;save()}   // 端末に残す
+  showHint()};
 $("codego").onclick=()=>{
   const raw=$("codein").value.trim();
   if(devCode(raw))return;
