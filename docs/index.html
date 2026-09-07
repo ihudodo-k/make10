@@ -151,7 +151,7 @@ button:active{background:var(--edge)}
 .modes{display:flex;flex-direction:column;gap:9px;margin-top:4px}
 /* アイコン ＋ 名前 ＋ 右端の値 の 1 行（3.0）。padding 14*2 + 中身 ~24px ≥ 48px */
 .mode{display:flex;align-items:center;gap:12px;padding:14px;min-height:48px;text-align:left;width:100%}
-.mode .mi{width:30px;flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.mode .mi{width:calc(var(--icW) + 6px);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
 .mode .mt{flex:1;font-size:15px;font-weight:700;color:var(--paper)}
 .mode .mv{flex:0 0 auto;font-size:13px;color:var(--dim);white-space:nowrap}
 .mode.lock{opacity:.55}
@@ -164,7 +164,12 @@ button:active{background:var(--edge)}
 
 /* ── プレイ ── */
 /* アイコンは PNG を読み込まずインライン SVG。currentColor なので 4 テーマに追従する */
-.ic{width:24px;height:24px;display:block;fill:none;stroke:currentColor;
+/* flex:0 0 auto を付けないと、ボタンの内寸より大きいときに flex で縮められる。
+   .top button{padding:6px 11px} が .iconbtn{padding:0} に勝つため #back の内寸は
+   20px しかなく、24px の .ic が 20px に縮んでいた（#menu は 22px）。--icW を
+   上げても上の行のアイコンだけ大きくならないのはこれが原因 */
+.ic{width:var(--icW);height:var(--icW);flex:0 0 auto;
+ display:block;fill:none;stroke:currentColor;
  stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* JS が文字を書き込む先だけ残して見た目は消すラベル (例: ヒントの段階表示) */
 .btnlabel{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
@@ -581,6 +586,8 @@ button:active{background:var(--edge)}
       <input type="range" id="dv-btn" min="40" max="64" step="1">
       <div class="dv"><span>設定ボタン（#gear）</span><b id="dv-gear-v"></b></div>
       <input type="range" id="dv-gear" min="36" max="60" step="1">
+      <div class="dv"><span>アイコンの線の大きさ（.ic）</span><b id="dv-ic-v"></b></div>
+      <input type="range" id="dv-ic" min="16" max="40" step="1">
       <div class="dv"><span>compact（高さ700px以下）の追従値</span><b></b></div>
       <div id="dv-compact-v" style="font-size:10px;opacity:.7;font-variant-numeric:tabular-nums;word-break:break-all;margin:-2px 0 5px"></div>
       <button id="dv-size-reset" style="margin-top:10px">SIZE-TRIAL を既定値に戻す</button>
@@ -616,7 +623,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="3.6";
+const APP_VERSION="3.7";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -21986,19 +21993,20 @@ function pwr(a,b){if(!isInt(b))return null;const e=b.n,m=e<0n?-e:e;if(m>24n)retu
    CSS 側に同じ数字を書くと片方だけ変えたときに崩れるので、必ずここだけに書く。 */
 const TOKEN_METRICS={
   // num/op/fac/par = 箱幅、numF/opF/facF/parF = 文字サイズ、h = トークンの高さ、
-  // btn = .iconbtn、gear = #gear。文字サイズとボタン寸法は 3.3 で CSS から移した
-  // （値は移す前と同じ。CSS 側は var(--numF) 等で受け取る）
+  // btn = .iconbtn / .plainbtn、gear = #gear、ic = アイコン SVG の描画サイズ（.ic）。
+  // btn は箱の大きさしか変えないので、中の線の大きさは ic で別に持つ。
+  // 文字サイズとボタン寸法は 3.3、ic は 3.7 で CSS から移した（値は移す前と同じ）
   normal :{num:28,numMx:2,op:34,fac:19,par:20,h:64,
-           numF:46,opF:31,facF:31,parF:37,btn:44,gear:38},   // 通常（実機調整で確定）
+           numF:46,opF:31,facF:31,parF:37,btn:44,gear:38,ic:24},   // 通常（実機調整で確定）
   compact:{num:23,numMx:1,op:29,fac:16,par:18,h:50,
-           numF:36,opF:26,facF:26,parF:31,btn:38,gear:38},   // 高さ700px以下
+           numF:36,opF:26,facF:26,parF:31,btn:38,gear:38,ic:24},   // 高さ700px以下
 };
 /* SIZE-TRIAL（3.3・実機で値が決まったら撤去する）。
    スライダーで動かすのは normal だけ。compact は「既定値どうしの比」を掛けて
    追従させる（2.2 で numW をやったときと同じ考え方）。比が妥当かどうかは
    normal を決めてから別途見る。ここで比を定数に焼き付けず既定値から算出するのは、
    既定値を書き換えたときに比だけ古くなるのを防ぐため */
-const SIZE_KEYS=["numF","num","facF","fac","opF","op","parF","par","h","btn","gear"];
+const SIZE_KEYS=["numF","num","facF","fac","opF","op","parF","par","h","btn","gear","ic"];
 const SIZE_RATIO=Object.fromEntries(
   SIZE_KEYS.map(k=>[k,TOKEN_METRICS.compact[k]/TOKEN_METRICS.normal[k]]));
 const FAC_ML=-2;                             // .tok.fac の margin-left（食い込み）
@@ -22035,6 +22043,7 @@ function applyMetrics(){
   s.setProperty("--parF",MET.parF+"px");
   s.setProperty("--btnW",MET.btn+"px");
   s.setProperty("--gearW",MET.gear+"px");
+  s.setProperty("--icW",MET.ic+"px");
   return MET;
 }
 /* 式に並ぶトークンの幅の合計（枠は含まない）。DOM は読まない */
