@@ -85,7 +85,27 @@ body{background:linear-gradient(180deg,
 .sheet .kv{position:relative;display:flex;justify-content:space-between;align-items:center;
  font-size:13px;padding:14px;min-height:48px}
 .sheet .kv b{font-weight:700;font-variant-numeric:tabular-nums}
-#devpanel{margin-top:18px;padding-top:14px;border-top:1px dashed var(--edge)}
+/* 開発者パネル。画面（SCREENS）の 1 つではなく、どの画面にも重なる道具なので
+   #settings の中ではなく #app の直下に置く（3.4 で移動）。画面の下半分に重ね、
+   上半分に問題画面を見せたまま寸法を調整できるようにするため。
+   position:fixed だけでは足りない ―― #settings が display:none だと中身は
+   描画されないので、DOM 上の場所そのものを外に出す必要がある */
+#devpanel{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+ width:min(100vw,430px);height:40dvh;z-index:60;
+ overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+ background:var(--panel);border-top:1px solid var(--edge);
+ box-shadow:0 -8px 24px rgba(0,0,0,.38);padding:0 14px 18px}
+/* 見出しと閉じるボタンはスクロールしても残す */
+#devhead{position:sticky;top:0;z-index:1;background:var(--panel);
+ display:flex;align-items:center;justify-content:space-between;gap:8px;
+ padding:10px 0 8px;border-bottom:1px dashed var(--edge);margin-bottom:8px}
+#devhead h3{margin:0}
+/* たたむと見出しの帯だけになる。トークンを大きくすると式が下がってパネルに
+   隠れることがあるので、その場で全体を見渡せる逃げ道を用意しておく */
+#devpanel.min{height:auto}
+#devpanel.min #devbody{display:none}
+/* たたんだときは帯を薄くして、トレイまで見えるようにする */
+#devpanel.min #devhead{padding:5px 0;border-bottom:0;margin-bottom:0}
 #devpanel h3{color:var(--teal)}   /* 開発者パネルは今回の対象外。見出し色は据え置き */
 #devpanel input[type=range]{width:100%;margin:2px 0 14px;accent-color:var(--teal)}
 .dv{display:flex;justify-content:space-between;font-size:12.5px;color:var(--paper);opacity:.85}
@@ -157,7 +177,7 @@ button:active{background:var(--edge)}
  color:var(--paper);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .iconbtn:active{background:color-mix(in srgb,var(--paper) 12%,transparent)}
 /* メニュー (三本線) は枠なしの線だけ */
-.plainbtn{width:44px;height:44px;padding:0;border:0;background:none;color:var(--paper);
+.plainbtn{width:var(--btnW);height:var(--btnW);padding:0;border:0;background:none;color:var(--paper);
  display:flex;align-items:center;justify-content:center;flex:0 0 auto;opacity:.9}
 .plainbtn:active{background:none;opacity:.6}
 .top .info{flex:1;text-align:right;font-size:12px;color:var(--slate);line-height:1.35}
@@ -335,7 +355,6 @@ button:active{background:var(--edge)}
      ここに数値を書くと二重管理になるので書かない */
   .chip{height:42px;font-size:26px}
   .tray{padding:4px;border-radius:16px}
-  .plainbtn{width:38px;height:38px}
   .foot{margin:0 6px 8px}
   .top{margin-bottom:0}
   .field{padding:6px;margin-bottom:6px;min-height:72px}
@@ -346,7 +365,8 @@ button:active{background:var(--edge)}
 <body data-theme="ai">
 <div id="bg"></div>
 <div id="app">
-  <button id="gear" title="設定">⚙</button>
+  <!-- 中身は go() が ICON_GEAR / ICON_BACK に差し替える（絵文字は端末で形が変わる）-->
+  <button id="gear"></button>
 
   <!-- ホーム -->
   <div id="home">
@@ -457,8 +477,71 @@ button:active{background:var(--edge)}
       <button class="toggle" id="go-stats"><span>統計</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       <button class="toggle" id="reset"><span>進捗をリセット</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
-    <div id="devpanel" class="hide">
+    <div id="dv-open-row" class="hide">
       <h3>開発者パネル</h3>
+      <button id="dv-open">開発者パネルを開く</button>
+      <p class="small" style="margin-top:7px">問題画面の下半分に重なります。上半分を見ながら調整できます。</p>
+    </div>
+    <p class="small" style="margin-top:18px" id="appver"></p>
+  </div>
+
+  <div id="help" class="hide sheet">
+    <h2>遊び方</h2>
+    <p>4つの数字は<b>並び順が決まっています</b>。間に演算子を置いて、答えを 10 にしてください。</p>
+    <h3>操作</h3>
+    <ul>
+      <li>下の記号を<b>つまんで式の中へ</b>。置ける場所に隙間が開きます</li>
+      <li>置いた記号を<b>式の外へ出すと外れます</b></li>
+      <li>演算子は、置いてある演算子の<b>上に重ねると差し替わります</b></li>
+      <li>括弧は <b>( と ) を別々に</b>置きます。相手がいない括弧は赤くなります</li>
+    </ul>
+    <h3>計算のきまり</h3>
+    <ul>
+      <li><b>^ は右から</b>計算します。<code>2 ^ 3 ^ 2</code> は <code>2 ^ ( 3 ^ 2 )</code></li>
+      <li><code>0 ^ 0</code> は <b>1</b> です</li>
+      <li>階乗は <b>12! まで</b>。<code>3!!</code> とは書けません。<code>( 3! )!</code> と書きます</li>
+      <li>0 で割る式は正解になりません</li>
+    </ul>
+    <h3>モード</h3>
+    <ul>
+      <li><b>本編</b> … 1000問。だんだん難しくなります</li>
+      <li><b>フリープレイ</b> … ランダムに出題。何問でも遊べます</li>
+      <li><b>挑戦モード</b> … 100問クリアで解放。かなりの難問です</li>
+      <li><b>保留</b> … 分からない問題は保留して、後から解けます（30問まで）</li>
+    </ul>
+    <h3>ヒント</h3>
+    <p>3段階です。押すたびに少しずつ答えに近づきます。</p>
+  </div>
+
+  <div id="heldpick" class="hide sheet">
+    <h2>保留した問題</h2>
+    <div class="modes">
+      <button class="mode" id="hp-course"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></div>
+        <div class="mt">本編</div><div class="mv" id="hp-course-v"></div></button>
+      <button class="mode" id="hp-chal"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8L13.84 9.47L19.8 9.47L14.98 12.97L16.82 18.63L12 15.13L7.18 18.63L9.02 12.97L4.2 9.47L10.16 9.47Z"/></svg></div>
+        <div class="mt">挑戦</div><div class="mv" id="hp-chal-v"></div></button>
+      <button class="mode" id="hp-free"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 9.3c-1.5 0-2.7 1.2-2.7 2.7s1.2 2.7 2.7 2.7c2.7 0 3-5.4 5.6-5.4 1.5 0 2.7 1.2 2.7 2.7s-1.2 2.7-2.7 2.7c-2.7 0-3-5.4-5.6-5.4z"/></svg></div>
+        <div class="mt">フリープレイ</div><div class="mv" id="hp-free-v"></div></button>
+    </div>
+  </div>
+
+  <div id="stats" class="hide sheet">
+    <h2>統計</h2>
+    <div class="group" id="statlist"></div>
+    <h3>難易度べつのクリア数</h3>
+    <div class="group pad" id="statbars"></div>
+    <h3>最近解いた問題</h3>
+    <div class="group" id="stathist"></div>
+  </div>
+
+<!-- 開発者パネル。#settings の中ではなく #app の直下（画面と同じ階層）に置く。
+     SCREENS には入れない ―― go() が切り替える「画面」ではなく、どの画面にも
+     重なる道具だから。表示は G.dev のときだけ（devPanelShow）-->
+<div id="devpanel" class="hide">
+  <div id="devhead"><h3>開発者パネル</h3>
+    <span><button id="dv-min">たたむ</button>
+    <button id="dv-close">閉じる</button></span></div>
+  <div id="devbody">
       <div class="dv"><span>配色（開発用）</span><span id="dv-themes"></span></div>
       <div class="dv"><span>枠の開閉時間</span><b id="dv-dur-v"></b></div>
       <input type="range" id="dv-dur" min="80" max="600" step="10">
@@ -523,58 +606,8 @@ button:active{background:var(--edge)}
           border-radius:8px;padding:6px 8px">
         <button id="dv-copy" style="white-space:nowrap">コピー</button>
       </div>
-    </div>
-    <p class="small" style="margin-top:18px" id="appver"></p>
   </div>
-
-  <div id="help" class="hide sheet">
-    <h2>遊び方</h2>
-    <p>4つの数字は<b>並び順が決まっています</b>。間に演算子を置いて、答えを 10 にしてください。</p>
-    <h3>操作</h3>
-    <ul>
-      <li>下の記号を<b>つまんで式の中へ</b>。置ける場所に隙間が開きます</li>
-      <li>置いた記号を<b>式の外へ出すと外れます</b></li>
-      <li>演算子は、置いてある演算子の<b>上に重ねると差し替わります</b></li>
-      <li>括弧は <b>( と ) を別々に</b>置きます。相手がいない括弧は赤くなります</li>
-    </ul>
-    <h3>計算のきまり</h3>
-    <ul>
-      <li><b>^ は右から</b>計算します。<code>2 ^ 3 ^ 2</code> は <code>2 ^ ( 3 ^ 2 )</code></li>
-      <li><code>0 ^ 0</code> は <b>1</b> です</li>
-      <li>階乗は <b>12! まで</b>。<code>3!!</code> とは書けません。<code>( 3! )!</code> と書きます</li>
-      <li>0 で割る式は正解になりません</li>
-    </ul>
-    <h3>モード</h3>
-    <ul>
-      <li><b>本編</b> … 1000問。だんだん難しくなります</li>
-      <li><b>フリープレイ</b> … ランダムに出題。何問でも遊べます</li>
-      <li><b>挑戦モード</b> … 100問クリアで解放。かなりの難問です</li>
-      <li><b>保留</b> … 分からない問題は保留して、後から解けます（30問まで）</li>
-    </ul>
-    <h3>ヒント</h3>
-    <p>3段階です。押すたびに少しずつ答えに近づきます。</p>
-  </div>
-
-  <div id="heldpick" class="hide sheet">
-    <h2>保留した問題</h2>
-    <div class="modes">
-      <button class="mode" id="hp-course"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></div>
-        <div class="mt">本編</div><div class="mv" id="hp-course-v"></div></button>
-      <button class="mode" id="hp-chal"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l2.4 5 5.4.6-4 3.7 1 5.3L12 21l-4.8 2.6 1-5.3-4-3.7 5.4-.6z"/></svg></div>
-        <div class="mt">挑戦</div><div class="mv" id="hp-chal-v"></div></button>
-      <button class="mode" id="hp-free"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 9.3c-1.5 0-2.7 1.2-2.7 2.7s1.2 2.7 2.7 2.7c2.7 0 3-5.4 5.6-5.4 1.5 0 2.7 1.2 2.7 2.7s-1.2 2.7-2.7 2.7c-2.7 0-3-5.4-5.6-5.4z"/></svg></div>
-        <div class="mt">フリープレイ</div><div class="mv" id="hp-free-v"></div></button>
-    </div>
-  </div>
-
-  <div id="stats" class="hide sheet">
-    <h2>統計</h2>
-    <div class="group" id="statlist"></div>
-    <h3>難易度べつのクリア数</h3>
-    <div class="group pad" id="statbars"></div>
-    <h3>最近解いた問題</h3>
-    <div class="group" id="stathist"></div>
-  </div>
+</div>
 
 </div>
 
@@ -583,7 +616,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="3.3";
+const APP_VERSION="3.6";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -22514,7 +22547,10 @@ function go(s){
   SCR=s;
   for(const k of SCREENS){const el=$(k); if(el)el.classList.toggle("hide",k!==s)}
   if(s!=="play")$("win").classList.add("hide");   // 画面を離れたら正解カードは必ず隠す
-  $("gear").textContent=(s==="home"||s==="play")?"⚙":"←";
+  // 絵文字ではなく SVG を差し替える。textContent が無くなるので名前も付け直す
+  const gearIsSettings=(s==="home"||s==="play");
+  $("gear").innerHTML=gearIsSettings?ICON_GEAR:ICON_BACK;
+  $("gear").title=$("gear").ariaLabel=gearIsSettings?"設定":"戻る";
   if(s==="home")renderHome();
   if(s==="play")enterPlay();      // #play の hide を外した後。前に呼ぶとまた 0 を測る
   if(s==="settings")renderSettings();
@@ -22573,9 +22609,14 @@ function start(mode){
 /* モードのアイコン（インライン SVG）。絵文字は端末で絵柄が変わりテーマ色にも
    追従しないため、問題画面と同じ currentColor の SVG に統一（LIST-TRIAL 2.8）。
    挑戦モードだけロック／解放／全クリアの 3 状態があるので JS で innerHTML を差し替える */
+/* 歯車（8枚歯・中心 (12,12)・外周 9.0 / 内周 6.2）と、設定画面での戻る矢印。
+   戻る矢印は .chev（M9 6l6 6-6 6）を x=12 で左右反転しただけの形にして、
+   画面遷移の記号を統一する */
+const ICON_GEAR  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 10.13L20.8 13.87L17.9 13.92L17.52 14.81L19.55 16.9L16.9 19.55L14.81 17.52L13.92 17.9L13.87 20.8L10.13 20.8L10.08 17.9L9.19 17.52L7.1 19.55L4.45 16.9L6.48 14.81L6.1 13.92L3.2 13.87L3.2 10.13L6.1 10.08L6.48 9.19L4.45 7.1L7.1 4.45L9.19 6.48L10.08 6.1L10.13 3.2L13.87 3.2L13.92 6.1L14.81 6.48L16.9 4.45L19.55 7.1L17.52 9.19L17.9 10.08Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const ICON_BACK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>`;
 const ICON_LOCK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 11h11v9h-11z"/><path d="M8.8 11V8a3.2 3.2 0 0 1 6.4 0v3"/></svg>`;
-const ICON_STAR  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l2.4 5 5.4.6-4 3.7 1 5.3L12 21l-4.8 2.6 1-5.3-4-3.7 5.4-.6z"/></svg>`;
-const ICON_TROPHY=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h10v4a5 5 0 0 1-10 0z"/><path d="M7 6.5H4.5v1.5a3 3 0 0 0 3 3"/><path d="M17 6.5h2.5v1.5a3 3 0 0 1-3 3"/><path d="M12 14v3.5"/><path d="M8.5 20h7"/></svg>`;
+const ICON_STAR  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8L13.84 9.47L19.8 9.47L14.98 12.97L16.82 18.63L12 15.13L7.18 18.63L9.02 12.97L4.2 9.47L10.16 9.47Z"/></svg>`;
+const ICON_TROPHY=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h10v4a5 5 0 0 1-10 0z"/><path d="M7 6.5H4.5v1.5a3 3 0 0 0 3 3"/><path d="M17 6.5h2.5v1.5a3 3 0 0 1-3 3"/><path d="M12 14v6"/><path d="M8.5 20h7"/></svg>`;
 function renderHome(){
   $("codein").value="";$("codein").placeholder="共有コード（5文字）";
   const doneC=Math.max(0,G.ci-G.heldC.length);       // 保留中の分はまだ「済み」に数えない
@@ -22638,7 +22679,7 @@ function applyTheme(){
   document.body.dataset.theme=G.theme;
 }
 function renderSettings(){
-  renderDevPanel();
+  $("dv-open-row").classList.toggle("hide",!G.dev);   // パネル本体は #app 直下にある
   $("t-score").classList.toggle("on",G.scoreOn);
   $("t-easy").classList.toggle("on",G.easy);
   $("t-vib").classList.toggle("on",G.vib);
@@ -22669,8 +22710,15 @@ function applyDevVars(){
   // shrink / delta / zoneMin は CSS では使わない。layoutZones() が使う
   DEV_CATCH=dv.catch;
 }
+/* パネルは画面ではないので go() は触らない。開けたままにしておくと、
+   設定を閉じて問題画面へ戻ってもそのまま重なり続ける（これが目的）*/
+let devOpen=false;
+function devPanelShow(on){
+  devOpen=!!on&&!!G.dev;
+  $("devpanel").classList.toggle("hide",!devOpen);
+  if(devOpen)renderDevPanel();
+}
 function renderDevPanel(){
-  $("devpanel").classList.toggle("hide",!G.dev);
   if(!G.dev)return;
   $("dv-themes").innerHTML=THEMES.map(([id,name,a,b])=>
     `<button data-th="${id}" style="padding:3px 9px;font-size:11px;margin-left:5px${
@@ -22802,6 +22850,14 @@ $("dv-size-reset").onclick=()=>{
   applySizes(); save(); renderDevPanel();
 };
 $("dv-reset").onclick=()=>{G.devVars={...DEV_DEFAULT};applyDevVars();applySizes();save();renderDevPanel()};
+/* 設定シートからの導線。開いたあとは元の画面（問題画面）へ戻し、パネルを重ねた
+   状態にする。閉じるのはパネル内のボタン */
+$("dv-open").onclick=()=>{devPanelShow(true);goBack()};
+$("dv-close").onclick=()=>devPanelShow(false);
+$("dv-min").onclick=()=>{
+  const min=$("devpanel").classList.toggle("min");
+  $("dv-min").textContent=min?"ひらく":"たたむ";
+};
 $("dv-copy").onclick=async()=>{
   try{await navigator.clipboard.writeText($("dv-copyline").value);toast("コピーしました")}
   catch(e){$("dv-copyline").select()}
