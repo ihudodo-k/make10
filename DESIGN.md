@@ -112,7 +112,12 @@
 | バナー内 | `#banner` | 11 | 11 |
 
 **なぜ compact があるか**: 広告 52px を引くと縦が足りない端末向け。
-文字サイズだけを媒体クエリで縮め、箱の寸法は `TOKEN_METRICS.compact` が持つ。
+**文字サイズも箱の寸法も `TOKEN_METRICS.compact` が持ち**、`applyMetrics()` が CSS 変数へ
+流し込む（3.3〜4.0 で `@media` から順に移した）。媒体クエリに残っている文字サイズは
+`.rule` と `.eq`（`.idle` / `.hit` / `.part`）だけで、トークンとトレイの文字サイズは
+`numF` `opF` `facF` `parF` `chipF` が持つ。`@media` に残る寸法も
+`.chip{height}` `.tray{border-radius}` `.foot` `.top` `.field` `.readout` など、
+**変数にしていないものだけ**。
 
 ---
 
@@ -128,7 +133,12 @@
 | `fac` | 19 | 16 | 階乗の箱幅 |
 | `par` | 20 | 18 | 括弧の箱幅 |
 | `h` | 64 | 50 | トークンの高さ |
-| `FAC_ML` | -2 | -2 | 階乗の食い込み（`margin-left`）。定数で共通 |
+| `facMl` | -2 | -2 | 階乗の食い込み（`.tok.fac` の `margin-left`）。4.0 で定数 `FAC_ML` を廃止して `TOKEN_METRICS` へ移した。normal / compact が同値なので compact の追従比は 1.0 |
+
+**この表は全項目ではない。** SIZE-TRIAL（3.3〜）で `TOKEN_METRICS` に移した文字サイズ
+（`numF` `opF` `facF` `parF`）・ボタン（`btn` `gear`）・アイコン（`ic`）・トレイ
+（`chipF` `trayGap` `trayPad`）は、値が実機調整でこれから変わるので載せていない。
+**SIZE-TRIAL を撤去するときに全項目へ書き直す。**
 
 数字の 1 文字は 28px の箱に入れて中央寄せ。長い式では合計幅が画面を超え、
 式全体が `transform: scale()` で縮む（下限 `MIN_SCALE` = 50%、実測 85% 程度）。
@@ -261,10 +271,47 @@
 
 行の高さ = `padding 14×2 + 中身 max(24px アイコン, ~18px テキスト) ≈ 52px`（`min-height:48px` を満たす）。
 
-### 6-5. 開発者パネル `#devpanel`（`#settings` 内・リスト画面のルールの対象外）
+### 6-5. 開発者パネル `#devpanel`（`#app` 直下・リスト画面のルールの対象外）
 
-- `margin-top:18px` / `padding-top:14px` / `border-top:1px dashed var(--edge)` で区切る
-- 見出し `#devpanel h3` と `.dv b` と `input` の `accent-color` は `--teal` のまま（開発用に目立たせる）
+**`#app` の直下に置く。`#settings` の中ではない**（3.4 で移した）。`position:fixed` に
+するだけでは足りない ―― `#settings` が `display:none` のとき中身は描画されないので、
+**DOM 上の場所そのものを外に出す**必要がある。
+
+**`SCREENS` には入れない。** `go()` が切り替える「画面」ではなく、どの画面にも重なる
+道具だから。開閉は `devPanelShow(on)` が `.hide` を付け外しする（`G.dev` のときだけ開く）。
+導線は設定シートの `#dv-open`（開いたあと元の画面へ戻る）と、パネル内の `#dv-close`。
+
+| 項目 | 値 |
+|---|---|
+| 位置 | `position:fixed` / `bottom:0` / `left:50%` ＋ `transform:translateX(-50%)` |
+| 大きさ | `width:min(100vw,430px)` / `height:40dvh` |
+| 重なり | `z-index:60`（`#gear` の 50、`#banner` の 40 より前面） |
+| スクロール | `overflow-y:auto` / `overscroll-behavior:contain` |
+| 地・縁 | `background:var(--panel)` / `border-top:1px solid var(--edge)` / `box-shadow:0 -8px 24px rgba(0,0,0,.38)` / `padding:0 14px 18px` |
+
+**半透明にしない。** トレイの記号は白い線なので、透けると太さや明るさの判断が狂う。
+
+**ヘッダ `#devhead`** は `position:sticky` `top:0` でスクロールしても残る
+（`padding:10px 0 8px` / `border-bottom:1px dashed var(--edge)` / `margin-bottom:8px`）。
+ボタンは **`#dv-pos`（上へ／下へ）・`#dv-min`（たたむ／ひらく）・`#dv-close`（閉じる）の 3 つ**。
+3 つ入ると 1 行に収まらないので、**ボタン側は縮めず見出しのほうを省略表示にする**
+（`#devhead h3{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`、
+`#devhead>span{flex:0 0 auto}`）。折り返すとヘッダが 3 行になり、上側に付けたときの視界を食う。
+
+**`.dvtop`** … 上側へ付け替える（`top:0` / `bottom:auto` / 縁と影を上下反転）。
+式を見たいときは下、トレイを見たいときは上。どちらに付いているかは `devVars.devTop`（0/1）
+に保存し、開き直しても維持する。**このクラス名を `.top` にしてはいけない** ―― 問題画面の
+ヘッダ `.top{display:flex}` に当たってしまい、**パネル自体が横並びの flex になって
+中身が内容幅まで縮む**（4.0 で実際に踏んだ）。
+
+**`.min`** … たたむ。`#devbody` を `display:none` にし、`#devhead` の `padding` を
+`5px 0` へ詰めて区切り線と下余白を外す。帯だけにしてトレイまで見えるようにするため。
+
+**`#devpanel h3` は `.sheet h3` と同じ様式を明示する**（`font-size:14px` / `font-weight:700` /
+`margin:18px 0 7px`、4.0）。3.4 で `#settings` の外へ出して以来 `.sheet h3` が効かず、
+ブラウザ既定の見出しのままになっていた。
+
+- 色は `#devpanel h3` と `.dv b` と `input` の `accent-color` が `--teal` のまま（開発用に目立たせる）
 
 ### 6-6. 余白と角丸
 

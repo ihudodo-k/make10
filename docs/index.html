@@ -90,6 +90,9 @@ body{background:linear-gradient(180deg,
    上半分に問題画面を見せたまま寸法を調整できるようにするため。
    position:fixed だけでは足りない ―― #settings が display:none だと中身は
    描画されないので、DOM 上の場所そのものを外に出す必要がある */
+/* 既定は下側。#devpanel.dvtop で上側へ付け替える（3.9 まで下固定だったので
+   トレイが必ず隠れていた）。半透明にはしない ―― トレイの記号は白い線なので、
+   透けると太さや明るさの判断が狂う */
 #devpanel{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
  width:min(100vw,430px);height:40dvh;z-index:60;
  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
@@ -99,14 +102,26 @@ body{background:linear-gradient(180deg,
 #devhead{position:sticky;top:0;z-index:1;background:var(--panel);
  display:flex;align-items:center;justify-content:space-between;gap:8px;
  padding:10px 0 8px;border-bottom:1px dashed var(--edge);margin-bottom:8px}
-#devhead h3{margin:0}
+/* ボタンが 3 つになったので 1 行に収まらなくなった（4.0）。ボタン側は縮めず、
+   見出しのほうを詰める。折り返すとヘッダが 3 行になって上側に付けたときの
+   視界を無駄に食う */
+#devhead h3{margin:0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#devhead>span{flex:0 0 auto;display:flex;gap:6px}
+#devhead button{white-space:nowrap}
 /* たたむと見出しの帯だけになる。トークンを大きくすると式が下がってパネルに
    隠れることがあるので、その場で全体を見渡せる逃げ道を用意しておく */
 #devpanel.min{height:auto}
 #devpanel.min #devbody{display:none}
 /* たたんだときは帯を薄くして、トレイまで見えるようにする */
 #devpanel.min #devhead{padding:5px 0;border-bottom:0;margin-bottom:0}
-#devpanel h3{color:var(--teal)}   /* 開発者パネルは今回の対象外。見出し色は据え置き */
+/* 上側に付け替えた状態。#gear（z-index 50）や .top より前面に出す（z-index 60）。
+   クラス名を .top にしてはいけない ―― 問題画面のヘッダ .top{display:flex} に
+   当たってしまい、パネル自体が横並びの flex になる */
+#devpanel.dvtop{top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--edge);
+ box-shadow:0 8px 24px rgba(0,0,0,.38)}
+/* 3.4 で #settings の外へ出したので .sheet h3 が効かない。同じ様式をここで指定する
+   （色だけは開発者パネル専用の --teal のまま）*/
+#devpanel h3{font-size:14px;font-weight:700;margin:18px 0 7px;color:var(--teal)}
 #devpanel input[type=range]{width:100%;margin:2px 0 14px;accent-color:var(--teal)}
 .dv{display:flex;justify-content:space-between;font-size:12.5px;color:var(--paper);opacity:.85}
 .dv b{font-variant-numeric:tabular-nums;color:var(--teal)}
@@ -302,11 +317,11 @@ button:active{background:var(--edge)}
 .facttable .n{font-size:10.5px;color:var(--slate);margin-top:6px;padding-top:6px;
  border-top:1px solid var(--edge)}
 /* トレイは 1 枚の角丸パネル。枠線はパネル側だけに付け、チップは記号だけを並べる */
-.tray{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+.tray{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--trayGap);
  background:color-mix(in srgb,var(--panel) 60%,transparent);
- border:1px solid var(--edge);border-radius:20px;padding:6px}
+ border:1px solid var(--edge);border-radius:20px;padding:var(--trayPad)}
 .chip{position:relative;height:54px;border-radius:9px;background:none;border:0;
- display:flex;align-items:center;justify-content:center;font-size:33px;font-weight:700;
+ display:flex;align-items:center;justify-content:center;font-size:var(--chipF);font-weight:700;
  color:var(--paper);cursor:grab;user-select:none;touch-action:none}
 /* 押した / つかんだときは背景を出さず、記号を薄くするだけ */
 .chip:active{background:none;opacity:.5}
@@ -361,11 +376,11 @@ button:active{background:var(--edge)}
   .eq.idle{font-size:17px}
   .eq.hit{font-size:42px}
   .eq.part{font-size:25px}
-  /* トークンの幅・高さ・文字サイズと .iconbtn / #gear は、JS の TOKEN_METRICS が
-     CSS 変数として流し込む（SIZE-TRIAL 3.3 でスライダー調整の対象にした）。
-     ここに数値を書くと二重管理になるので書かない */
-  .chip{height:42px;font-size:26px}
-  .tray{padding:4px;border-radius:16px}
+  /* トークンとトレイの幅・高さ・文字サイズ・gap・padding、.iconbtn / #gear は
+     JS の TOKEN_METRICS.compact が CSS 変数として流し込む（SIZE-TRIAL）。
+     ここに数値を書くと二重管理になるので、変数にしていない値だけ残す */
+  .chip{height:42px}
+  .tray{border-radius:16px}
   .foot{margin:0 6px 8px}
   .top{margin-bottom:0}
   .field{padding:6px;margin-bottom:6px;min-height:72px}
@@ -550,7 +565,8 @@ button:active{background:var(--edge)}
      重なる道具だから。表示は G.dev のときだけ（devPanelShow）-->
 <div id="devpanel" class="hide">
   <div id="devhead"><h3>開発者パネル</h3>
-    <span><button id="dv-min">たたむ</button>
+    <span><button id="dv-pos">上へ</button>
+    <button id="dv-min">たたむ</button>
     <button id="dv-close">閉じる</button></span></div>
   <div id="devbody">
       <div class="dv"><span>配色（開発用）</span><span id="dv-themes"></span></div>
@@ -570,8 +586,10 @@ button:active{background:var(--edge)}
       <input type="range" id="dv-zoneMin" min="16" max="36" step="1">
       <button id="dv-reset" style="margin-top:10px">既定値に戻す</button>
       <!-- SIZE-TRIAL（3.3・実機で値が決まったら撤去する）。動かすのは normal だけで、
-           compact は既定値どうしの比で追従する。既定値は TOKEN_METRICS.normal -->
+           compact は既定値どうしの比で追従する。既定値は TOKEN_METRICS.normal。
+           4.0 で 16 項目になったので、探しやすいように節に分けた -->
       <h3>SIZE-TRIAL（寸法・決定後に撤去）</h3>
+      <h3>― 式のトークン</h3>
       <div class="dv"><span>数字の文字サイズ（.num）</span><b id="dv-numF-v"></b></div>
       <input type="range" id="dv-numF" min="36" max="64" step="1">
       <div class="dv"><span>数字の箱幅（TOKEN_METRICS.num）</span><b id="dv-num-v"></b></div>
@@ -580,6 +598,8 @@ button:active{background:var(--edge)}
       <input type="range" id="dv-facF" min="24" max="48" step="1">
       <div class="dv"><span>階乗の箱幅（TOKEN_METRICS.fac）</span><b id="dv-fac-v"></b></div>
       <input type="range" id="dv-fac" min="14" max="32" step="1">
+      <div class="dv"><span>階乗の食い込み（margin-left・負で左へ）</span><b id="dv-facMl-v"></b></div>
+      <input type="range" id="dv-facMl" min="-12" max="0" step="1">
       <div class="dv"><span>演算子の文字サイズ（.tok.op）</span><b id="dv-opF-v"></b></div>
       <input type="range" id="dv-opF" min="24" max="48" step="1">
       <div class="dv"><span>演算子の箱幅（TOKEN_METRICS.op）</span><b id="dv-op-v"></b></div>
@@ -590,7 +610,15 @@ button:active{background:var(--edge)}
       <input type="range" id="dv-par" min="16" max="32" step="1">
       <div class="dv"><span>トークンの高さ（TOKEN_METRICS.h）</span><b id="dv-h-v"></b></div>
       <input type="range" id="dv-h" min="48" max="88" step="1">
-      <div class="dv"><span>丸ボタン（.iconbtn）</span><b id="dv-btn-v"></b></div>
+      <h3>― トレイ</h3>
+      <div class="dv"><span>記号の文字サイズ（.chip）</span><b id="dv-chipF-v"></b></div>
+      <input type="range" id="dv-chipF" min="24" max="52" step="1">
+      <div class="dv"><span>記号の間隔（.tray の gap）</span><b id="dv-trayGap-v"></b></div>
+      <input type="range" id="dv-trayGap" min="0" max="24" step="1">
+      <div class="dv"><span>内側の余白（.tray の padding）</span><b id="dv-trayPad-v"></b></div>
+      <input type="range" id="dv-trayPad" min="6" max="24" step="1">
+      <h3>― ボタン・アイコン</h3>
+      <div class="dv"><span>丸ボタン（.iconbtn / .plainbtn）</span><b id="dv-btn-v"></b></div>
       <input type="range" id="dv-btn" min="40" max="64" step="1">
       <div class="dv"><span>設定ボタン（#gear）</span><b id="dv-gear-v"></b></div>
       <input type="range" id="dv-gear" min="36" max="60" step="1">
@@ -631,7 +659,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="3.9";
+const APP_VERSION="4.0";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -22001,23 +22029,28 @@ function pwr(a,b){if(!isInt(b))return null;const e=b.n,m=e<0n?-e:e;if(m>24n)retu
    CSS 側に同じ数字を書くと片方だけ変えたときに崩れるので、必ずここだけに書く。 */
 const TOKEN_METRICS={
   // num/op/fac/par = 箱幅、numF/opF/facF/parF = 文字サイズ、h = トークンの高さ、
-  // btn = .iconbtn / .plainbtn、gear = #gear、ic = アイコン SVG の描画サイズ（.ic）。
+  // facMl = .tok.fac の margin-left（左の数字・括弧への食い込み。負の値）、
+  // btn = .iconbtn / .plainbtn、gear = #gear、ic = アイコン SVG の描画サイズ（.ic）、
+  // chipF = トレイの記号の文字サイズ、trayGap = .tray の gap、trayPad = .tray の padding。
   // btn は箱の大きさしか変えないので、中の線の大きさは ic で別に持つ。
-  // 文字サイズとボタン寸法は 3.3、ic は 3.7 で CSS から移した（値は移す前と同じ）
-  normal :{num:28,numMx:2,op:34,fac:19,par:20,h:64,
-           numF:46,opF:31,facF:31,parF:37,btn:44,gear:38,ic:24},   // 通常（実機調整で確定）
-  compact:{num:23,numMx:1,op:29,fac:16,par:18,h:50,
-           numF:36,opF:26,facF:26,parF:31,btn:38,gear:38,ic:24},   // 高さ700px以下
+  // 文字サイズとボタン寸法は 3.3、ic は 3.7、トレイと facMl は 4.0 で CSS／定数から
+  // 移した（値は移す前と同じ）
+  normal :{num:28,numMx:2,op:34,fac:19,par:20,h:64,facMl:-2,
+           numF:46,opF:31,facF:31,parF:37,btn:44,gear:38,ic:24,
+           chipF:33,trayGap:2,trayPad:6},                          // 通常（実機調整で確定）
+  compact:{num:23,numMx:1,op:29,fac:16,par:18,h:50,facMl:-2,
+           numF:36,opF:26,facF:26,parF:31,btn:38,gear:38,ic:24,
+           chipF:26,trayGap:2,trayPad:4},                          // 高さ700px以下
 };
 /* SIZE-TRIAL（3.3・実機で値が決まったら撤去する）。
    スライダーで動かすのは normal だけ。compact は「既定値どうしの比」を掛けて
    追従させる（2.2 で numW をやったときと同じ考え方）。比が妥当かどうかは
    normal を決めてから別途見る。ここで比を定数に焼き付けず既定値から算出するのは、
    既定値を書き換えたときに比だけ古くなるのを防ぐため */
-const SIZE_KEYS=["numF","num","facF","fac","opF","op","parF","par","h","btn","gear","ic"];
+const SIZE_KEYS=["numF","num","facF","fac","facMl","opF","op","parF","par","h",
+                 "chipF","trayGap","trayPad","btn","gear","ic"];
 const SIZE_RATIO=Object.fromEntries(
   SIZE_KEYS.map(k=>[k,TOKEN_METRICS.compact[k]/TOKEN_METRICS.normal[k]]));
-const FAC_ML=-2;                             // .tok.fac の margin-left（食い込み）
 const ZONE_BASE={zop:38,zfac:32,zpar:34};    // 枠の標準幅（--zoneShrink を掛ける前）
 const ZONE_MIN=20;                           // 圧縮しても下回らない幅（指で狙える下限）
 const COMPACT_MQ="(max-height:700px)";
@@ -22042,7 +22075,7 @@ function applyMetrics(){
   s.setProperty("--numMx",MET.numMx+"px");
   s.setProperty("--opW",MET.op+"px");
   s.setProperty("--facW",MET.fac+"px");
-  s.setProperty("--facMl",FAC_ML+"px");
+  s.setProperty("--facMl",MET.facMl+"px");
   s.setProperty("--parW",MET.par+"px");
   s.setProperty("--tokH",MET.h+"px");
   s.setProperty("--numF",MET.numF+"px");
@@ -22052,6 +22085,9 @@ function applyMetrics(){
   s.setProperty("--btnW",MET.btn+"px");
   s.setProperty("--gearW",MET.gear+"px");
   s.setProperty("--icW",MET.ic+"px");
+  s.setProperty("--chipF",MET.chipF+"px");
+  s.setProperty("--trayGap",MET.trayGap+"px");
+  s.setProperty("--trayPad",MET.trayPad+"px");
   return MET;
 }
 /* 式に並ぶトークンの幅の合計（枠は含まない）。DOM は読まない */
@@ -22060,7 +22096,7 @@ function tokensWidth(){
   for(const t of T()){
     if(t.t==="num")      w+=MET.num+MET.numMx*2;
     else if(t.t==="op")  w+=MET.op;
-    else if(t.t==="fac") w+=MET.fac+FAC_ML;
+    else if(t.t==="fac") w+=MET.fac+MET.facMl;
     else                 w+=MET.par;         // lp / rp
   }
   return w;
@@ -22740,6 +22776,7 @@ $("go-help").onclick=()=>go("help");
    load() のマージでそちらが優先されるので、新しい既定値を見るには
    開発者パネルの「初期値に戻す」を一度押す */
 const DEV_DEFAULT={dur:300,shrink:80,catch:40,swapCatch:40,hotDur:200,zoneMin:ZONE_MIN,delta:18,
+  devTop:0,          // 開発者パネルを上側に付けるか（0=下 / 1=上）。開き直しても維持する
   // SIZE-TRIAL（3.3・決定後に撤去）。既定値は TOKEN_METRICS.normal をそのまま参照する。
   // ここに数値を書き写すと寸法の定義が 2 箇所になるので書かない
   ...Object.fromEntries(SIZE_KEYS.map(k=>[k,TOKEN_METRICS.normal[k]]))};
@@ -22751,6 +22788,13 @@ function applyDevVars(){
   // shrink / delta / zoneMin は CSS では使わない。layoutZones() が使う
   DEV_CATCH=dv.catch;
   DEV_SWAP=dv.swapCatch;
+  applyDevPos();
+}
+/* パネルを上側／下側のどちらに付けるか。式を見たいときは下、トレイを見たいときは上 */
+function applyDevPos(){
+  const top=!!(G.devVars||DEV_DEFAULT).devTop;
+  $("devpanel").classList.toggle("dvtop",top);
+  $("dv-pos").textContent=top?"下へ":"上へ";
 }
 /* パネルは画面ではないので go() は触らない。開けたままにしておくと、
    設定を閉じて問題画面へ戻ってもそのまま重なり続ける（これが目的）*/
@@ -22901,6 +22945,11 @@ $("dv-close").onclick=()=>devPanelShow(false);
 $("dv-min").onclick=()=>{
   const min=$("devpanel").classList.toggle("min");
   $("dv-min").textContent=min?"ひらく":"たたむ";
+};
+$("dv-pos").onclick=()=>{
+  G.devVars={...DEV_DEFAULT,...(G.devVars||{})};
+  G.devVars.devTop=G.devVars.devTop?0:1;
+  applyDevPos(); save();
 };
 $("dv-copy").onclick=async()=>{
   try{await navigator.clipboard.writeText($("dv-copyline").value);toast("コピーしました")}
