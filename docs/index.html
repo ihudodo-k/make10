@@ -385,7 +385,7 @@ button:active{background:var(--edge)}
   .eq.hit{font-size:42px}
   .eq.part{font-size:25px}
   /* トークンとトレイの幅・高さ・文字サイズ・gap・padding、.iconbtn / #gear は
-     JS の TOKEN_METRICS.compact が CSS 変数として流し込む（SIZE-TRIAL）。
+     JS の TOKEN_METRICS.compact が CSS 変数として流し込む。
      ここに数値を書くと二重管理になるので、変数にしていない値だけ残す */
   .chip{height:42px}
   .tray{border-radius:16px}
@@ -594,47 +594,6 @@ button:active{background:var(--edge)}
       <div class="dv"><span>圧縮の下限（ZONE_MIN）</span><b id="dv-zoneMin-v"></b></div>
       <input type="range" id="dv-zoneMin" min="16" max="36" step="1">
       <button id="dv-reset" style="margin-top:10px">既定値に戻す</button>
-      <!-- SIZE-TRIAL（3.3・実機で値が決まったら撤去する）。4.1 から normal と compact を
-           別々に持ち、スライダーは「今の画面のモードのほう」を編集する（比での追従は廃止）。
-           下の見出しは節ではなく SIZE-TRIAL 全体の帯なので折りたためない。
-           どちらを編集中かは #dv-mode に出す -->
-      <h3>SIZE-TRIAL（寸法・決定後に撤去）／<span id="dv-mode"></span> を編集中</h3>
-      <h3 class="sec" data-sec="tok"><span class="mk"></span>― 式のトークン</h3>
-      <div class="dv"><span>数字の文字サイズ（.num）</span><b id="dv-numF-v"></b></div>
-      <input type="range" id="dv-numF" min="28" max="64" step="1">
-      <div class="dv"><span>数字の箱幅（TOKEN_METRICS.num）</span><b id="dv-num-v"></b></div>
-      <input type="range" id="dv-num" min="18" max="40" step="1">
-      <div class="dv"><span>階乗の文字サイズ（.tok.fac）</span><b id="dv-facF-v"></b></div>
-      <input type="range" id="dv-facF" min="18" max="48" step="1">
-      <div class="dv"><span>階乗の箱幅（TOKEN_METRICS.fac）</span><b id="dv-fac-v"></b></div>
-      <input type="range" id="dv-fac" min="12" max="32" step="1">
-      <div class="dv"><span>階乗の食い込み（margin-left・負で左へ）</span><b id="dv-facMl-v"></b></div>
-      <input type="range" id="dv-facMl" min="-12" max="0" step="1">
-      <div class="dv"><span>演算子の文字サイズ（.tok.op）</span><b id="dv-opF-v"></b></div>
-      <input type="range" id="dv-opF" min="18" max="48" step="1">
-      <div class="dv"><span>演算子の箱幅（TOKEN_METRICS.op）</span><b id="dv-op-v"></b></div>
-      <input type="range" id="dv-op" min="20" max="48" step="1">
-      <div class="dv"><span>括弧の文字サイズ（.tok.lp / .tok.rp）</span><b id="dv-parF-v"></b></div>
-      <input type="range" id="dv-parF" min="20" max="52" step="1">
-      <div class="dv"><span>括弧の箱幅（TOKEN_METRICS.par）</span><b id="dv-par-v"></b></div>
-      <input type="range" id="dv-par" min="12" max="32" step="1">
-      <div class="dv"><span>トークンの高さ（TOKEN_METRICS.h）</span><b id="dv-h-v"></b></div>
-      <input type="range" id="dv-h" min="40" max="88" step="1">
-      <h3 class="sec" data-sec="tray"><span class="mk"></span>― トレイ</h3>
-      <div class="dv"><span>記号の文字サイズ（.chip）</span><b id="dv-chipF-v"></b></div>
-      <input type="range" id="dv-chipF" min="18" max="52" step="1">
-      <div class="dv"><span>記号の間隔（.tray の gap）</span><b id="dv-trayGap-v"></b></div>
-      <input type="range" id="dv-trayGap" min="0" max="24" step="1">
-      <div class="dv"><span>内側の余白（.tray の padding）</span><b id="dv-trayPad-v"></b></div>
-      <input type="range" id="dv-trayPad" min="0" max="24" step="1">
-      <h3 class="sec" data-sec="btn"><span class="mk"></span>― ボタン・アイコン</h3>
-      <div class="dv"><span>丸ボタン（.iconbtn / .plainbtn）</span><b id="dv-btn-v"></b></div>
-      <input type="range" id="dv-btn" min="32" max="64" step="1">
-      <div class="dv"><span>設定ボタン（#gear）</span><b id="dv-gear-v"></b></div>
-      <input type="range" id="dv-gear" min="28" max="60" step="1">
-      <div class="dv"><span>アイコンの線の大きさ（.ic）</span><b id="dv-ic-v"></b></div>
-      <input type="range" id="dv-ic" min="16" max="40" step="1">
-      <button id="dv-size-reset" style="margin-top:10px">SIZE-TRIAL を既定値に戻す</button>
       <h3 class="sec" data-sec="meas"><span class="mk"></span>実測値（読み取り専用・今つまんでいる記号について）</h3>
       <div class="dv"><span>隙間の上限</span><b id="dv-zbase-v"></b></div>
       <div class="dv"><span>通常時の隙間幅（--zoneW・採用値）</span><b id="dv-zused-v"></b></div>
@@ -651,10 +610,10 @@ button:active{background:var(--edge)}
       <div class="dv"><span>幅の整合（tokensWidth() ／ .expr 実測 offsetWidth）</span><b id="dv-wchk-v"></b></div>
       <h3 class="sec" data-sec="copy"><span class="mk"></span>現在値（コードの初期値に反映するときの受け渡し用）</h3>
       <div style="display:flex;gap:6px;align-items:center">
-        <textarea id="dv-copyline" readonly rows="3" wrap="off"
+        <input type="text" id="dv-copyline" readonly
          style="flex:1;min-width:0;font-size:11px;font-variant-numeric:tabular-nums;
           background:var(--panel);color:var(--paper);border:1px solid var(--edge);
-          border-radius:8px;padding:6px 8px;resize:vertical;white-space:pre"></textarea>
+          border-radius:8px;padding:6px 8px">
         <button id="dv-copy" style="white-space:nowrap">コピー</button>
       </div>
   </div>
@@ -667,7 +626,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="4.2";
+const APP_VERSION="4.3";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -21998,20 +21957,18 @@ function load(){
       // 無いキーが undefined のまま残って NaN 化する（--zoneW/--zoneHotW が壊れる）
       // のを防ぐ。今後キーを増やしてもこの形のままでよい
       if(s.devVars){
-        // 4.1 で SIZE-TRIAL の値を sizeN / sizeC の 2 組に分けた。3.3〜4.0 の保存データは
-        // SIZE_KEYS が devVars の直下にフラットに並んでいて、そのままマージすると
-        // 新しい既定値（normal の確定値）が古い値に上書きされる。フラットなキーは捨てて
-        // 既定から作り直す ―― normal の確定値は TOKEN_METRICS に入っているので、
-        // 作り直せば実機で決めた値と同じになる
-        const d={...s.devVars};
-        for(const k of SIZE_KEYS)delete d[k];
-        delete d.sizeN; delete d.sizeC;
-        // 入れ子も既定とマージする（キーを増やしたときに undefined → NaN にしないため）
-        G.devVars={...devDefaults(),...d,
-          sizeN:{...DEV_DEFAULT.sizeN,...(s.devVars.sizeN||{})},
-          sizeC:{...DEV_DEFAULT.sizeC,...(s.devVars.sizeC||{})}};
+        // 4.3 で SIZE-TRIAL を撤去した。3.3〜4.2 の保存データには寸法の値が残っている
+        // （〜4.0 は devVars の直下にフラット、4.1〜4.2 は sizeN / sizeC の入れ子）。
+        // 寸法は TOKEN_METRICS だけが持つ形に戻ったので、DEV_DEFAULT に無いキーは捨てる。
+        // 拾ってしまうと #dv-copyline に死んだ値が並び、どれが生きているか分からなくなる
+        const d=Object.fromEntries(
+          Object.entries(s.devVars).filter(([k])=>k in DEV_DEFAULT));
+        G.devVars={...DEV_DEFAULT,...d};
       }
-      if(s.devSecs)G.devSecs={...DEV_SEC_DEFAULT,...s.devSecs};
+      // 節の開閉。撤去した節（tok / tray / btn）のキーが残っていても拾わない
+      if(s.devSecs)G.devSecs={...DEV_SEC_DEFAULT,
+        ...Object.fromEntries(
+          Object.entries(s.devSecs).filter(([k])=>k in DEV_SEC_DEFAULT))};
       if(s.swap&&typeof s.swap==='object')G.swap=s.swap;
       if(Array.isArray(s.chalDone))G.chalDone=s.chalDone;
       G.heldC=Array.isArray(s.heldC)?s.heldC.slice(0,20)
@@ -22055,48 +22012,30 @@ const TOKEN_METRICS={
   // btn = .iconbtn / .plainbtn、gear = #gear、ic = アイコン SVG の描画サイズ（.ic）、
   // chipF = トレイの記号の文字サイズ、trayGap = .tray の gap、trayPad = .tray の padding。
   // btn は箱の大きさしか変えないので、中の線の大きさは ic で別に持つ。
-  // 文字サイズとボタン寸法は 3.3、ic は 3.7、トレイと facMl は 4.0 で CSS／定数から
-  // 移した（移した時点では値を変えていない。normal の値を実機で決めたのは 4.1）
-  // ── normal: 実機（Android）で SIZE-TRIAL を触って 2026-09-08 に確定した値。
-  //    numMx だけはスライダーが無いので 2.5 の実機調整の値のまま ──
+  //
+  // 2026-09-08 に両モードとも確定した。normal は実機（Android）で、
+  // compact は DevTools のデバイス表示（412×690）で、それぞれ実際に見ながら決めた値。
+  // compact は normal からの比では作っていない（別々に測った）ので、
+  // 項目によっては縮み方が揃っていない。
+  // 調整用のスライダー（SIZE-TRIAL、3.3〜4.2）は値が決まったので 4.3 で撤去した。
   normal :{num:32,numMx:2,op:30,fac:19,par:16,h:59,facMl:-3,
            numF:52,opF:32,facF:39,parF:42,btn:52,gear:42,ic:28,
-           chipF:38,trayGap:0,trayPad:9},
-  // ── compact: **未確定。** 3.3 以前からの暫定値（normal を実機で決める前の
-  //    比率で置いた数字）。これから DevTools のデバイス表示で詰める ──
-  compact:{num:23,numMx:1,op:29,fac:16,par:18,h:50,facMl:-2,
-           numF:36,opF:26,facF:26,parF:31,btn:38,gear:38,ic:24,
-           chipF:26,trayGap:2,trayPad:4},
+           chipF:38,trayGap:4,trayPad:9},
+  // numMx だけはスライダーを持たなかった項目で、2.5 の実機調整の値をそのまま引き継ぐ
+  compact:{num:29,numMx:1,op:24,fac:17,par:12,h:50,facMl:-3,
+           numF:44,opF:29,facF:34,parF:36,btn:44,gear:38,ic:26,
+           chipF:33,trayGap:4,trayPad:8},
 };
-/* SIZE-TRIAL（3.3・実機で値が決まったら撤去する）。
-   4.0 までは「スライダーは normal だけを動かし、compact は既定値どうしの比で追従」
-   だったが、normal が実機で確定したので比の意味が無くなった（比の分母が動かない）。
-   4.1 からは normal / compact を別々に持ち、スライダーは今の画面のモードのほうを
-   直接編集する。SIZE_RATIO は廃止 */
 const COMPACT_MQ="(max-height:700px)";
-const SIZE_KEYS=["numF","num","facF","fac","facMl","opF","op","parF","par","h",
-                 "chipF","trayGap","trayPad","btn","gear","ic"];
-/* 今どちらのモードを編集しているか。devVars のキー名をそのまま返す */
-const sizeMode=()=>matchMedia(COMPACT_MQ).matches?"sizeC":"sizeN";
 const ZONE_BASE={zop:38,zfac:32,zpar:34};    // 枠の標準幅（--zoneShrink を掛ける前）
 const ZONE_MIN=20;                           // 圧縮しても下回らない幅（指で狙える下限）
 
 let MET={...TOKEN_METRICS.normal};
-/* SIZE-TRIAL のスライダーを反映した寸法を返す。devVars に値が無ければ既定のまま。
-   TOKEN_METRICS 自体は書き換えない（既定値は常にここが正）。
-   4.1: 比の計算は無くなり、そのモードの組（sizeN / sizeC）をそのまま重ねるだけ */
-function metricsFor(compact){
-  const m={...(compact?TOKEN_METRICS.compact:TOKEN_METRICS.normal)};
-  const sz=(G.devVars||DEV_DEFAULT)[compact?"sizeC":"sizeN"];
-  if(sz)for(const k of SIZE_KEYS){
-    const v=sz[k];
-    if(typeof v!=="number"||!isFinite(v))continue;      // 古い保存データへの保険
-    m[k]=v;
-  }
-  return m;
-}
+/* 今の画面の高さに合う組を MET に入れ、CSS 変数へ流す。
+   TOKEN_METRICS 自体は書き換えないので複製を入れる（既定値は常にあちらが正）。
+   高さが 700px の境目をまたいだときは resize のハンドラがここを呼び直す */
 function applyMetrics(){
-  MET=metricsFor(matchMedia(COMPACT_MQ).matches);
+  MET={...TOKEN_METRICS[matchMedia(COMPACT_MQ).matches?"compact":"normal"]};
   const s=document.documentElement.style;
   s.setProperty("--numW",MET.num+"px");
   s.setProperty("--numMx",MET.numMx+"px");
@@ -22802,23 +22741,15 @@ $("go-help").onclick=()=>go("help");
    ここはその参照。他は直値。localStorage に古い devVars が残っていると
    load() のマージでそちらが優先されるので、新しい既定値を見るには
    開発者パネルの「初期値に戻す」を一度押す */
-const sizeDefault=mode=>Object.fromEntries(SIZE_KEYS.map(k=>[k,TOKEN_METRICS[mode][k]]));
 const DEV_DEFAULT={dur:300,shrink:80,catch:40,swapCatch:40,hotDur:200,zoneMin:ZONE_MIN,delta:18,
-  devTop:0,          // 開発者パネルを上側に付けるか（0=下 / 1=上）。開き直しても維持する
-  // SIZE-TRIAL（3.3・決定後に撤去）。4.1 から normal / compact を別々に持つ。
-  // 既定値は TOKEN_METRICS をそのまま参照する。
-  // ここに数値を書き写すと寸法の定義が 2 箇所になるので書かない
-  sizeN:sizeDefault("normal"),
-  sizeC:sizeDefault("compact")};
-/* DEV_DEFAULT の複製。sizeN / sizeC は入れ子なので {...DEV_DEFAULT} の浅いコピーだと
-   同じオブジェクトを共有してしまい、スライダーを動かすと既定値そのものが書き換わって
-   「既定値に戻す」が効かなくなる。devVars を作り直す箇所は必ずこれを使う（4.1）*/
-const devDefaults=()=>({...DEV_DEFAULT,sizeN:{...DEV_DEFAULT.sizeN},sizeC:{...DEV_DEFAULT.sizeC}});
+  devTop:0};         // 開発者パネルを上側に付けるか（0=下 / 1=上）。開き直しても維持する
 /* 開発者パネルの節の開閉（4.1）。devVars は「調整した値」だけを持たせたいので別のキーにする
    （#dv-copyline がそのまま値の受け渡しに使えなくなるため）。1=開 / 0=閉。
-   既定は SIZE-TRIAL の 3 節だけ開く ―― compact の確認は画面高 690px で行うので、
-   全部開いたままだと目的のスライダーにたどり着けない */
-const DEV_SEC_DEFAULT={basic:0,tok:1,tray:1,btn:1,meas:0,copy:0};
+   既定は「調整するスライダー」と「その結果を読む実測値」を開き、受け渡し用だけ閉じる。
+   スライダーを動かして実測値を読む、が 1 往復なので同時に開いているほうが速い。
+   画面高 690px（clientHeight 275px）での実測は basic のみ 636px・basic+meas 964px で、
+   どちらにしてもスクロールは要る ―― 片方を閉じても届く画面数が変わるだけなので開けておく */
+const DEV_SEC_DEFAULT={basic:1,meas:1,copy:0};
 
 function applyDevVars(){
   const dv=G.devVars||DEV_DEFAULT;
@@ -22860,10 +22791,6 @@ function renderDevPanel(){
   $("dv-hotDur").value=dv.hotDur; $("dv-hotDur-v").textContent=dv.hotDur+"ms";
   $("dv-delta").value=dv.delta; $("dv-delta-v").textContent=dv.delta+"px";
   $("dv-zoneMin").value=dv.zoneMin; $("dv-zoneMin-v").textContent=dv.zoneMin+"px";
-  // SIZE-TRIAL は今の画面のモードのほうを出す（4.1）。見出しにどちらか書く
-  const mode=sizeMode(), sz=dv[mode]||DEV_DEFAULT[mode];
-  $("dv-mode").textContent=mode==="sizeC"?"compact":"normal";
-  for(const k of SIZE_KEYS){$("dv-"+k).value=sz[k]; $("dv-"+k+"-v").textContent=sz[k]+"px"}
   applySecs();
   renderDevMeasured();
 }
@@ -22871,7 +22798,8 @@ function renderDevPanel(){
    そこから次の h3 までをその節として出し入れする。
    #devpanel.min（パネル全体をたたむ）とは別物 ―― あちらは #devbody ごと消して帯にする
    もので、こちらは #devbody の中を節単位で畳む。対象が入れ子なので競合しない。
-   data-sec の無い h3（SIZE-TRIAL の帯）は節ではないので、そこで開いた状態に戻す */
+   data-sec の無い h3 は節ではない扱い（今は無いが、節をまとめる帯を置いたときに
+   その中身まで巻き込まないように残してある）*/
 function applySecs(){
   const st=G.devSecs||DEV_SEC_DEFAULT;
   let on=true;
@@ -22893,10 +22821,6 @@ $("devbody").addEventListener("click",e=>{
   G.devSecs[h.dataset.sec]=G.devSecs[h.dataset.sec]?0:1;
   applySecs(); save();
 });
-/* 画面の高さが compact の境目をまたいだとき（DevTools でデバイスを変えたときなど）。
-   寸法自体は resize のハンドラが applyMetrics()+fit() で拾うので、ここは
-   「今どちらのモードを編集しているか」の表示とスライダーの値を切り替えるだけ */
-matchMedia(COMPACT_MQ).addEventListener("change",()=>{if(devOpen)renderDevPanel()});
 /* .num と同じ font（body 継承の font-family、font-weight:700、指定 px）で
    数字 0〜9 の描画（インク）幅を測る。箱の幅はレイアウトで固定なので、
    ここで見るのは「1文字が箱からはみ出すか」と「片側にどれだけ余白が残るか」だけ。 */
@@ -22959,8 +22883,7 @@ function renderDevMeasured(){
   $("dv-eqsize-v").textContent=eqPx.toFixed(1)+"px";
   // 数字の描画幅（両モード）と箱幅との差。Canvas 計測なので画面の表示状態に依らない。
   // TOKEN_METRICS を触ったときにこの片側余白がマイナスになっていないか見張る用
-  // SIZE-TRIAL のスライダーを反映した値で測る（既定値で測ると検算にならない）
-  const mN=metricsFor(false), mC=metricsFor(true);
+  const mN=TOKEN_METRICS.normal, mC=TOKEN_METRICS.compact;
   $("dv-dwN-px").textContent=mN.numF+"px";
   $("dv-dwC-px").textContent=mC.numF+"px";
   fillDigitInk(mN.numF,mN.num,"dv-dwN-all","dv-dwN-v");
@@ -22971,20 +22894,14 @@ function renderDevMeasured(){
     : `${xp.tw.toFixed(1)} ／ ${xp.ew.toFixed(1)} px`
       +(Math.abs(xp.ew-xp.tw)<1?"（一致）":`　※ずれ ${(xp.ew-xp.tw).toFixed(1)}px`)
       +ago(xp.when);
-  // 受け渡し用の文字列。4.1 から normal / compact の両方を 1 回のコピーで取れるように
-  // 3 行にした（先頭のラベルでどちらの組か分かる）。1 行目は SIZE-TRIAL 以外のキーで、
-  // DEV_DEFAULT から自動で拾うので今後キーを足しても書き換えは要らない
+  // 受け渡し用の文字列。DEV_DEFAULT のキーから自動で拾うので、
+  // 今後スライダーを足しても書き換えは要らない
   const dvAll=G.devVars||DEV_DEFAULT;
-  const flat=Object.keys(DEV_DEFAULT).filter(k=>k!=="sizeN"&&k!=="sizeC")
-    .map(k=>`${k}:${dvAll[k]}`).join(" ");
-  const szline=m=>SIZE_KEYS.map(k=>`${k}:${(dvAll[m]||DEV_DEFAULT[m])[k]}`).join(" ");
-  $("dv-copyline").value=`dev     ${flat}
-normal  ${szline("sizeN")}
-compact ${szline("sizeC")}`;
+  $("dv-copyline").value=Object.keys(DEV_DEFAULT).map(k=>`${k}:${dvAll[k]}`).join(" ");
 }
 function devVarInput(key,suffix){
   $("dv-"+key).addEventListener("input",e=>{
-    G.devVars=G.devVars||devDefaults();
+    G.devVars=G.devVars||{...DEV_DEFAULT};
     G.devVars[key]=+e.target.value;
     $("dv-"+key+"-v").textContent=e.target.value+suffix;
     applyDevVars(); save();
@@ -22994,32 +22911,7 @@ function devVarInput(key,suffix){
 devVarInput("dur","ms"); devVarInput("shrink","%"); devVarInput("catch","px");
 devVarInput("hotDur","ms"); devVarInput("delta","px"); devVarInput("zoneMin","px");
 devVarInput("swapCatch","px");
-/* SIZE-TRIAL（3.3・決定後に撤去）。寸法は CSS 変数と tokensWidth() の両方に効くので、
-   applyMetrics() で流し込み直してから縮小率を測り直す。問題画面が非表示のあいだは
-   applyScale() 側のガード（3.1）が弾くので、ここで fit() を呼んでも壊れない
-   ―― 見えた瞬間に go("play") → enterPlay() が測り直す */
-function applySizes(){
-  applyMetrics();
-  fit();
-  renderDevMeasured();
-}
-/* スライダーは「今の画面のモード」のほうを編集する（4.1）*/
-function devSizeInput(key){
-  $("dv-"+key).addEventListener("input",e=>{
-    G.devVars={...devDefaults(),...(G.devVars||{})};
-    G.devVars[sizeMode()][key]=+e.target.value;
-    $("dv-"+key+"-v").textContent=e.target.value+"px";
-    applySizes(); save();
-  });
-}
-for(const k of SIZE_KEYS)devSizeInput(k);
-$("dv-size-reset").onclick=()=>{                 // normal / compact の 2 組とも既定へ
-  G.devVars={...devDefaults(),...(G.devVars||{})};
-  G.devVars.sizeN={...DEV_DEFAULT.sizeN};
-  G.devVars.sizeC={...DEV_DEFAULT.sizeC};
-  applySizes(); save(); renderDevPanel();
-};
-$("dv-reset").onclick=()=>{G.devVars=devDefaults();applyDevVars();applySizes();save();renderDevPanel()};
+$("dv-reset").onclick=()=>{G.devVars={...DEV_DEFAULT};applyDevVars();save();renderDevPanel()};
 /* 設定シートからの導線。開いたあとは元の画面（問題画面）へ戻し、パネルを重ねた
    状態にする。閉じるのはパネル内のボタン */
 $("dv-open").onclick=()=>{devPanelShow(true);goBack()};
@@ -23029,7 +22921,7 @@ $("dv-min").onclick=()=>{
   $("dv-min").textContent=min?"ひらく":"たたむ";
 };
 $("dv-pos").onclick=()=>{
-  G.devVars={...devDefaults(),...(G.devVars||{})};
+  G.devVars={...DEV_DEFAULT,...(G.devVars||{})};
   G.devVars.devTop=G.devVars.devTop?0:1;
   applyDevPos(); save();
 };
