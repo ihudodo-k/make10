@@ -626,7 +626,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="4.3";
+const APP_VERSION="4.4";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -22070,6 +22070,10 @@ function tokensWidth(){
 
 /* ═══ 盤面 ═══ */
 const GLYPH={"+":"+","-":"−","*":"×","/":"÷","^":"^","!":"!","lp":"(","rp":")"};
+/* 記号の入れ子の向き。( は開き、) は閉じ、ここに無い記号はどちらでもない。
+   統合された配置候補のどれを残すかを livePositions() がこれで決める（GAME-SPEC 4-2）。
+   記号ごとの事実なので GLYPH / TRAY と同じ場所に置く ―― 判定側で記号名を書かないため */
+const NEST={lp:"open",rp:"close"};
 const TRAY=["+","-","*","/","^","!","lp","rp"], PAREN_STOCK=4;
 let S=null,tapMode=false,held=null,drag=null,uid=1;
 const $=i=>document.getElementById(i);
@@ -22092,13 +22096,25 @@ function insSeq(kind,p){
   const arr=T().map(one); arr.splice(p,0,ins);
   return arr.join(",");
 }
-/* 配置候補のうち、挿入後のトークン列が同一になるものは 1 つ（最も右）だけ残す。
-   実際に重複するのは「既存の括弧の隣に同じ括弧」だけ（他の記号は 4-2 のルールで
-   同じ記号が隣接しない）。特別扱いはせず、列を作って比較する。 */
+/* 配置候補のうち、挿入後のトークン列が同一になるものは 1 つにまとめる。
+   まとめる相手の検出は特別扱いをせず、候補ごとに挿入後の列を作って比較する
+   （配置ルールを変えても自動的に正しくなるように）。実際に重複するのは
+   「既存の括弧の隣に同じ括弧」だけ ―― 他の記号は 4-2 のルールで同じ記号が隣接しない。
+
+   どれを残しても置いた後の式は同じ（挿入後の列が同一だから）。選んでいるのは
+   ドラッグ中に隙間が開く場所と、指を離す場所だけ。**開きは並びのいちばん左、
+   閉じはいちばん右**に残す ―― 括弧が外側へ育つほうが、置いた後の見え方と
+   隙間の位置が一致するため（GAME-SPEC 4-2）。
+   どちらでもない記号は右（そもそも統合が起きないので挙動は変わらない）。
+   「昇順なので最後が残る」という順序への暗黙の依存にはせず、比較で明示する */
 function livePositions(kind){
+  const keepLeft=NEST[kind]==="open";
   const best=new Map();                 // 挿入後の列 -> それを作る位置
-  for(let p=0;p<=T().length;p++)
-    if(canPut(kind,p))best.set(insSeq(kind,p),p);   // 昇順なので最後＝最も右が残る
+  for(let p=0;p<=T().length;p++){
+    if(!canPut(kind,p))continue;
+    const seq=insSeq(kind,p), cur=best.get(seq);
+    if(cur===undefined||(keepLeft?p<cur:p>cur))best.set(seq,p);
+  }
   return new Set(best.values());
 }
 function put(kind,p){
