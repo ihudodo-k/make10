@@ -192,6 +192,31 @@ DevTools のデバイス表示（412×690）で、それぞれ実際に見なが
 compact のほうが縮まないのは、箱と文字を一段小さくしてあるぶんトークン幅の合計が
 490px → 404px と小さいため。**縮小は仕様。不具合ではない**（GAME-SPEC 4-5）。
 
+### 3-1-2. アイコンの線の太さと、設定を開くアイコン
+
+**「設定を開く」は三本線に統一した（4.5）。** それまではホームが歯車 `ICON_GEAR`、
+問題画面が三本線と、**同じ操作に 2 つの見た目**があった。三本線に寄せて歯車は廃止。
+`#gear` の `title` / `aria-label` は「設定」のまま（役割は変わっていない）。
+ホーム以外の画面で `#gear` が戻る矢印 `ICON_BACK`（`‹`）になる切り替えもそのまま。
+
+**三本線の定義は `ICON_MENU` 1 つだけ。** `#menu`（問題画面）へは初期化時に、
+`#gear`（ホーム）へは `go()` が、同じ文字列を流し込む。同じ絵柄が 2 つの定義を持つと
+片方だけ直す事故が起きる。
+
+アイコンはすべて**線だけで描く**（`.ic{fill:none;stroke:currentColor}`。塗りの
+アイコンは 1 つも無い）。太さは **`.ic` の `stroke-width:1.5` が既定**。
+
+**三本線だけは `2`。** `.ic.thick` を当てる。今の太さで確定していて、細くすると
+他のアイコンより情報量が少ないぶん頼りなく見えるため。
+
+**太さは「置き場所」ではなく「アイコン」に紐づける。** `.thick` は `ICON_MENU` の
+文字列の中に書いてあるので、`#menu`（問題画面）でも `#gear`（ホーム）でも自動的に
+同じ太さになる。CSS 側で `#menu .ic{...}` のように場所で指定すると、同じ絵柄なのに
+場所によって太さが違う、という不一致を作ってしまう。
+
+`normal` / `compact` で分けない（共通の直値）。大きさだけ `--icW` が変える（3-1）。
+リスト画面の遷移矢印 `.chev` は `.ic` とは別クラスで、`stroke-width:2` のまま（6-3）。
+
 ### 3-2. 隙間（ドラッグ中に開く枠）
 
 - `ZONE_BASE` = 演算子 38 / 階乗 32 / 括弧 34（標準幅。`shrink` 80% を掛ける前）
@@ -298,6 +323,7 @@ compact のほうが縮まないのは、箱と文字を一段小さくしてあ
 
 - 文字 `›` をやめインライン SVG（`<path d="M9 6l6 6-6 6"/>`）。書体で位置・太さが揃わないため
 - `16px` / `fill:none` / `stroke:currentColor` / `stroke-width:2` / round / `color:var(--dim)`
+  （`.ic` とは別クラスなので、`.ic` の既定 1.5 の影響を受けない。3-1-2）
 
 **トグルスイッチ `.toggle span.sw`**
 
@@ -313,7 +339,7 @@ compact のほうが縮まないのは、箱と文字を一段小さくしてあ
 | `.modes` | `display:flex` 縦 / `gap:9px` / `margin-top:4px` |
 | `.mode` | `<button>`。`display:flex` `align-items:center` / `gap:12px` / `padding:14px` / `min-height:48px` / `text-align:left` / `width:100%`。地・枠・角丸は `button` 既定（`background:var(--panel)` / `border:1px solid var(--edge)` / `border-radius:11px`） |
 | `.mode.lock` | `opacity:.55`（「押せない」の意味に限定。空でも遷移する `#m-held` には付けない） |
-| `.mode .mi`（アイコン） | `width:30px` / flex 中央。中身は `.ic`（24×24 / `stroke:currentColor` / `stroke-width:2` / round）のインライン SVG。挑戦モードの 3 状態（`ICON_LOCK` / `ICON_STAR` / `ICON_TROPHY`）は `innerHTML` 差し替え |
+| `.mode .mi`（アイコン） | `width:calc(var(--icW) + 6px)` / flex 中央。中身は `.ic`（`--icW` 角 / `stroke:currentColor` / `stroke-width:1.5` / round）のインライン SVG。挑戦モードの 3 状態（`ICON_LOCK` / `ICON_STAR` / `ICON_TROPHY`）は `innerHTML` 差し替え |
 | `.mode .mt`（名前） | `flex:1` / 15px / 700 / `color:var(--paper)`。プレーンテキスト（`<b>`/`<span>` の入れ子はやめた） |
 | `.mode .mv`（右端の値） | `flex:0 0 auto` / 13px / `color:var(--dim)` / `white-space:nowrap`。値は `renderHome()` / `renderHeldPick()` が入れる。ホームの `m-held` は 0 のとき空文字、`#heldpick` は 0 でも `N / M` を出す |
 

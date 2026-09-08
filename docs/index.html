@@ -193,7 +193,11 @@ button:active{background:var(--edge)}
    上げても上の行のアイコンだけ大きくならないのはこれが原因 */
 .ic{width:var(--icW);height:var(--icW);flex:0 0 auto;
  display:block;fill:none;stroke:currentColor;
- stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+ stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+/* 三本線だけは 2 のまま（今の太さで確定しているため）。太さは「置き場所」ではなく
+   アイコンに紐づける ―― この class は ICON_MENU の中に書いてあるので、
+   #menu（問題画面）でも #gear（ホーム）でも同じ太さになる（4.5）*/
+.ic.thick{stroke-width:2}
 /* JS が文字を書き込む先だけ残して見た目は消すラベル (例: ヒントの段階表示) */
 .btnlabel{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
  white-space:nowrap}
@@ -216,8 +220,9 @@ button:active{background:var(--edge)}
 .rule b{color:var(--paper);font-weight:700}
 .rule.none{color:var(--slate)}
 /* 今回のモックアップでは出さない要素。DOM とハンドラは残し、表示だけ止める。
-   JS が .hide を付け外しするものもあるので、ここは id 指定で確実に隠す */
-#rule,.top .info,.trayrow,#hold,#alt{display:none!important}
+   JS が .hide を付け外しするものもあるので、ここは id 指定で確実に隠す。
+   .top .info は 4.6 でここから外した（問題番号を画面に出すため。GAME-SPEC 5-3）*/
+#rule,.trayrow,#hold,#alt{display:none!important}
 .readout{flex:1 1 0;min-height:104px;display:flex;flex-direction:column;
  align-items:center;justify-content:center;gap:10px;padding:4px 0}
 /* 数字の見え方は Zen Kaku Gothic New の 700。.eq / .num / .chip はこの値で統一
@@ -399,7 +404,7 @@ button:active{background:var(--edge)}
 <body data-theme="ai">
 <div id="bg"></div>
 <div id="app">
-  <!-- 中身は go() が ICON_GEAR / ICON_BACK に差し替える（絵文字は端末で形が変わる）-->
+  <!-- 中身は go() が ICON_MENU / ICON_BACK に差し替える（絵文字は端末で形が変わる）-->
   <button id="gear"></button>
 
   <!-- ホーム -->
@@ -444,11 +449,8 @@ button:active{background:var(--edge)}
         </svg>
       </button>
       <div class="info"><b id="pmode"></b><br><span class="code" id="pcode"></span></div>
-      <button id="menu" class="plainbtn" title="メニュー" aria-label="メニュー">
-        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
-        </svg>
-      </button>
+      <!-- 中身は ICON_MENU を流し込む（#gear と同じ絵柄を 1 つの定義から出す）-->
+      <button id="menu" class="plainbtn" title="メニュー" aria-label="メニュー"></button>
     </div>
     <div class="rule" id="rule"></div>
     <div class="readout"><div class="eq idle" id="eq"></div><div class="sub" id="sub"></div></div>
@@ -626,7 +628,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="4.4";
+const APP_VERSION="4.6";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -21937,6 +21939,10 @@ const CHAL_AT=100;
 const SAVE_KEY="make10.progress.v4";
 const G={ci:0,cleared:0,heldC:[],heldT:[],heldF:[],tap:false,fact:false,vib:true,easy:false,theme:'ai',
   stats:{n:0,sec:0,best:0,band:{}},hist:[],best:{},scoreOn:false,seen:[],swap:{},chalDone:[],
+  // 挑戦モードで「出題した」問題のコード。クリアしたかは問わない。chalDone（クリア済み）
+  // と同じ形の配列。抽選はこちらを除外するので、解かずに送った問題も保留した問題も
+  // 二度は出ない（GAME-SPEC 7）
+  chalShown:[],
   // 問題ごとに「見たヒントの最大段階」。セッション変数の hintMax だけだと画面を
   // 離れた時点で消え、解き直すと倍率が戻ってしまう（G.best は最高点だけを残すので
   // 一度でも抜け道を通ればその点数が永久に残る）。端末に残して塞ぐ
@@ -21971,6 +21977,9 @@ function load(){
           Object.entries(s.devSecs).filter(([k])=>k in DEV_SEC_DEFAULT))};
       if(s.swap&&typeof s.swap==='object')G.swap=s.swap;
       if(Array.isArray(s.chalDone))G.chalDone=s.chalDone;
+      // 4.5 で追加。項目が無い保存データは chalDone（クリア済み）で埋める。
+      // 空のまま始めると、既にクリアした問題が「未出題」として再び出てしまう
+      G.chalShown=Array.isArray(s.chalShown)?s.chalShown:G.chalDone.slice();
       G.heldC=Array.isArray(s.heldC)?s.heldC.slice(0,20)
              :Array.isArray(s.held)?s.held.slice(0,20):[];   // 旧セーブからの移行
       G.heldT=Array.isArray(s.heldT)?s.heldT.slice(0,20):[];
@@ -22538,7 +22547,19 @@ $("wnext").onclick=()=>{
   advance()};
 
 /* ═══ 進行 ═══ */
+/* 問題画面の番号。本編は「今の位置 / 全体」、挑戦は「出題数 / 全体」で意味が違う。
+   フリー・保留・共有は出さない（GAME-SPEC 5）。分母は定数を書かず配列の長さから取る */
+function pmodeText(mode){
+  if(mode==="course")return `本編 ${Math.min(G.ci+1,COURSE.length)}/${COURSE.length}`;
+  if(mode==="chal")  return `挑戦 ${G.chalShown.length}/${CHAL.length}`;
+  return "";
+}
 function loadPuzzle(p){
+  // 出題済みを積むのはここ。読み込んだ＝表示した以上は出題済みとする（クリアは問わない）。
+  // 問題を読む経路（開始・つぎへ・べつの問題・保留・共有）はすべてここを通るので、
+  // 1 箇所で足りる
+  if(MODE==="chal"&&!G.chalShown.includes(codeOf(p))){G.chalShown.push(codeOf(p));save()}
+  $("pmode").textContent=pmodeText(MODE);   // 書き換えはここだけ（古い表記の残りを作らない）
   cur=p;uid=1;S={toks:p.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
   held=null;t0=performance.now();moves=0;lastScore=null;hintLv=0;
   solved=false;lastWin=null;
@@ -22559,17 +22580,20 @@ function clearAll(){
   render();
 }
 const rnd=a=>a[Math.floor(Math.random()*a.length)];
+/* 挑戦モードでまだ出していない問題。除外は chalDone（クリア済み）ではなく
+   chalShown（出題済み）で行う ―― 出した以上は解いていなくても二度は出さない。
+   打ち止めの判定も抽選も同じここを通す（数え方が 2 通りにならないように）*/
+function chalRemain(){
+  const shown=new Set(G.chalShown);
+  return CHAL.filter(p=>!shown.has(codeOf(p)));
+}
 function nextOf(mode){
   if(mode==="course"){
     const sw=G.swap&&G.swap[G.ci];
     return sw?byCode(sw):COURSE[Math.min(G.ci,COURSE.length-1)];
   }
   if(mode==="free")return Math.random()<.2?rnd(FREE):rnd(FREE9);
-  if(mode==="chal"){
-    const done=new Set(G.chalDone);
-    const remain=CHAL.filter(p=>!done.has(codeOf(p)));
-    return remain.length?rnd(remain):null;   // null = 全問クリア
-  }
+  if(mode==="chal"){const r=chalRemain();return r.length?rnd(r):null}   // null = 全問出題ずみ
   if(mode==="held"){const c=G.heldC[0];return c?byCode(c):null}
   if(mode==="heldt"){const c=G.heldT[0];return c?byCode(c):null}
   if(mode==="heldf"){const c=G.heldF[0];return c?byCode(c):null}
@@ -22597,8 +22621,14 @@ function advance(){
   else if(firstClear)G.cleared++;
   save();
   const n=nextOf(MODE);
-  if(!n){go("home");return}
+  if(!n){chalEnd();go("home");return}
   loadPuzzle(n)}
+/* 挑戦モードの打ち止め。数えているのは出題済みなので「クリア済み」とは書かない
+   （未クリアのまま打ち止めになりうる）。クリア数は括弧で併記する */
+function chalEnd(){
+  if(MODE!=="chal")return;
+  toast(`挑戦モードは全問出題しました（クリア ${G.chalDone.length}/${CHAL.length}）`);
+}
 const SCREENS=["home","play","settings","help","stats","heldpick"];
 let SCR="home", retScr="home", exitArm=0;   // retScr = 設定に入る前の画面
 function go(s){
@@ -22608,7 +22638,7 @@ function go(s){
   if(s!=="play")$("win").classList.add("hide");   // 画面を離れたら正解カードは必ず隠す
   // 絵文字ではなく SVG を差し替える。textContent が無くなるので名前も付け直す
   const gearIsSettings=(s==="home"||s==="play");
-  $("gear").innerHTML=gearIsSettings?ICON_GEAR:ICON_BACK;
+  $("gear").innerHTML=gearIsSettings?ICON_MENU:ICON_BACK;
   $("gear").title=$("gear").ariaLabel=gearIsSettings?"設定":"戻る";
   if(s==="home")renderHome();
   if(s==="play")enterPlay();      // #play の hide を外した後。前に呼ぶとまた 0 を測る
@@ -22654,10 +22684,6 @@ addEventListener("popstate",()=>{history.pushState(null,"");goBack()});
 history.pushState(null,"");
 function start(mode){
   MODE=mode;const n=nextOf(mode);if(!n)return;
-  $("pmode").textContent={course:"本編 "+(G.ci+1)+" 問目",free:"フリープレイ",
-    chal:"挑戦モード",held:"本編の保留 残り"+G.heldC.length+"問",
-    heldt:"挑戦の保留 残り"+G.heldT.length+"問",
-    heldf:"フリーの保留 残り"+G.heldF.length+"問",share:"共有された問題"}[mode]||"";
   const altBtn=$("alt");
   if(mode==="free"){altBtn.classList.remove("hide");altBtn.textContent="スキップ"}
   else if(mode==="course"||mode==="chal"){altBtn.classList.remove("hide");altBtn.textContent="べつの問題"}
@@ -22668,10 +22694,15 @@ function start(mode){
 /* モードのアイコン（インライン SVG）。絵文字は端末で絵柄が変わりテーマ色にも
    追従しないため、問題画面と同じ currentColor の SVG に統一（LIST-TRIAL 2.8）。
    挑戦モードだけロック／解放／全クリアの 3 状態があるので JS で innerHTML を差し替える */
-/* 歯車（8枚歯・中心 (12,12)・外周 9.0 / 内周 6.2）と、設定画面での戻る矢印。
+/* 三本線（設定を開く）と、設定画面での戻る矢印。
+   4.5 まで、同じ「設定を開く」にホームは歯車・問題画面は三本線と 2 つの見た目が
+   あったので、三本線に統一して歯車 ICON_GEAR は廃止した。
+   **定義はここ 1 つだけ。** #menu（問題画面）へも go() が差し替える #gear へも
+   ここから流し込む。同じ絵柄が 2 つの定義を持つと片方だけ直す事故が起きる。
+   .thick は線の太さ 2 を持たせるためのもの（.ic の既定は 1.5）。
    戻る矢印は .chev（M9 6l6 6-6 6）を x=12 で左右反転しただけの形にして、
    画面遷移の記号を統一する */
-const ICON_GEAR  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 10.13L20.8 13.87L17.9 13.92L17.52 14.81L19.55 16.9L16.9 19.55L14.81 17.52L13.92 17.9L13.87 20.8L10.13 20.8L10.08 17.9L9.19 17.52L7.1 19.55L4.45 16.9L6.48 14.81L6.1 13.92L3.2 13.87L3.2 10.13L6.1 10.08L6.48 9.19L4.45 7.1L7.1 4.45L9.19 6.48L10.08 6.1L10.13 3.2L13.87 3.2L13.92 6.1L14.81 6.48L16.9 4.45L19.55 7.1L17.52 9.19L17.9 10.08Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const ICON_MENU  =`<svg class="ic thick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>`;
 const ICON_BACK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>`;
 const ICON_LOCK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 11h11v9h-11z"/><path d="M8.8 11V8a3.2 3.2 0 0 1 6.4 0v3"/></svg>`;
 const ICON_STAR  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8L13.84 9.47L19.8 9.47L14.98 12.97L16.82 18.63L12 15.13L7.18 18.63L9.02 12.97L4.2 9.47L10.16 9.47Z"/></svg>`;
@@ -22704,7 +22735,7 @@ function renderHome(){
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
-    G.ci=0;G.cleared=0;G.heldC=[];G.heldT=[];G.heldF=[];G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.hints={};save();
+    G.ci=0;G.cleared=0;G.heldC=[];G.heldT=[];G.heldF=[];G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.chalShown=[];G.hints={};save();
     delete b.dataset.armed;s.textContent="進捗をリセット";toast("リセットしました");return}
   b.dataset.armed="1";s.textContent="もう一度押すと消えます";
   setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent="進捗をリセット"}},3500);
@@ -22971,7 +23002,7 @@ function renderStats(){
     b.innerHTML=`<span>${p?p.id:"????"}${cs}　<span style="opacity:.6">難易度 ${it.d}・${it.s}秒</span></span>`
       +(G.scoreOn?`<span style="font-weight:700">${it.p!==undefined?it.p+" 点":""}<span style="color:var(--paper);margin-left:6px">${it.st?stars(it.st):""}</span></span>`:"");
     b.onclick=()=>{const q=byCode(it.c); if(!q)return;
-      MODE="share";$("pmode").textContent="もう一度解く";loadPuzzle(q);go("play")};
+      MODE="share";loadPuzzle(q);go("play")};
     hh.appendChild(b);
   }
   $("statbars").innerHTML=bands.map(([b,label])=>{
@@ -22982,7 +23013,9 @@ function renderStats(){
 $("m-course").onclick=()=>start("course");
 $("m-free").onclick=()=>start("free");
 $("m-chal").onclick=()=>{if(G.cleared<CHAL_AT)return;   // ロック中は反応しない（揺れ演出は廃止）
-  if(CHAL.length-G.chalDone.length<=0){toast("挑戦モードは全問クリア済みです");return}
+  // 判定は抽選と同じ chalRemain()（出題済みで数える）。クリア済みの数とは違う
+  if(!chalRemain().length){
+    toast(`挑戦モードは全問出題しました（クリア ${G.chalDone.length}/${CHAL.length}）`);return}
   start("chal")};
 $("m-held").onclick=()=>go("heldpick");
 function renderHeldPick(){
@@ -23036,8 +23069,7 @@ $("hold").onclick=()=>{
   if(isHeldMode()){arr.push(arr.shift())}
   else{arr.push(codeOf(cur));if(MODE==="course")G.ci++}
   save();
-  const n=nextOf(MODE);if(!n){go("home");return}
-  $("pmode").textContent=MODE==="course"?"本編 "+(G.ci+1)+" 問目":$("pmode").textContent;
+  const n=nextOf(MODE);if(!n){chalEnd();go("home");return}
   loadPuzzle(n)};
 (function(){
   let v=1n,g="";
@@ -23046,10 +23078,12 @@ $("hold").onclick=()=>{
   $("facttable").innerHTML=`<div class="g">${g}</div>`+
     `<div class="n">( 3! )! は 6! なので 720。階乗は 12! までしか使えません。</div>`;
 })();
-/* モックアップで表示を止めている UI。CSS の #rule,.top .info,.trayrow,#hold,#alt の
+/* モックアップで表示を止めている UI。CSS の #rule,.trayrow,#hold,#alt の
    display:none と対で管理する。CSS は「見た目を消す」、この定数は「機能の状態を
-   復元しない」判断に使う。表示を戻すときは両方を同時に変えること */
-const HIDDEN_UI={rule:true,info:true,factTable:true,hold:true,alt:true};
+   復元しない」判断に使う。表示を戻すときは両方を同時に変えること。
+   4.6 で .top .info（問題番号・問題コード）を表示に戻したので、CSS の並びからも
+   ここからも info を外した */
+const HIDDEN_UI={rule:true,factTable:true,hold:true,alt:true};
 function factShow(on,persist=true){
   if(persist){G.fact=on; save();}      // 非表示中（persist=false）は保存値を触らない
   $("facttable").classList.toggle("show",on);
@@ -23087,9 +23121,10 @@ $("codego").onclick=()=>{
   if(devCode(raw))return;
   const p=byCode(raw);
   if(!p){$("codein").value="";$("codein").placeholder="コードが正しくありません";return}
-  MODE="share";$("pmode").textContent="共有された問題";loadPuzzle(p);go("play")};
+  MODE="share";loadPuzzle(p);go("play")};
 
 load();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
+$("menu").innerHTML=ICON_MENU;   // #gear と同じ 1 つの定義から流し込む（4.5）
 // 階乗表ボタン (#factbtn) は .trayrow ごと非表示。開いた状態の保存値があっても
 // 復元すると閉じる手段が無くなるので、非表示中は開かない（保存値は保持）
 factShow(HIDDEN_UI.factTable?false:G.fact,false);
