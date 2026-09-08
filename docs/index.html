@@ -252,7 +252,13 @@ button:active{background:var(--edge)}
 .tok.lone{color:var(--coral)}
 .tok.dead{color:var(--slate);opacity:.45}
 .tok.lift{opacity:.22}
-.tok.swap{background:color-mix(in srgb,var(--paper) 18%,transparent);border-radius:5px}
+/* 差し替えできる演算子の強調。塗った角丸タイルは 2.8〜3.0 の脱タイル方針から
+   取り残された表現だったので、.chip.sel（トレイの選択中）と同じ下線 1 本に揃えた（3.8）。
+   問題画面で面を塗る箇所はこれで無くなった。
+   ただし .chip.sel と違って明るさは上げない（3.9）。式の中には
+   「数字 → 演算子 → 括弧」の明るさの段階があり、強調中だけ演算子を --paper まで
+   上げるとその段階が一時的に崩れる。トレイには段階が無いので事情が違う */
+.tok.swap{box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--paper) 70%,transparent)}
 /* 光る演出は色を変えず、明るさ (と淡いにじみ) の変化だけで見せる */
 @keyframes glow{0%,100%{color:color-mix(in srgb,var(--paper) 76%,transparent);text-shadow:none}
 50%{color:var(--paper);text-shadow:0 0 14px color-mix(in srgb,var(--paper) 55%,transparent)}}
@@ -552,8 +558,10 @@ button:active{background:var(--edge)}
       <input type="range" id="dv-dur" min="80" max="600" step="10">
       <div class="dv"><span>枠の通常幅（フルサイズ比）</span><b id="dv-shrink-v"></b></div>
       <input type="range" id="dv-shrink" min="40" max="100" step="5">
-      <div class="dv"><span>吸着の判定半径</span><b id="dv-catch-v"></b></div>
+      <div class="dv"><span>吸着の判定半径（隙間の枠）</span><b id="dv-catch-v"></b></div>
       <input type="range" id="dv-catch" min="10" max="80" step="5">
+      <div class="dv"><span>吸着の判定半径（演算子の差し替え）</span><b id="dv-swapCatch-v"></b></div>
+      <input type="range" id="dv-swapCatch" min="10" max="80" step="5">
       <div class="dv"><span>吸着の時間（--hotDur）</span><b id="dv-hotDur-v"></b></div>
       <input type="range" id="dv-hotDur" min="60" max="400" step="10">
       <div class="dv"><span>吸着で広がる量（Δ）</span><b id="dv-delta-v"></b></div>
@@ -623,7 +631,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="3.7";
+const APP_VERSION="3.9";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -22339,7 +22347,8 @@ function hideZones(){
   applyScale(scaleFor(tokensWidth()));   // 枠が閉じたあとの幅。閉じる動きと同時に補間される
 }
 
-let DEV_CATCH=40;
+let DEV_CATCH=40;      // 枠に吸着する許容距離
+let DEV_SWAP=40;       // 差し替えに吸着する許容距離（枠とは別のキー）
 const buzz=ms=>{if(G.vib)navigator.vibrate?.(ms)};
 let lastHot=null;
 
@@ -22352,27 +22361,37 @@ function startDrag(e,src){drag=src;lastHot=null;buzz(8);ghost.textContent=GLYPH[
   document.addEventListener("pointermove",onMove,{passive:false});
   document.addEventListener("pointerup",onUp,{once:true});
   document.addEventListener("pointercancel",onUp,{once:true})}
-function nearZone(e){
+/* 指の位置から sel に当たる要素までの距離（矩形からのはみ出し量）を測り、
+   いちばん近いものを {el,d} で返す。field の外は対象外。
+   枠と差し替えを同じ土俵で比べられるように、距離も一緒に返す */
+function nearest(e,sel,max){
   const r=$("field").getBoundingClientRect();
   if(e.clientY<r.top||e.clientY>r.bottom||e.clientX<r.left||e.clientX>r.right)return null;
   let best=null,bd=1e9;
-  document.querySelectorAll(".zone.live").forEach(z=>{
+  document.querySelectorAll(sel).forEach(z=>{
     const b=z.getBoundingClientRect();
     const dx=Math.max(b.left-e.clientX,0,e.clientX-b.right);
     const dy=Math.max(b.top-e.clientY,0,e.clientY-b.bottom);
     const d=Math.sqrt(dx*dx+dy*dy);
     if(d<bd){bd=d;best=z}
   });
-  return bd<=DEV_CATCH?best:null;
+  return bd<=max?{el:best,d:bd}:null;
 }
+const nearZone=e=>nearest(e,".zone.live",DEV_CATCH);
+const nearSwap=e=>nearest(e,".tok.op.swap",DEV_SWAP);
 function tgt(e){
   const el=document.elementFromPoint(e.clientX,e.clientY);
-  if(el){
+  if(el){                        // 真上にあるものが最優先。ここは従来どおり
     if(el.classList.contains("zone")&&el.classList.contains("live"))return{z:el};
     const t=el.closest?.(".tok.op.swap");if(t)return{swap:t};
   }
-  const n=nearZone(e);           // 直接当たらなくても、近い枠に吸い付く
-  return n?{z:n}:null;
+  // どこにも直撃していないときだけ距離で解決する。枠だけに許容があると、
+  // 演算子の箱を 1px 外れた瞬間に隣の枠へ持っていかれる（3.7 までの挙動）
+  const z=nearZone(e), w=nearSwap(e);
+  if(z&&w)return w.d<z.d?{swap:w.el}:{z:z.el};   // 同距離なら枠を優先
+  if(z)return{z:z.el};
+  if(w)return{swap:w.el};
+  return null;
 }
 function onMove(e){if(!drag)return;e.preventDefault();gmove(e);
   document.querySelectorAll(".hot").forEach(x=>x.classList.remove("hot"));
@@ -22396,10 +22415,16 @@ function onUp(e){
     else{captureCloseSet(afterInsert(p));put(d.op,p)}
     moves++;buzz(12);render(d.op);return}
   if(t&&t.swap){const id=+t.swap.dataset.id;
-    if(d.id&&d.id!==id){const was=T().findIndex(x=>x.id===d.id);
+    const moved=!!d.id&&d.id!==id;         // 置いてある記号を運んできた場合は式が変わる
+    if(moved){const was=T().findIndex(x=>x.id===d.id);
       captureCloseSet(afterRemove(was));dropTok(d.id)}
     else captureCloseSet(i=>i);
-    const j=T().findIndex(x=>x.id===id);T()[j].v=d.op;moves++;buzz(12);render(d.op);return}
+    const j=T().findIndex(x=>x.id===id);
+    // 同じ記号を重ねただけで式が変わらないときは手数に数えない（GAME-SPEC 4-3）。
+    // waste = moves − トークン数 は空回りの量を測るもので、何も変えていない
+    // 操作を空回りとして減点するのは筋が違う
+    const changed=moved||T()[j].v!==d.op;
+    T()[j].v=d.op;if(changed)moves++;buzz(12);render(d.op);return}
   const r=$("field").getBoundingClientRect();
   const out=e.clientY<r.top||e.clientY>r.bottom||e.clientX<r.left||e.clientX>r.right;
   if(d.id&&out){const was=T().findIndex(x=>x.id===d.id);
@@ -22415,7 +22440,14 @@ $("tray").addEventListener("pointerdown",e=>{
 $("expr").addEventListener("pointerdown",e=>{
   const t=e.target.closest(".tok");
   if(t){const id=+t.dataset.id,tk=T().find(x=>x.id===id);
-    if(tapMode){if(held&&"+-*/^".includes(held)&&tk.t==="op"){tk.v=held;held=null;moves++;render();return}
+    if(tapMode){
+      if(held&&"+-*/^".includes(held)&&tk.t==="op"){
+        const changed=tk.v!==held;         // 同じ記号なら式が変わらない（GAME-SPEC 4-3）
+        tk.v=held;held=null;if(changed)moves++;render();return}
+      // 記号を持っている間は消さない（GAME-SPEC 4-1）。持っている状態は「置く」意図が
+      // 確定している場面で、しかもこの消去は手数に残らず後から追えない。
+      // 消したいときはトレイの同じチップをもう一度押して選択を解いてからにする
+      if(held)return;
       dropTok(id);render();return}
     startDrag(e,{op:tk.t==="op"?tk.v:tk.t==="fac"?"!":tk.t,el:t,id});return}
   const z=e.target.closest(".zone");
@@ -22707,7 +22739,7 @@ $("go-help").onclick=()=>go("help");
    ここはその参照。他は直値。localStorage に古い devVars が残っていると
    load() のマージでそちらが優先されるので、新しい既定値を見るには
    開発者パネルの「初期値に戻す」を一度押す */
-const DEV_DEFAULT={dur:300,shrink:80,catch:40,hotDur:200,zoneMin:ZONE_MIN,delta:18,
+const DEV_DEFAULT={dur:300,shrink:80,catch:40,swapCatch:40,hotDur:200,zoneMin:ZONE_MIN,delta:18,
   // SIZE-TRIAL（3.3・決定後に撤去）。既定値は TOKEN_METRICS.normal をそのまま参照する。
   // ここに数値を書き写すと寸法の定義が 2 箇所になるので書かない
   ...Object.fromEntries(SIZE_KEYS.map(k=>[k,TOKEN_METRICS.normal[k]]))};
@@ -22718,6 +22750,7 @@ function applyDevVars(){
   document.documentElement.style.setProperty("--hotDur",(dv.hotDur/1000)+"s");
   // shrink / delta / zoneMin は CSS では使わない。layoutZones() が使う
   DEV_CATCH=dv.catch;
+  DEV_SWAP=dv.swapCatch;
 }
 /* パネルは画面ではないので go() は触らない。開けたままにしておくと、
    設定を閉じて問題画面へ戻ってもそのまま重なり続ける（これが目的）*/
@@ -22740,6 +22773,7 @@ function renderDevPanel(){
   $("dv-dur").value=dv.dur; $("dv-dur-v").textContent=dv.dur+"ms";
   $("dv-shrink").value=dv.shrink; $("dv-shrink-v").textContent=dv.shrink+"%";
   $("dv-catch").value=dv.catch; $("dv-catch-v").textContent=dv.catch+"px";
+  $("dv-swapCatch").value=dv.swapCatch; $("dv-swapCatch-v").textContent=dv.swapCatch+"px";
   $("dv-hotDur").value=dv.hotDur; $("dv-hotDur-v").textContent=dv.hotDur+"ms";
   $("dv-delta").value=dv.delta; $("dv-delta-v").textContent=dv.delta+"px";
   $("dv-zoneMin").value=dv.zoneMin; $("dv-zoneMin-v").textContent=dv.zoneMin+"px";
@@ -22835,6 +22869,7 @@ function devVarInput(key,suffix){
 }
 devVarInput("dur","ms"); devVarInput("shrink","%"); devVarInput("catch","px");
 devVarInput("hotDur","ms"); devVarInput("delta","px"); devVarInput("zoneMin","px");
+devVarInput("swapCatch","px");
 /* SIZE-TRIAL（3.3・決定後に撤去）。寸法は CSS 変数と tokensWidth() の両方に効くので、
    applyMetrics() で流し込み直してから縮小率を測り直す。問題画面が非表示のあいだは
    applyScale() 側のガード（3.1）が弾くので、ここで fit() を呼んでも壊れない
