@@ -208,6 +208,25 @@ button:active{background:var(--edge)}
  border:1.5px solid color-mix(in srgb,var(--paper) 34%,transparent);
  color:var(--paper);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .iconbtn:active{background:color-mix(in srgb,var(--paper) 12%,transparent)}
+/* 丸ボタンの右肩に重ねる数字（ヒントの残数）。トレイの .chip .stock と同じ
+   「右上に小さく数字」だが、あちらは面の中に置くだけ、こちらは丸の線にかかる。
+   箱の大きさは中身によらず固定にする ―― 下の mask の穴と位置を合わせるため
+   （"0" と "999" で幅が変わると穴がずれる）*/
+#hint{position:relative}
+.stocknum{position:absolute;top:-1px;right:-3px;width:22px;height:15px;
+ font-size:11px;font-weight:700;line-height:15px;text-align:center;
+ color:var(--paper);font-variant-numeric:tabular-nums;pointer-events:none}
+/* 丸の線は border ではなく ::before に描き、数字のところだけ mask で抜く。
+   border のままだと線が数字を貫く。数字の背後を塗って隠す手もあるが、
+   地がグラデ＋模様なので四角い当て布が見えてしまう。
+   線の指定は .iconbtn の border と同じ値（見た目を他の丸ボタンと揃えるため）。
+   穴の半径 13.5px は「3 桁（999 / 100）の行ボックスの角までの距離 12.3px」＋余裕。
+   12.5px だと余裕が 0.2px しかなく、端末の字形の差で線が数字に触りうる */
+#hint{border-color:transparent}
+#hint::before{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+ border:1.5px solid color-mix(in srgb,var(--paper) 34%,transparent);
+ -webkit-mask:radial-gradient(circle 13.5px at calc(100% - 8px) 6.5px,transparent 99%,#000 100%);
+ mask:radial-gradient(circle 13.5px at calc(100% - 8px) 6.5px,transparent 99%,#000 100%)}
 /* メニュー (三本線) は枠なしの線だけ */
 .plainbtn{width:var(--btnW);height:var(--btnW);padding:0;border:0;background:none;color:var(--paper);
  display:flex;align-items:center;justify-content:center;flex:0 0 auto;opacity:.9}
@@ -359,6 +378,13 @@ button:active{background:var(--edge)}
  border:1px solid var(--edge);border-radius:11px;padding:9px 12px;display:none}
 .hintbox.show{display:block}
 .hintbox code{color:var(--paper);font-family:inherit;font-weight:700}
+/* ヒントの操作はボックスの中に置く（丸ボタンは「次へ」だけを担う）。
+   段階表示もここ ―― ボタン下のラベルは読み上げ専用で目には見えないため */
+.hintbar{display:flex;align-items:center;justify-content:space-between;gap:8px;
+ margin-top:8px;padding-top:8px;border-top:1px solid var(--edge)}
+.hintbar button{font-size:12px;padding:5px 10px;min-height:0}
+.hintbar button:disabled{color:var(--slate);opacity:.5;cursor:not-allowed;background:none}
+.hintbar .hintlv{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
 
 /* ── 正解カード（.field の下に出る細いカード。画面は覆わない） ── */
 #win{flex:0 0 auto;display:flex;flex-direction:column;gap:9px;margin-bottom:13px;
@@ -491,7 +517,10 @@ button:active{background:var(--edge)}
             <path d="M12 3.2a5.9 5.9 0 0 0-3.5 10.7c.7.5 1.1 1.3 1.1 2.1h4.8c0-.8.4-1.6 1.1-2.1A5.9 5.9 0 0 0 12 3.2Z"/>
             <path d="M9.9 18.6h4.2"/><path d="M10.7 21h2.6"/>
           </svg>
+          <!-- 見えない読み上げ用のラベル。段階と残数はここで伝える -->
           <span class="btnlabel" id="hintlabel">ヒント</span>
+          <!-- 目に見える残数。読み上げは #hintlabel が担うので aria からは外す -->
+          <span class="stocknum" id="hintstock" aria-hidden="true"></span>
         </button>
       </div>
       <div class="tray" id="tray"></div>
@@ -628,7 +657,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="4.6";
+const APP_VERSION="4.7";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -21934,6 +21963,9 @@ function conOf(p){
   return {op:OPOF[p.rc[0]],k};
 }
 const CHAL_AT=100;
+/* ヒントの残数の初期値。**テスト期間の暫定値**（GAME-SPEC 9）。
+   初期値も丸めの閾値も、書くのはここ 1 箇所だけにする */
+const HINT_START=100, HINT_K=1000;
 
 /* ═══ 進捗（端末に保存） ═══ */
 const SAVE_KEY="make10.progress.v4";
@@ -21946,7 +21978,9 @@ const G={ci:0,cleared:0,heldC:[],heldT:[],heldF:[],tap:false,fact:false,vib:true
   // 問題ごとに「見たヒントの最大段階」。セッション変数の hintMax だけだと画面を
   // 離れた時点で消え、解き直すと倍率が戻ってしまう（G.best は最高点だけを残すので
   // 一度でも抜け道を通ればその点数が永久に残る）。端末に残して塞ぐ
-  hints:{}};
+  hints:{},
+  // ヒントの残数。段階を「初めて」開くたびに 1 減る（見返しは無料。GAME-SPEC 5-4）
+  hintStock:HINT_START};
 function load(){
   try{
     const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
@@ -21959,6 +21993,9 @@ function load(){
       G.scoreOn=!!s.scoreOn;
       if(Array.isArray(s.seen))G.seen=s.seen;
       if(s.hints&&typeof s.hints==='object')G.hints=s.hints;
+      // 4.7 で追加。項目が無い保存データは初期値で始める（0 にはしない）
+      G.hintStock=typeof s.hintStock==="number"&&isFinite(s.hintStock)
+        ?Math.max(0,Math.floor(s.hintStock)):HINT_START;
       // 既定値とマージする。新しいスライダーを増やしたときに、古い保存データに
       // 無いキーが undefined のまま残って NaN 化する（--zoneW/--zoneHotW が壊れる）
       // のを防ぐ。今後キーを増やしてもこの形のままでよい
@@ -22735,7 +22772,7 @@ function renderHome(){
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
-    G.ci=0;G.cleared=0;G.heldC=[];G.heldT=[];G.heldF=[];G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.chalShown=[];G.hints={};save();
+    G.ci=0;G.cleared=0;G.heldC=[];G.heldT=[];G.heldF=[];G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.chalShown=[];G.hints={};G.hintStock=HINT_START;save();
     delete b.dataset.armed;s.textContent="進捗をリセット";toast("リセットしました");return}
   b.dataset.armed="1";s.textContent="もう一度押すと消えます";
   setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent="進捗をリセット"}},3500);
@@ -22987,6 +23024,7 @@ function renderStats(){
     ["本編の進み",`${G.ci-G.heldC.length} / ${COURSE.length} 問`],
     ["平均でかかった時間",avg?avg+" 秒":"—"],["いちばん速かった",st.best?st.best+" 秒":"—"],
     ["挑戦モードの進み",`${G.chalDone.length} / ${CHAL.length} 問`],
+    ["ヒントの残り",G.hintStock+" 回"],   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
     ["本編の保留",G.heldC.length+" 問"],["挑戦の保留",G.heldT.length+" 問"],["フリーの保留",G.heldF.length+" 問"]];
   $("statlist").innerHTML=rows.map(([k,v])=>`<div class="kv"><span>${k}</span><b>${v}</b></div>`).join("");
   const bands=[["3-8","やさしい"],["9-13","ふつう"],["14-16","むずかしい"],["17+","挑戦"]];
@@ -23095,27 +23133,59 @@ $("factbtn").onclick=()=>factShow(!G.fact);
 let hintLv=0;
 const pretty=s=>s.replace(/\*/g,"×").replace(/\//g,"÷").replace(/-/g,"−");
 const OPSET=s=>{const u=[];for(const ch of s)if("+-*/^!".includes(ch)&&!u.includes(ch))u.push(ch);return u};
+/* 残数の表示。1000 以上は 1k（1500 も 1k。刻まない）。統計は丸めず実数を出す */
+const hintBadge=n=>n>=HINT_K?Math.floor(n/HINT_K)+"k":""+n;
+/* この問題で到達済みの最大段階。ここまでは何度でも無料で見返せる（端末に残る） */
+const hintReached=()=>G.hints[codeOf(cur)]||0;
+/* 丸ボタンの数字と、読み上げ用ラベル。ラベルは目に見えないので、
+   段階と残数を言葉で持たせる（見える段階表示はボックスの中） */
+function renderHintStock(){
+  $("hintstock").textContent=hintBadge(G.hintStock);
+  $("hintlabel").textContent = hintLv>=3
+    ? `ヒントは 3/3 まで開いています。残り ${G.hintStock}`
+    : `次のヒント ${hintLv+1}/3 を開く。残り ${G.hintStock}`;
+}
+function hintSet(lv){hintLv=Math.max(0,Math.min(3,lv));showHint()}
 function showHint(){
   const b=$("hintbox"), p=cur;
-  if(hintLv===0){b.classList.remove("show");$("hintlabel").textContent="ヒント";return}
+  if(hintLv===0){b.classList.remove("show");b.innerHTML="";renderHintStock();return}
+  let body;
   if(hintLv===1){
     const u=OPSET(p.sol).map(o=>GLYPH[o]);
-    b.innerHTML=`使う記号は <code>${u.join(" ")}</code> です（括弧は${p.sol.includes("(")?"使います":"使いません"}）`;
+    body=`使う記号は <code>${u.join(" ")}</code> です（括弧は${p.sol.includes("(")?"使います":"使いません"}）`;
   }else if(hintLv===2){
-    b.innerHTML=`形はこうです　<code>${pretty(p.sol).replace(/ [−+×÷^] /g," ? ")}</code>`;
+    body=`形はこうです　<code>${pretty(p.sol).replace(/ [−+×÷^] /g," ? ")}</code>`;
   }else{
-    b.innerHTML=`正解の一例　<code>${pretty(p.sol)}</code>`;
+    body=`正解の一例　<code>${pretty(p.sol)}</code>`;
   }
+  // 「前へ」「閉じる」と段階表示はボックスの中。丸ボタンは「次へ」だけを担う
+  b.innerHTML=body+
+    `<div class="hintbar">`+
+    `<button id="hint-prev"${hintLv<=1?" disabled":""}>‹ 前へ</button>`+
+    `<span class="hintlv">${hintLv} / 3</span>`+
+    `<button id="hint-close">閉じる</button></div>`;
+  $("hint-prev").onclick=()=>hintSet(hintLv-1);   // 1 のときは disabled で押せない
+  $("hint-close").onclick=()=>hintSet(0);         // hintMax は下げない（減点は据え置き）
   b.classList.add("show");
-  // ボタンの中身は SVG アイコンなので、段階表示は専用のラベル要素に書く
-  $("hintlabel").textContent = hintLv>=3 ? "ヒント" : `ヒント ${hintLv}/3`;
+  renderHintStock();
 }
 $("hint").onclick=()=>{
-  hintLv=hintLv>=3?0:hintLv+1;
-  hintMax=Math.max(hintMax,hintLv);
-  const code=codeOf(cur);
-  if((G.hints[code]||0)<hintMax){G.hints[code]=hintMax;save()}   // 端末に残す
-  showHint()};
+  if(hintLv>=3)return;                 // 3 で止まる。0 へは回らない
+  const next=hintLv+1;
+  if(next>hintReached()){              // まだ到達していない段階＝ここでだけ 1 消費する
+    if(G.hintStock<=0){
+      // 黙って何も起きないと壊れて見えるので、保留の上限と同じ #sub の警告で伝える
+      $("sub").className="sub warn";
+      $("sub").textContent="ヒントの残りがありません";
+      return;
+    }
+    G.hintStock--;
+    G.hints[codeOf(cur)]=next;         // 端末に残す。解き直しても見返しは無料
+    hintMax=Math.max(hintMax,next);    // 減点（SC.hint）は今までどおり
+    save();
+  }
+  hintSet(next);
+};
 $("codego").onclick=()=>{
   const raw=$("codein").value.trim();
   if(devCode(raw))return;
