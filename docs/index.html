@@ -241,7 +241,7 @@ button:active{background:var(--edge)}
 /* 今回のモックアップでは出さない要素。DOM とハンドラは残し、表示だけ止める。
    JS が .hide を付け外しするものもあるので、ここは id 指定で確実に隠す。
    .top .info は 4.6 でここから外した（問題番号を画面に出すため。GAME-SPEC 5-3）*/
-#rule,.trayrow,#hold,#alt{display:none!important}
+#rule,.trayrow,#alt{display:none!important}
 .readout{flex:1 1 0;min-height:104px;display:flex;flex-direction:column;
  align-items:center;justify-content:center;gap:10px;padding:4px 0}
 /* 数字の見え方は Zen Kaku Gothic New の 700。.eq / .num / .chip はこの値で統一
@@ -374,17 +374,40 @@ button:active{background:var(--edge)}
 .foot button.on{border-color:var(--paper);color:var(--paper)}
 #ghost{position:fixed;pointer-events:none;z-index:99;font-size:34px;font-weight:700;color:var(--paper);
  transform:translate(-50%,-50%) scale(1.22);text-shadow:0 3px 10px rgba(0,0,0,.5)}
-.hintbox{font-size:12.5px;color:var(--slate);line-height:1.6;background:var(--panel);box-shadow:0 8px 22px rgba(0,0,0,.45);
- border:1px solid var(--edge);border-radius:11px;padding:9px 12px;display:none}
+.hintbox{font-size:12.5px;color:var(--paper);line-height:1.6;background:var(--panel);box-shadow:0 8px 22px rgba(0,0,0,.45);
+ border:1px solid var(--edge);border-radius:11px;padding:4px 2px;display:none}
 .hintbox.show{display:block}
-.hintbox code{color:var(--paper);font-family:inherit;font-weight:700}
-/* ヒントの操作はボックスの中に置く（丸ボタンは「次へ」だけを担う）。
-   段階表示もここ ―― ボタン下のラベルは読み上げ専用で目には見えないため */
-.hintbar{display:flex;align-items:center;justify-content:space-between;gap:8px;
- margin-top:8px;padding-top:8px;border-top:1px solid var(--edge)}
-.hintbar button{font-size:12px;padding:5px 10px;min-height:0}
-.hintbar button:disabled{color:var(--slate);opacity:.5;cursor:not-allowed;background:none}
-.hintbar .hintlv{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+/* ラベル（使う記号：/ 形：/ 解答例：）と中身の差は太さだけ。
+   色は .hintbox から継承する ―― 同じ色を 2 箇所に書かない */
+.hintbox code{font-family:inherit;font-weight:700}
+/* ヒントは操作も本文も横 1 行（4.8）。左から ‹ / 段階 / 本文 / › / ×。
+   操作は記号だけ。丸ボタン #hint は「未到達の段階へ進む」、行の › は
+   「到達済みの範囲を進む」で役割が違う（GAME-SPEC 5-4）。
+   幅・高さ・間隔は JS の HINT_ROW から applyMetrics() が流し込む
+   ―― 幅は 360px で最長の解答例が 1 行に収まるように決めた値なので、
+   CSS に直値を書くと 2 箇所管理になる */
+.hintrow{display:flex;align-items:center;gap:var(--hintGap)}
+/* 記号だけのボタン。地も枠も持たない（本文と同じ面の上に置く） */
+.hintrow .hbtn{flex:0 0 auto;width:var(--hintBtnW);height:var(--hintBtnH);padding:0;
+ display:flex;align-items:center;justify-content:center;
+ background:none;border:0;border-radius:9px;color:var(--paper)}
+/* 行の記号は他のアイコンと同じ .ic（stroke-width:1.5・currentColor）。
+   丸ボタンの 28px より小さい 20px なので、描かれる線は 1.5×20/24 = 1.25px
+   ―― 設定画面の .chev（2×16/24 = 1.33px）とほぼ同じ太さになる */
+.hintrow .hbtn .ic{width:var(--hintIcW);height:var(--hintIcW)}
+.hintrow .hbtn:active:not(:disabled){background:var(--edge)}
+.hintrow .hbtn:disabled{color:var(--slate);opacity:.5;cursor:not-allowed;background:none}
+.hintrow .hlv{flex:0 0 auto;font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+/* 本文だけが伸び縮みする。左右の操作は flex:0 0 auto なので位置が動かない。
+   中央寄せは justify-content の safe center ―― 万一あふれたときは
+   中央寄せをやめて左端から見せる（普通の center だと左側がスクロールで
+   たどり着けなくなり、解答例の頭が読めなくなる）。
+   overflow-x は保険 ―― 全 21,238 問の実測では最長でも収まるが、書体が
+   フォールバックしたときに文字を切り落とさず横スクロールに逃がす */
+.hintrow .hbody{flex:1 1 auto;min-width:0;display:flex;justify-content:safe center;
+ overflow-x:auto;scrollbar-width:none}
+.hintrow .hbody>.hbin{flex:0 0 auto;white-space:nowrap}
+.hintrow .hbody::-webkit-scrollbar{display:none}
 
 /* ── 正解カード（.field の下に出る細いカード。画面は覆わない） ── */
 #win{flex:0 0 auto;display:flex;flex-direction:column;gap:9px;margin-bottom:13px;
@@ -450,8 +473,6 @@ button:active{background:var(--edge)}
         <div class="mt">フリープレイ</div></button>
       <button class="mode" id="m-chal"><div class="mi"></div>
         <div class="mt">挑戦</div><div class="mv" id="m-chal-v"></div></button>
-      <button class="mode" id="m-held"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6l-1 5.5 3.5 3v2H6.5v-2l3.5-3z"/><path d="M12 14v6.5"/></svg></div>
-        <div class="mt">保留問題</div><div class="mv" id="m-held-v"></div></button>
     </div>
 
     <div class="share">
@@ -510,7 +531,6 @@ button:active{background:var(--edge)}
             <path d="M18.4 2.2v4.2h-4.2"/>
           </svg>
         </button>
-        <button id="hold">保留</button>
         <button id="alt" class="hide">スキップ</button>
         <button id="hint" class="iconbtn" title="ヒント" aria-label="ヒント">
           <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
@@ -572,22 +592,9 @@ button:active{background:var(--edge)}
       <li><b>本編</b> … 1000問。だんだん難しくなります</li>
       <li><b>フリープレイ</b> … ランダムに出題。何問でも遊べます</li>
       <li><b>挑戦モード</b> … 100問クリアで解放。かなりの難問です</li>
-      <li><b>保留</b> … 分からない問題は保留して、後から解けます（30問まで）</li>
     </ul>
     <h3>ヒント</h3>
     <p>3段階です。押すたびに少しずつ答えに近づきます。</p>
-  </div>
-
-  <div id="heldpick" class="hide sheet">
-    <h2>保留した問題</h2>
-    <div class="modes">
-      <button class="mode" id="hp-course"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></div>
-        <div class="mt">本編</div><div class="mv" id="hp-course-v"></div></button>
-      <button class="mode" id="hp-chal"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8L13.84 9.47L19.8 9.47L14.98 12.97L16.82 18.63L12 15.13L7.18 18.63L9.02 12.97L4.2 9.47L10.16 9.47Z"/></svg></div>
-        <div class="mt">挑戦</div><div class="mv" id="hp-chal-v"></div></button>
-      <button class="mode" id="hp-free"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 9.3c-1.5 0-2.7 1.2-2.7 2.7s1.2 2.7 2.7 2.7c2.7 0 3-5.4 5.6-5.4 1.5 0 2.7 1.2 2.7 2.7s-1.2 2.7-2.7 2.7c-2.7 0-3-5.4-5.6-5.4z"/></svg></div>
-        <div class="mt">フリープレイ</div><div class="mv" id="hp-free-v"></div></button>
-    </div>
   </div>
 
   <div id="stats" class="hide sheet">
@@ -657,7 +664,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="4.7";
+const APP_VERSION="5.0";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -21966,15 +21973,23 @@ const CHAL_AT=100;
 /* ヒントの残数の初期値。**テスト期間の暫定値**（GAME-SPEC 9）。
    初期値も丸めの閾値も、書くのはここ 1 箇所だけにする */
 const HINT_START=100, HINT_K=1000;
+/* 挑戦モードの報酬（5.0）。この問題数をクリアするごとにヒントを 1 個配る。
+   上限は無い。配るのはクリア時だけで、出題（chalShown）では配らない */
+const CHAL_REWARD_N=2;
 
 /* ═══ 進捗（端末に保存） ═══ */
 const SAVE_KEY="make10.progress.v4";
-const G={ci:0,cleared:0,heldC:[],heldT:[],heldF:[],tap:false,fact:false,vib:true,easy:false,theme:'ai',
+const G={ci:0,cleared:0,tap:false,fact:false,vib:true,easy:false,theme:'ai',
   stats:{n:0,sec:0,best:0,band:{}},hist:[],best:{},scoreOn:false,seen:[],swap:{},chalDone:[],
   // 挑戦モードで「出題した」問題のコード。クリアしたかは問わない。chalDone（クリア済み）
-  // と同じ形の配列。抽選はこちらを除外するので、解かずに送った問題も保留した問題も
-  // 二度は出ない（GAME-SPEC 7）
+  // と同じ形の配列。抽選はこちらを除外するので、解かずに送った問題も二度は出ない
+  // （GAME-SPEC 7）
   chalShown:[],
+  // 挑戦の報酬（5.0）。次のヒントまでの端数（0 か 1）だけを持つ。
+  // 「導入時点より後のクリアだけ数える」は、この項目を持たない保存データを 0 で
+  // 始めることで成り立つ ―― 基準となるクリア数を別に保存する必要はない。
+  // chalDone.length から毎回計算する形にはしない（既存プレイヤーに一度に配ってしまう）
+  chalRem:0,
   // 問題ごとに「見たヒントの最大段階」。セッション変数の hintMax だけだと画面を
   // 離れた時点で消え、解き直すと倍率が戻ってしまう（G.best は最高点だけを残すので
   // 一度でも抜け道を通ればその点数が永久に残る）。端末に残して塞ぐ
@@ -22017,10 +22032,12 @@ function load(){
       // 4.5 で追加。項目が無い保存データは chalDone（クリア済み）で埋める。
       // 空のまま始めると、既にクリアした問題が「未出題」として再び出てしまう
       G.chalShown=Array.isArray(s.chalShown)?s.chalShown:G.chalDone.slice();
-      G.heldC=Array.isArray(s.heldC)?s.heldC.slice(0,20)
-             :Array.isArray(s.held)?s.held.slice(0,20):[];   // 旧セーブからの移行
-      G.heldT=Array.isArray(s.heldT)?s.heldT.slice(0,20):[];
-      G.heldF=Array.isArray(s.heldF)?s.heldF.slice(0,50):[];
+      // 5.0 で追加。項目が無い保存データは 0 で始める ―― これが「導入時点」の基準を
+      // 兼ねる。既にクリア済みの分はここに入らないので、いきなり配られることがない。
+      // 5.0 で廃止した保留（held / heldC / heldT / heldF）は、この load() が
+      // キーごとに明示代入する作りなので、保存データに残っていても G には入らない。
+      // 次の save() で JSON からも消える（列挙して捨てる処理は要らない）
+      G.chalRem=(s.chalRem===1)?1:0;
     }
   }catch(e){}
 }
@@ -22100,6 +22117,12 @@ function applyMetrics(){
   s.setProperty("--chipF",MET.chipF+"px");
   s.setProperty("--trayGap",MET.trayGap+"px");
   s.setProperty("--trayPad",MET.trayPad+"px");
+  // ヒント行の寸法（4.8）。normal / compact で分けない ―― 幅 360px で最長の
+  // 解答例が 1 行に収まる値を両モード共通で使う。CSS 変数へ流す経路はここ 1 本
+  s.setProperty("--hintBtnW",HINT_ROW.btnW+"px");
+  s.setProperty("--hintBtnH",HINT_ROW.btnH+"px");
+  s.setProperty("--hintGap",HINT_ROW.gap+"px");
+  s.setProperty("--hintIcW",HINT_ROW.icW+"px");
   return MET;
 }
 /* 式に並ぶトークンの幅の合計（枠は含まない）。DOM は読まない */
@@ -22548,6 +22571,11 @@ function win(){
   const slow = secs>=60;                       // 苦戦ボーナスは控えめに
   const lv = Math.min(3,tier+(slow?1:0));
   lastWin={lv,secs,d:cur.d,hint:hintMax,sc:lastScore,beat:prev>0&&lastScore.pts>prev};
+  // 挑戦の報酬（5.0）。数えるのはここ ―― record() と同じ「クリアが確定する 1 点」で、
+  // solved のガードにより 1 回の正解につき 1 度しか通らない。advance()（つぎへ）では
+  // なく win() に置くのは、ホームへ戻って「つぎへ」を押さなくてもクリアだからである。
+  // 挑戦の問題は chalShown により二度と出題されないので、同じ問題で稼ぐことはできない
+  const gained = (MODE==="chal") && chalReward();
   record(); save();               // 記録はここで 1 回だけ確定する（GAME-SPEC 3）
   document.querySelectorAll(".num").forEach((n,i)=>
     setTimeout(()=>{n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop")},i*70));
@@ -22556,6 +22584,21 @@ function win(){
   if(lv>=3){$("bg").classList.remove("flash");void $("bg").offsetWidth;$("bg").classList.add("flash")}
   if(G.vib)navigator.vibrate?.(lv>=3?[18,40,26]:lv>=2?[16,36,18]:16);
   setTimeout(showWinCard,520);
+  // 正解カードが出てから知らせる（520ms のカードと重ならないように後ろへ置く）。
+  // トーストにしたのは、正解カードの詳細行 #wmeta が「点数を表示する」設定のときしか
+  // 中身を出さないため ―― 既定（scoreOn=false）のプレイヤーに伝わらない
+  if(gained)setTimeout(()=>toast(`ヒントを 1 個もらいました（残り ${G.hintStock}）`),900);
+}
+/* 挑戦を 1 問クリアしたときの計上。CHAL_REWARD_N 問ごとに 1 個配る。
+   端数（G.chalRem）は保存するので、1 問クリアして終了→再開→1 問クリアでも配られる。
+   配ったら true を返す */
+function chalReward(){
+  G.chalRem=(G.chalRem|0)+1;
+  if(G.chalRem<CHAL_REWARD_N)return false;
+  G.chalRem-=CHAL_REWARD_N;
+  G.hintStock++;
+  renderHintStock();              // 丸ボタンのバッジをその場で追従させる
+  return true;
 }
 /* 正解カードは lastWin に確定させた内容を出すだけ。設定などから戻ったときも
    ここを呼び直す（スコアも記録も作り直さない）。点数表示の有無だけは
@@ -22585,7 +22628,7 @@ $("wnext").onclick=()=>{
 
 /* ═══ 進行 ═══ */
 /* 問題画面の番号。本編は「今の位置 / 全体」、挑戦は「出題数 / 全体」で意味が違う。
-   フリー・保留・共有は出さない（GAME-SPEC 5）。分母は定数を書かず配列の長さから取る */
+   フリー・共有は出さない（GAME-SPEC 5）。分母は定数を書かず配列の長さから取る */
 function pmodeText(mode){
   if(mode==="course")return `本編 ${Math.min(G.ci+1,COURSE.length)}/${COURSE.length}`;
   if(mode==="chal")  return `挑戦 ${G.chalShown.length}/${CHAL.length}`;
@@ -22593,7 +22636,7 @@ function pmodeText(mode){
 }
 function loadPuzzle(p){
   // 出題済みを積むのはここ。読み込んだ＝表示した以上は出題済みとする（クリアは問わない）。
-  // 問題を読む経路（開始・つぎへ・べつの問題・保留・共有）はすべてここを通るので、
+  // 問題を読む経路（開始・つぎへ・べつの問題・共有）はすべてここを通るので、
   // 1 箇所で足りる
   if(MODE==="chal"&&!G.chalShown.includes(codeOf(p))){G.chalShown.push(codeOf(p));save()}
   $("pmode").textContent=pmodeText(MODE);   // 書き換えはここだけ（古い表記の残りを作らない）
@@ -22631,9 +22674,6 @@ function nextOf(mode){
   }
   if(mode==="free")return Math.random()<.2?rnd(FREE):rnd(FREE9);
   if(mode==="chal"){const r=chalRemain();return r.length?rnd(r):null}   // null = 全問出題ずみ
-  if(mode==="held"){const c=G.heldC[0];return c?byCode(c):null}
-  if(mode==="heldt"){const c=G.heldT[0];return c?byCode(c):null}
-  if(mode==="heldf"){const c=G.heldF[0];return c?byCode(c):null}
   return rnd(FREE)}
 function record(){
   const s=Math.max(1,Math.round((performance.now()-t0)/1000));
@@ -22652,9 +22692,6 @@ function advance(){
   if(MODE==="chal"&&!G.chalDone.includes(code))G.chalDone.push(code);
   // record() は win() で済んでいる（GAME-SPEC 3）。ここは進行だけを進める
   if(MODE==="course"){G.ci++; if(firstClear)G.cleared++}
-  else if(MODE==="held"){G.heldC.shift(); if(firstClear)G.cleared++}
-  else if(MODE==="heldt"){G.heldT.shift(); if(firstClear)G.cleared++}
-  else if(MODE==="heldf"){G.heldF.shift(); if(firstClear)G.cleared++}
   else if(firstClear)G.cleared++;
   save();
   const n=nextOf(MODE);
@@ -22666,7 +22703,7 @@ function chalEnd(){
   if(MODE!=="chal")return;
   toast(`挑戦モードは全問出題しました（クリア ${G.chalDone.length}/${CHAL.length}）`);
 }
-const SCREENS=["home","play","settings","help","stats","heldpick"];
+const SCREENS=["home","play","settings","help","stats"];
 let SCR="home", retScr="home", exitArm=0;   // retScr = 設定に入る前の画面
 function go(s){
   if(s==="settings"&&(SCR==="home"||SCR==="play"))retScr=SCR;
@@ -22681,7 +22718,6 @@ function go(s){
   if(s==="play")enterPlay();      // #play の hide を外した後。前に呼ぶとまた 0 を測る
   if(s==="settings")renderSettings();
   if(s==="stats")renderStats();
-  if(s==="heldpick")renderHeldPick();
 }
 /* 設定シートで「かんたん表示」「タップで配置する」を切り替えたときに立てる。
    トグルは設定シートにしか無いので、その場では問題画面を描き直せない
@@ -22700,7 +22736,6 @@ function goBack(){
   if(SCR==="play"){go("home");return}
   if(SCR==="settings"){go(retScr);return}
   if(SCR==="help"||SCR==="stats"){go("settings");return}
-  if(SCR==="heldpick"){go("home");return}
   const n=performance.now();
   if(n-exitArm<2500){
     if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.App)
@@ -22740,13 +22775,18 @@ function start(mode){
    戻る矢印は .chev（M9 6l6 6-6 6）を x=12 で左右反転しただけの形にして、
    画面遷移の記号を統一する */
 const ICON_MENU  =`<svg class="ic thick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>`;
-const ICON_BACK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>`;
+/* 山形（‹ ›）のパス。設定画面の遷移矢印 .chev と同じ形で、viewBox の中心 (12,12) に
+   上下対称に収まる（y 6〜18）。ICON_BACK とヒント行の ‹ › が同じ形なので
+   文字列は 1 箇所に持つ ―― 片方だけ直して食い違うのを防ぐ（4.5 と同じ考え方）*/
+const CHEV_L="M15 6l-6 6 6 6", CHEV_R="M9 6l6 6-6 6";
+const ICON_BACK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${CHEV_L}"/></svg>`;
 const ICON_LOCK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 11h11v9h-11z"/><path d="M8.8 11V8a3.2 3.2 0 0 1 6.4 0v3"/></svg>`;
 const ICON_STAR  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8L13.84 9.47L19.8 9.47L14.98 12.97L16.82 18.63L12 15.13L7.18 18.63L9.02 12.97L4.2 9.47L10.16 9.47Z"/></svg>`;
 const ICON_TROPHY=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h10v4a5 5 0 0 1-10 0z"/><path d="M7 6.5H4.5v1.5a3 3 0 0 0 3 3"/><path d="M17 6.5h2.5v1.5a3 3 0 0 1-3 3"/><path d="M12 14v6"/><path d="M8.5 20h7"/></svg>`;
 function renderHome(){
   $("codein").value="";$("codein").placeholder="共有コード（5文字）";
-  const doneC=Math.max(0,G.ci-G.heldC.length);       // 保留中の分はまだ「済み」に数えない
+  // G.ci はクリアでしか進まない（5.0 で保留を廃止し、位置だけ進める経路が無くなった）
+  const doneC=Math.min(G.ci,COURSE.length);
   const pct=Math.floor(doneC/COURSE.length*1000)/10;
   $("cpct").textContent=pct.toFixed(1);
   $("cbar").style.width=Math.max(pct,.6)+"%";
@@ -22764,15 +22804,11 @@ function renderHome(){
   $("m-chal-v").textContent=lk?`あと ${CHAL_AT-G.cleared} 問`
     :chalLeft<=0?"全問クリア"
     :`${G.chalDone.length} / ${CHAL.length}`;
-  const heldTotal=G.heldC.length+G.heldT.length+G.heldF.length;
-  // 0 のときは空文字。#m-held は空でも押せる（heldpick へ遷移）ので件数を出す必要がない。
-  // 淡さ（.lock）は「押せない」の意味に限定するため #m-held には付けない
-  $("m-held-v").textContent=heldTotal?`${heldTotal} 問`:"";
 }
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
-    G.ci=0;G.cleared=0;G.heldC=[];G.heldT=[];G.heldF=[];G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.chalShown=[];G.hints={};G.hintStock=HINT_START;save();
+    G.ci=0;G.cleared=0;G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.chalShown=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
     delete b.dataset.armed;s.textContent="進捗をリセット";toast("リセットしました");return}
   b.dataset.armed="1";s.textContent="もう一度押すと消えます";
   setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent="進捗をリセット"}},3500);
@@ -23021,11 +23057,10 @@ function renderStats(){
   const rows=[
     ...(G.scoreOn?[["累計スコア",totalScore().toLocaleString()+" 点"]]:[]),
     ["解いた問題（ユニーク）",G.seen.length+" 問"],
-    ["本編の進み",`${G.ci-G.heldC.length} / ${COURSE.length} 問`],
+    ["本編の進み",`${Math.min(G.ci,COURSE.length)} / ${COURSE.length} 問`],
     ["平均でかかった時間",avg?avg+" 秒":"—"],["いちばん速かった",st.best?st.best+" 秒":"—"],
     ["挑戦モードの進み",`${G.chalDone.length} / ${CHAL.length} 問`],
-    ["ヒントの残り",G.hintStock+" 回"],   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
-    ["本編の保留",G.heldC.length+" 問"],["挑戦の保留",G.heldT.length+" 問"],["フリーの保留",G.heldF.length+" 問"]];
+    ["ヒントの残り",G.hintStock+" 回"]];   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
   $("statlist").innerHTML=rows.map(([k,v])=>`<div class="kv"><span>${k}</span><b>${v}</b></div>`).join("");
   const bands=[["3-8","やさしい"],["9-13","ふつう"],["14-16","むずかしい"],["17+","挑戦"]];
   const mx=Math.max(1,...bands.map(([b])=>st.band[b]||0));
@@ -23055,21 +23090,7 @@ $("m-chal").onclick=()=>{if(G.cleared<CHAL_AT)return;   // ロック中は反応
   if(!chalRemain().length){
     toast(`挑戦モードは全問出題しました（クリア ${G.chalDone.length}/${CHAL.length}）`);return}
   start("chal")};
-$("m-held").onclick=()=>go("heldpick");
-function renderHeldPick(){
-  // heldpick は「どのバケツが空か」を見て選ぶ画面なので 0 でも件数を出す
-  // （ホームの m-held は空なら何も出さない。扱いを分けている）。
   // .lock は現状維持：空の行は押しても start() が何もしないので「淡い＝押せない」と一致
-  $("hp-course-v").textContent=`${G.heldC.length} / 20`;
-  $("hp-course").classList.toggle("lock",!G.heldC.length);
-  $("hp-chal-v").textContent=`${G.heldT.length} / 20`;
-  $("hp-chal").classList.toggle("lock",!G.heldT.length);
-  $("hp-free-v").textContent=`${G.heldF.length} / 50`;
-  $("hp-free").classList.toggle("lock",!G.heldF.length);
-}
-$("hp-course").onclick=()=>{if(G.heldC.length)start("held")};
-$("hp-chal").onclick=()=>{if(G.heldT.length)start("heldt")};
-$("hp-free").onclick=()=>{if(G.heldF.length)start("heldf")};
 $("back").onclick=()=>goBack();
 $("clear").onclick=()=>clearAll();
 
@@ -23093,22 +23114,6 @@ $("alt").onclick=()=>{
     save(); loadPuzzle(alt);
   }
 };
-function heldArr(){
-  if(MODE==="course"||MODE==="held")return G.heldC;
-  if(MODE==="chal"||MODE==="heldt")return G.heldT;
-  return G.heldF;
-}
-function heldMax(){return (MODE==="course"||MODE==="held"||MODE==="chal"||MODE==="heldt")?20:50}
-const isHeldMode=()=>MODE==="held"||MODE==="heldt"||MODE==="heldf";
-$("hold").onclick=()=>{
-  const arr=heldArr();
-  if(arr.length>=heldMax()&&!isHeldMode()){$("sub").className="sub warn";
-    $("sub").textContent=`保留は${heldMax()}問までです。先に片づけてください`;return}
-  if(isHeldMode()){arr.push(arr.shift())}
-  else{arr.push(codeOf(cur));if(MODE==="course")G.ci++}
-  save();
-  const n=nextOf(MODE);if(!n){chalEnd();go("home");return}
-  loadPuzzle(n)};
 (function(){
   let v=1n,g="";
   for(let n=0;n<=12;n++){ if(n>1)v*=BigInt(n);
@@ -23116,12 +23121,13 @@ $("hold").onclick=()=>{
   $("facttable").innerHTML=`<div class="g">${g}</div>`+
     `<div class="n">( 3! )! は 6! なので 720。階乗は 12! までしか使えません。</div>`;
 })();
-/* モックアップで表示を止めている UI。CSS の #rule,.trayrow,#hold,#alt の
+/* モックアップで表示を止めている UI。CSS の #rule,.trayrow,#alt の
    display:none と対で管理する。CSS は「見た目を消す」、この定数は「機能の状態を
    復元しない」判断に使う。表示を戻すときは両方を同時に変えること。
    4.6 で .top .info（問題番号・問題コード）を表示に戻したので、CSS の並びからも
-   ここからも info を外した */
-const HIDDEN_UI={rule:true,factTable:true,hold:true,alt:true};
+   ここからも info を外した。5.0 で保留を廃止したので hold も外した
+   （#alt「べつの問題」は保留ではないので残す）*/
+const HIDDEN_UI={rule:true,factTable:true,alt:true};
 function factShow(on,persist=true){
   if(persist){G.fact=on; save();}      // 非表示中（persist=false）は保存値を触らない
   $("facttable").classList.toggle("show",on);
@@ -23129,21 +23135,50 @@ function factShow(on,persist=true){
   fit();
 }
 $("factbtn").onclick=()=>factShow(!G.fact);
-/* 段階ヒント: 1=使う演算子 / 2=形（二項演算子を伏せる）/ 3=正解の式 */
+/* 段階ヒント: 1=使う記号 / 2=形（二項演算子を伏せる）/ 3=解答例 */
 let hintLv=0;
 const pretty=s=>s.replace(/\*/g,"×").replace(/\//g,"÷").replace(/-/g,"−");
 const OPSET=s=>{const u=[];for(const ch of s)if("+-*/^!".includes(ch)&&!u.includes(ch))u.push(ch);return u};
+/* 段階 1 で並べる記号。トレイと同じ並び（TRAY 順）に揃える ―― OPSET は
+   式に出てくる順で返すので問題ごとに並びが変わってしまう。括弧は使う問題だけ
+   末尾に足す（使わない問題には何も書かない。否定文は 4.8 で廃止） */
+function hintSymbols(sol){
+  const used=OPSET(sol);
+  const out=[];
+  for(const k of TRAY){
+    if(k==="lp"||k==="rp"){ if(sol.includes("("))out.push(GLYPH[k]); }
+    else if(used.includes(k)) out.push(GLYPH[k]);
+  }
+  return out;
+}
+/* ヒント行の寸法。幅 360px で最長の解答例（全 21,238 問の実測で 195.2px）が
+   1 行に収まるように決めた値なので、CSS へは変数で渡して数値は 1 箇所に持つ
+   （CLAUDE.md 実装のルール）。根拠と幅ごとの表は DESIGN.md 3-1-4 */
+const HINT_ROW={btnW:32,btnH:48,gap:2,icW:20};
+/* ヒント行の操作は SVG（4.9）。文字の ‹ › × は書体の中で上下位置が揃わず、
+   ‹ › が × より 1.13px 低く、3 つとも本文より約 5〜6px 高い位置に描かれていた。
+   設定画面の .chev が「文字の › は書体で位置・太さが揃わないのでインライン SVG に」
+   と同じ結論を出しているので、それに倣って 3 つとも SVG にする。
+   いずれも viewBox の中心 (12,12) に上下対称なので、箱の中央＝線の中央になる */
+const ICON_HPREV =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${CHEV_L}"/></svg>`;
+const ICON_HNEXT =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${CHEV_R}"/></svg>`;
+const ICON_HCLOSE=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10"/><path d="M17 7l-10 10"/></svg>`;
 /* 残数の表示。1000 以上は 1k（1500 も 1k。刻まない）。統計は丸めず実数を出す */
 const hintBadge=n=>n>=HINT_K?Math.floor(n/HINT_K)+"k":""+n;
 /* この問題で到達済みの最大段階。ここまでは何度でも無料で見返せる（端末に残る） */
 const hintReached=()=>G.hints[codeOf(cur)]||0;
+/* 丸ボタンを押したときに行く段階。「まだ見ていない次」＝到達済みの先へ進む。
+   到達 2・表示 1 で押すと 2 ではなく 3 へ飛ぶ（到達済みを戻るのは行の › の役目）。
+   3 で頭打ち ―― 到達 3 で閉じている状態から押すと 3 を無料で開き直す */
+const hintNextLv=()=>Math.min(3,Math.max(hintLv,hintReached())+1);
 /* 丸ボタンの数字と、読み上げ用ラベル。ラベルは目に見えないので、
    段階と残数を言葉で持たせる（見える段階表示はボックスの中） */
 function renderHintStock(){
   $("hintstock").textContent=hintBadge(G.hintStock);
-  $("hintlabel").textContent = hintLv>=3
+  const nx=hintNextLv();
+  $("hintlabel").textContent = (hintLv>=3)
     ? `ヒントは 3/3 まで開いています。残り ${G.hintStock}`
-    : `次のヒント ${hintLv+1}/3 を開く。残り ${G.hintStock}`;
+    : `ヒント ${hintLv}/3 を表示中。次は ${nx}/3。残り ${G.hintStock}`;
 }
 function hintSet(lv){hintLv=Math.max(0,Math.min(3,lv));showHint()}
 function showHint(){
@@ -23151,30 +23186,35 @@ function showHint(){
   if(hintLv===0){b.classList.remove("show");b.innerHTML="";renderHintStock();return}
   let body;
   if(hintLv===1){
-    const u=OPSET(p.sol).map(o=>GLYPH[o]);
-    body=`使う記号は <code>${u.join(" ")}</code> です（括弧は${p.sol.includes("(")?"使います":"使いません"}）`;
+    body=`使う記号：<code>${hintSymbols(p.sol).join(" ")}</code>`;
   }else if(hintLv===2){
-    body=`形はこうです　<code>${pretty(p.sol).replace(/ [−+×÷^] /g," ? ")}</code>`;
+    body=`形：<code>${pretty(p.sol).replace(/ [−+×÷^] /g," ? ")}</code>`;
   }else{
-    body=`正解の一例　<code>${pretty(p.sol)}</code>`;
+    body=`解答例：<code>${pretty(p.sol)}</code>`;
   }
-  // 「前へ」「閉じる」と段階表示はボックスの中。丸ボタンは「次へ」だけを担う
-  b.innerHTML=body+
-    `<div class="hintbar">`+
-    `<button id="hint-prev"${hintLv<=1?" disabled":""}>‹ 前へ</button>`+
-    `<span class="hintlv">${hintLv} / 3</span>`+
-    `<button id="hint-close">閉じる</button></div>`;
+  // ‹ 段階 本文 › × を横 1 行に。‹ は前の段階へ、
+  // › は到達済みの範囲を進む（未到達へは行かない。そちらは丸ボタン）
+  const canPrev = hintLv>1, canNext = hintLv<hintReached();
+  b.innerHTML=
+    `<div class="hintrow">`+
+    `<button class="hbtn" id="hint-prev" aria-label="前の段階"${canPrev?"":" disabled"}>${ICON_HPREV}</button>`+
+    `<span class="hlv">${hintLv} / 3</span>`+
+    // 中央寄せは .hbody 側の justify-content:safe center。本文は 1 つの箱に包む
+    `<span class="hbody"><span class="hbin">${body}</span></span>`+
+    `<button class="hbtn" id="hint-next" aria-label="次の段階"${canNext?"":" disabled"}>${ICON_HNEXT}</button>`+
+    `<button class="hbtn" id="hint-close" aria-label="閉じる">${ICON_HCLOSE}</button></div>`;
   $("hint-prev").onclick=()=>hintSet(hintLv-1);   // 1 のときは disabled で押せない
+  $("hint-next").onclick=()=>hintSet(hintLv+1);   // 到達済みの範囲なので消費しない
   $("hint-close").onclick=()=>hintSet(0);         // hintMax は下げない（減点は据え置き）
   b.classList.add("show");
   renderHintStock();
 }
 $("hint").onclick=()=>{
-  if(hintLv>=3)return;                 // 3 で止まる。0 へは回らない
-  const next=hintLv+1;
+  if(hintLv>=3)return;                 // 3 を表示中は何も起きない。0 へは回らない
+  const next=hintNextLv();             // 未到達へ進む（到達 2・表示 1 なら 3 へ）
   if(next>hintReached()){              // まだ到達していない段階＝ここでだけ 1 消費する
     if(G.hintStock<=0){
-      // 黙って何も起きないと壊れて見えるので、保留の上限と同じ #sub の警告で伝える
+      // 黙って何も起きないと壊れて見えるので、#sub の赤字で伝える
       $("sub").className="sub warn";
       $("sub").textContent="ヒントの残りがありません";
       return;
