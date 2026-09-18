@@ -65,11 +65,18 @@ body{background:linear-gradient(180deg,
  display:flex;align-items:center;justify-content:center;overflow:hidden;
  background:var(--panel);border-top:min(1px,var(--bannerH)) solid var(--edge);
  font-size:11px;color:#3E5170;letter-spacing:.04em}
-#gear{position:absolute;top:10px;right:12px;z-index:50;width:var(--gearW);height:var(--gearW);
- border-radius:11px;font-size:19px;line-height:1;padding:0;display:flex;
- align-items:center;justify-content:center;opacity:.85}
+/* 画面の左上（戻る）と右上（設定）。#app 直下に 1 つずつ置き、go() が出し分ける。
+   位置だけを持ち、大きさ・枠・地・透明度は .plainbtn に任せる（5.1）――
+   問題画面の #menu と同じ class なので、見た目の指定が 1 か所で済む。
+   top は 12px。問題画面の .top の中の #back / #menu と同じ高さに並ぶ */
+#gear{position:absolute;top:12px;right:12px;z-index:50}
+#navback{position:absolute;top:12px;left:12px;z-index:50}
 .sheet{flex:1 1 auto;overflow-y:auto;padding-bottom:12px;min-height:0}
-.sheet h2{font-size:17px;font-weight:700;margin:2px 0 12px}
+/* 見出しは左上の #navback と同じ帯に並べる。ボタンは #app 直下に 1 つしか
+   置かないので、重ならないように見出し側をボタンの幅ぶん右へ寄せる。
+   高さを --btnW に合わせて中央寄せにすると、‹ と文字の中心が揃う */
+.sheet h2{font-size:17px;font-weight:700;margin:0 0 8px;
+ padding-left:var(--btnW);min-height:var(--btnW);display:flex;align-items:center}
 /* 節見出し。本文（--paper の 85%）より強くするため --paper・14px・700（3.0） */
 .sheet h3{font-size:14px;font-weight:700;color:var(--paper);margin:18px 0 7px}
 .sheet p,.sheet li{font-size:13px;line-height:1.75;color:var(--paper);opacity:.85}
@@ -151,8 +158,10 @@ body{background:linear-gradient(180deg,
 #app{position:relative;z-index:1;width:100%;max-width:430px;display:flex;flex-direction:column;
  height:100dvh;overflow:hidden;
  padding:12px 12px calc(var(--bannerGap) + var(--bannerH))}
-/* プレイ画面には専用のメニューボタン (#menu) があるので、共通の歯車は重ねない */
-#app:has(> #play:not(.hide)) #gear{display:none}
+/* #gear / #navback の出し分けは go() が .hide で行う（5.1）。
+   4.5 まではプレイ画面だけを CSS の :has で除いていたが、出す画面が
+   画面ごとに違う（左上＝設定/統計/遊び方、右上＝ホームのみ）ので、
+   SCREENS を切り替える go() の 1 か所にまとめた */
 #home{overflow-y:auto}
 .bottom{position:relative;flex:0 0 auto}
 .overlays{position:absolute;bottom:100%;left:0;right:0;margin-bottom:8px;
@@ -453,8 +462,10 @@ button:active{background:var(--edge)}
 <body data-theme="ai">
 <div id="bg"></div>
 <div id="app">
-  <!-- 中身は go() が ICON_MENU / ICON_BACK に差し替える（絵文字は端末で形が変わる）-->
-  <button id="gear"></button>
+  <!-- 左上＝戻る／右上＝設定。役割を固定し、go() が画面ごとに出し分ける（5.1）。
+       中身は初期化時に一度だけ流し込む（絵柄は ICON_BACK / ICON_MENU の 1 定義）-->
+  <button id="navback" class="plainbtn" title="戻る" aria-label="戻る"></button>
+  <button id="gear" class="plainbtn" title="設定" aria-label="設定"></button>
 
   <!-- ホーム -->
   <div id="home">
@@ -664,7 +675,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="5.0";
+const APP_VERSION="5.1";
 const BLOB=`§COURSE
 5836,N,3,3,0,0,5 + 8 + 3 - 6
 7982,N,3,4,0,0,7 + 9 - 8 + 2
@@ -22072,7 +22083,7 @@ function pwr(a,b){if(!isInt(b))return null;const e=b.n,m=e<0n?-e:e;if(m>24n)retu
 const TOKEN_METRICS={
   // num/op/fac/par = 箱幅、numF/opF/facF/parF = 文字サイズ、h = トークンの高さ、
   // facMl = .tok.fac の margin-left（左の数字・括弧への食い込み。負の値）、
-  // btn = .iconbtn / .plainbtn、gear = #gear、ic = アイコン SVG の描画サイズ（.ic）、
+  // btn = .iconbtn / .plainbtn（#gear / #navback もこれ）、ic = アイコン SVG（.ic）、
   // chipF = トレイの記号の文字サイズ、trayGap = .tray の gap、trayPad = .tray の padding。
   // btn は箱の大きさしか変えないので、中の線の大きさは ic で別に持つ。
   //
@@ -22082,11 +22093,11 @@ const TOKEN_METRICS={
   // 項目によっては縮み方が揃っていない。
   // 調整用のスライダー（SIZE-TRIAL、3.3〜4.2）は値が決まったので 4.3 で撤去した。
   normal :{num:32,numMx:2,op:30,fac:19,par:16,h:59,facMl:-3,
-           numF:52,opF:32,facF:39,parF:42,btn:52,gear:42,ic:28,
+           numF:52,opF:32,facF:39,parF:42,btn:52,ic:28,
            chipF:38,trayGap:4,trayPad:9},
   // numMx だけはスライダーを持たなかった項目で、2.5 の実機調整の値をそのまま引き継ぐ
   compact:{num:29,numMx:1,op:24,fac:17,par:12,h:50,facMl:-3,
-           numF:44,opF:29,facF:34,parF:36,btn:44,gear:38,ic:26,
+           numF:44,opF:29,facF:34,parF:36,btn:44,ic:26,
            chipF:33,trayGap:4,trayPad:8},
 };
 const COMPACT_MQ="(max-height:700px)";
@@ -22112,7 +22123,6 @@ function applyMetrics(){
   s.setProperty("--facF",MET.facF+"px");
   s.setProperty("--parF",MET.parF+"px");
   s.setProperty("--btnW",MET.btn+"px");
-  s.setProperty("--gearW",MET.gear+"px");
   s.setProperty("--icW",MET.ic+"px");
   s.setProperty("--chipF",MET.chipF+"px");
   s.setProperty("--trayGap",MET.trayGap+"px");
@@ -22710,10 +22720,13 @@ function go(s){
   SCR=s;
   for(const k of SCREENS){const el=$(k); if(el)el.classList.toggle("hide",k!==s)}
   if(s!=="play")$("win").classList.add("hide");   // 画面を離れたら正解カードは必ず隠す
-  // 絵文字ではなく SVG を差し替える。textContent が無くなるので名前も付け直す
-  const gearIsSettings=(s==="home"||s==="play");
-  $("gear").innerHTML=gearIsSettings?ICON_MENU:ICON_BACK;
-  $("gear").title=$("gear").ariaLabel=gearIsSettings?"設定":"戻る";
+  /* 左上＝戻る、右上＝設定。役割は固定で、出すか出さないかだけを切り替える（5.1）。
+     - ホーム    : 左なし（戻る先が無い）／右に三本線
+     - 問題画面  : .top の中の #back と #menu が担うので、どちらも出さない
+     - 設定/統計/遊び方 : 左に戻る／右は空（その画面自体が設定なので開く意味がない）*/
+  const isSheet=(s==="settings"||s==="help"||s==="stats");
+  $("navback").classList.toggle("hide",!isSheet);
+  $("gear").classList.toggle("hide",s!=="home");
   if(s==="home")renderHome();
   if(s==="play")enterPlay();      // #play の hide を外した後。前に呼ぶとまた 0 を測る
   if(s==="settings")renderSettings();
@@ -23050,7 +23063,8 @@ $("dv-copy").onclick=async()=>{
   catch(e){$("dv-copyline").select()}
 };
 $("go-stats").onclick=()=>go("stats");
-$("gear").onclick=()=>{ (SCR==="home"||SCR==="play") ? go("settings") : goBack(); };
+$("gear").onclick=()=>go("settings");     // 右上は「設定を開く」だけ（5.1）
+$("navback").onclick=()=>goBack();        // 左上は「戻る」だけ
 $("menu").onclick=()=>go("settings");   // プレイ画面の三本線。既存の設定シートを開く
 function renderStats(){
   const st=G.stats, avg=st.n?Math.round(st.sec/st.n):0;
@@ -23234,7 +23248,9 @@ $("codego").onclick=()=>{
   MODE="share";loadPuzzle(p);go("play")};
 
 load();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
-$("menu").innerHTML=ICON_MENU;   // #gear と同じ 1 つの定義から流し込む（4.5）
+// 絵柄は 1 定義から流し込む（4.5）。役割が固定になったので差し替えは起きない（5.1）
+$("menu").innerHTML=ICON_MENU; $("gear").innerHTML=ICON_MENU;
+$("navback").innerHTML=ICON_BACK;
 // 階乗表ボタン (#factbtn) は .trayrow ごと非表示。開いた状態の保存値があっても
 // 復元すると閉じる手段が無くなるので、非表示中は開かない（保存値は保持）
 factShow(HIDDEN_UI.factTable?false:G.fact,false);
