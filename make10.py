@@ -8,6 +8,7 @@
     python make10.py curate     # 冗長解にフラグを立て、代表解を選出 (第6章)
     python make10.py constrain  # 演算子の使用回数による制約付き問題を生成 (第6-B章)
     python make10.py export     # puzzles からゲーム用 JSON を出力 (第8章)
+    python make10.py blob       # docs/index.html の BLOB を組み直す (第8-B章)
     python make10.py verify     # 独立パーサで display 文字列を全件再検証
 
 dump はまだ実装していない。
@@ -21,6 +22,8 @@ dump はまだ実装していない。
 from __future__ import annotations
 
 import argparse
+import collections
+import hashlib
 import json
 import sqlite3
 import sys
@@ -811,32 +814,155 @@ def run_annotate(db_path, progress=None):
 # どのルールで何件消えたか集計できるようにする。
 
 
-def classify_nullified(tree, val):
-    """6-1: 結果に影響しない部分式を含むか。理由文字列 or None を返す。
+def _nullified_by_pattern(tree, val):
+    """6-1 の補完: 部分式そのものが結果に影響しない形を、パターンで捕まえる。
 
-    x が演算子を1つ以上含む場合のみ対象:
         x * 0 / 0 * x  ,  x ^ 0  ,  1 ^ x
-    ( '0 * x の結果に階乗を付けただけ' も、内側の '*' ノードを走査して検出する )
+
+    **これは列挙の名残ではなく、必要な補完である** (5.2 で位置づけを整理)。
+    主判定の classify_nullified() は「その桁を別の値に替えても値が変わらないか」
+    を見るが、定義域が狭い部分式ではその桁を動かせず判定できない。例:
+
+        3639  ( 3! )! ^ ( 6 - 3! ) + 9      ( = 720 ^ 0 + 9 )
+        5430  5 + ( 4 + ( 3! )! ^ 0 )
+
+    `X ^ 0` は X が何であれ 1 なので X は寄与していないが、`( d! )!` は d=3 以外
+    すべて無効 (0!/1!/2! は生成時に枝刈り、4! = 24 から 24! は上限超え) なので、
+    桁を差し替える判定では「有効な差し替えが無い」になってしまう。実測でこの型の
+    取りこぼしが 2,100 本あった。**桁単位の判定は「差し替えられる桁」にしか使えず、
+    定義域が狭い部分式は部分式単位で見るしかない。** 両方を OR で使う。
     """
     for n in iter_nodes(tree):
         if n[0] != "bin":
             continue
         op, a, b = n[1], n[2], n[3]
         if op == "*":
-            if val(a) == 0 and has_operator(b):
+            if val(a) == 0:
                 return "6-1: 0 * x"
-            if val(b) == 0 and has_operator(a):
+            if val(b) == 0:
                 return "6-1: x * 0"
+        elif op == "/":
+            if val(a) == 0:
+                # 0 / x は 0。x は「0 でなければ何でもよい」数字で、0 ^ x と
+                # まったく同じ事情でここに置いてある ―― 桁単位の一般判定では
+                # 除数の桁を動かせないことがあるため捕まらない。例:
+                #     0319  0 / ( 3! )! + 1 + 9
+                # 除数 ( 3! )! = 720 が何であっても結果は 0 なので 3 は消えて
+                # いるが、( d! )! は d=3 以外すべて無効なので差し替えられない。
+                # 3639 の X ^ 0 と同じ「部分式としては潰れているが桁単位では
+                # 判定できない」ケース。
+                # **元の 6-1 は / を一切見ていなかった。** 5.1 までは 0 * x が
+                # 葉どうしで素通りしていたので 0 / x が解答例に選ばれる理由が無く、
+                # 穴が露出していなかっただけである。
+                # 除数が 0 になる解は存在しない (_apply_bin が INVALID を返すので
+                # 生成されない。実測: 割り算を含む 94,573 解で除数 0 のノードは
+                # 0 件)。したがって 0 / 0 を気にする必要はない
+                return "6-1: 0 / x"
         elif op == "^":
-            if val(b) == 0 and has_operator(a):
+            if val(b) == 0:
+                # ここは 0 ^ 0 も通る。x ^ 0 が値 1 になるのは底によらないため、
+                # 底が 0 かどうかで分ける必要がない（0 ^ 0 を別途足さないこと）
                 return "6-1: x ^ 0"
-            if val(a) == 1 and has_operator(b):
+            if val(a) == 1:
                 return "6-1: 1 ^ x"
+            if val(a) == 0:
+                # 0 ^ x (x != 0) は 0。x は「0 でなければ何でもよい」数字で、
+                # 0 / x と実質同じだが、**桁単位の一般判定では捕まらない** ――
+                # x を 0 に差し替えると 0 ^ 0 = 1 になって値が変わるため、
+                # 規則上は「寄与している」と出てしまう。捕まらない理由は
+                # 「0 ^ 0 が定義されていて 0 / 0 が未定義」という定義の都合だけで、
+                # プレイヤーから見れば同じ。3639 と同じく部分式としては潰れて
+                # いるので、パターン側で受け持つ。
+                # **一般判定の側に例外を入れないこと** ―― 「差し替えで値が
+                # 変わるか」という規則に例外を作ると基準が濁る
+                return "6-1: 0 ^ x"
+    return None
+
+
+def classify_nullified(tree, digits, base):
+    """6-1: 数字を潰している解か。理由文字列 or None を返す。
+
+    **判定の基準 (5.2 で承認):**
+
+        その数字を別の値に変えても式の値が変わらないなら、その数字は寄与していない
+
+    4 つの数字の位置を順に取り、その位置だけを 0〜9 の他の値に差し替えて
+    評価し、**有効に評価できた差し替えのすべてで結果が変わらなければ**
+    その数字は潰されていると判定する。1 つでも潰れていれば解ごと 6-1 とする。
+
+    **なぜパターンの列挙をやめたか。** 5.1 までは `0 * x` / `x * 0` / `x ^ 0` /
+    `1 ^ x` の 4 つを列挙し、しかも `and has_operator(...)` 付きで葉どうしには
+    発火しなかった。そこを 6-2 の `x * 1` が偶然せき止めていたが、6-2 を廃止すると
+    `1 ^ 6` が露出し、葉に広げると今度は `0 / x` へ、それも塞げば `0 ^ x` へ、と
+    解答例が未対応の形へ移り続けた。**パターンを足す限り「次に何が漏れているか」が
+    分からない。** そこで基準そのものを実装した。
+
+    **評価できない差し替えは判定から除く** (0 除算、階乗の引数が負や非整数や上限超え
+    など)。基準は式の「値」についての話で、「評価できない」は値ではないため。
+    これを「値が違う」と数えると、0 除算を避けるだけの除数が寄与を主張できてしまう
+    (実測で旧判定の取りこぼしが 26,764 本に膨らんだ)。逆に「有効な差し替えが 1 つも
+    無い」場合を「潰されている」と数えるのも誤りで、
+
+        3343  ( 3! )! / ( 3! * 4 * 3 )
+
+    の最初の 3 のように、**差し替えられないだけで式の値を決めている**数字を
+    誤って落とす (実測 27,507 本に誤検出が混ざった)。
+    「差し替えられない」と「寄与していない」は別物である。よって、有効な差し替えが
+    1 つも無い桁は「判定できない」として寄与している側に倒す。その取りこぼしは
+    _nullified_by_pattern() が部分式単位で補う。
+
+    **`0 ^ 0` に例外を設けないこと。** 5.2 の途中で「両辺とも 0 でなければ成立
+    しないので寄与している」として除外したが、これは**指数側だけを見て底側を
+    見落とした誤りだった**。底を何に変えても `x ^ 0 = 1` なので底は寄与していない。
+    基準に照らせば捕まるのが正しい。数字を潰す形しか無い問題は解が全滅するが、
+    6-4 (problem 単位) と 6-5 (puzzle 単位) の救済に任せる。実例は 0075
+    (数字 0,0,7,5) で、6 解すべてが `0 * 7` などで 7 を潰し、6-4 が
+    `( 0! + ( 0 * 7 )! ) * 5` を 1 件だけ残す。0009 (数字 0,0,0,9) は `0!` で
+    1 を作れるので全滅しない (562 解中 189 解が非冗長)。
+
+    **`0 ^ x` は単独では 6-1 に該当しない。** 「0 ^ 7 は 7 を何に変えても 0」は
+    誤りで、指数を 0 にすると `0 ^ 0 = 1` になり値が変わる。底も指数も寄与して
+    いる。一般判定へ切り替える理由は「0 ^ x という穴がある」ことではなく、
+    **「パターン列挙では何が漏れているか分からない」**ことにある。
+
+    なお、判定自体を部分式単位に一般化する案 (各ノードの値を上書きして結果が
+    変わるかを見る) も検討したが、(桁単位の判定 ∪ パターン) で取りこぼしが 0 本に
+    なったため採らなかった。**将来またパターン列挙が破綻したときの逃げ道として
+    選択肢は存在する。**
+    """
+    for pos in range(len(digits)):
+        orig = digits[pos]
+        contributes = False
+        seen_valid = False
+        for d in range(10):
+            if d == orig:
+                continue
+            sub = list(digits)
+            sub[pos] = d
+            v = build_evaluator(sub)(tree)[0]
+            if v is INVALID:
+                continue                  # 評価できない差し替えは判定から除く
+            seen_valid = True
+            if v != base:
+                contributes = True
+                break
+        if not contributes and seen_valid:
+            return "6-1: digit#%d not contributing" % pos
     return None
 
 
 def classify_identity(tree, val):
     """6-2: 値を変えない演算を含むか。理由文字列 or None を返す。
+
+    **5.2 でこの判定は使わなくなった (run_curate から呼んでいない)。**
+    関数を残してあるのは、また同じ判断をしないための記録として。
+    理由: 数字 4 つは全部使わなければならないので、0 を消費する最も自然な形が
+    `+ 0` である。それを「値を変えない」として除外すると、たとえば 0025 の
+    解答例が `0 + 0 + 2 * 5` (score 4) ではなく `0 - ( 0 - 2 * 5 )` (score 5)
+    になり、人間が書かない式が解答例になってしまった (実測 2,423/9,161 = 26.4%
+    の問題が該当)。6-1 (classify_nullified) は逆に残す必要がある ―― 外すと
+    1279 が `1 ^ ( 2 + 7 ) + 9` になり、`( 2 + 7 )` が丸ごと 1 に潰れて
+    2 と 7 が式から消え、4 数字を使う問題として成立しないため。
 
         x + 0 / 0 + x , x - 0 , x * 1 / 1 * x , x / 1 , x ^ 1
         値が 1 または 2 のものへの階乗 (1! = 1, 2! = 2)
@@ -896,8 +1022,30 @@ def _repr_sort_key(row):
     )
 
 
+# 列: 0 id  1 problem_id  2 shape  3 display  4 cnt_add  5 cnt_sub  6 cnt_mul
+#     7 cnt_div  8 cnt_pow  9 cnt_fac  10 cnt_paren  11 score
+# score は 6-4 の救済で「最も簡単な解」を選ぶために要る (5.2)。末尾に足したので
+# _repr_sort_key など既存の添字は変わらない
 _CURATE_COLS = ("SELECT id, problem_id, shape, display, cnt_add, cnt_sub, "
-                "cnt_mul, cnt_div, cnt_pow, cnt_fac, cnt_paren FROM solutions")
+                "cnt_mul, cnt_div, cnt_pow, cnt_fac, cnt_paren, score "
+                "FROM solutions")
+
+
+def _rescue_sort_key(row):
+    """6-4 の救済で残す 1 件の選び方 (5.2)。_CURATE_COLS の行を取る。
+
+    **順序は _example_key と同じ「スコア最小 -> 読みやすさ -> id」。**
+    救済されるのは「その problem の解が全部 数字を潰す形」という問題で、
+    どうせ潰す形しか無いなら、その中で最も簡単なものを見せるべきである。
+    5.2 の途中までは _repr_sort_key (読みやすさだけ) で選んでいたため、
+    439 件中 171 件で最小スコアでない解を救済していた。例:
+
+        9949  採用 15 ( 9 - 9 )! ^ 4 + 9   / 最小 10 ( 9 / 9 ) ^ 4 + 9
+
+    救済解はそのまま解答例になり min_score にもなるので、難易度が過大に付き、
+    ヒントも余計に難しい式を見せていた。6-5 / 6-6 と基準を揃える。
+    """
+    return (row[11], row[10], row[7], row[5], len(row[3]), row[0])
 
 
 def run_curate(db_path, progress=None):
@@ -905,10 +1053,24 @@ def run_curate(db_path, progress=None):
 
     返り値: {"total", "kept", "n_6_1", "n_6_2", "n_6_3", "n_6_4", "problems"}
 
-    6-1 / 6-2 は problem_id ごとに判定し、その問題に生き残りが1つ以上あるときだけ
+    **5.2 で 6-2 を廃止し、6-3 の位置づけを変えた。**
+
+      is_redundant = 1  ... 6-1 だけ (結果に影響しない部分式を含む = 解ではない)
+      is_repr      = 1  ... 6-3 の各グループの代表 (重複を圧縮した一覧に出す 1 本)
+      6-3 で圧縮された行は is_redundant = 0 のまま (redundant_why にだけ痕跡を残す)
+
+    6-3 を is_redundant から外した理由: 6-3 は「実質同じ形が並ぶのを避ける」ための
+    圧縮で、問題単位でグループ化する。一方 constrain は制約でパズル単位に解を絞る。
+    6-3 を冗長扱いにすると、制約を満たす唯一の解が「制約を満たさない代表」に
+    圧縮されて消え、解答例の score が上がる (実測 143 件) / パズルが 1 つも解を
+    持てず消える (実測 247 件) という壊れ方をした。母集団から 6-3 を外すと
+    score は下がるか同じにしかならない (実測 悪化 0 件・消失 0 件)。
+
+    6-1 は problem_id ごとに判定し、その問題に生き残りが1つ以上あるときだけ
     実際に適用する (第6章 6-4)。全滅する問題は 6-3 の読みやすさ順で1件だけ残し、
     その行の redundant_why に "6-4: kept (only solution)" を記録する。
-    結果として、解が1つ以上ある問題はすべて problems テーブルに残る。
+    6-2 の廃止後、この救済は実測で 0 件になったが、6-1 だけで全滅する問題が
+    将来のデータで出ないとは言えないので歯止めとして残す。
     """
     conn = _connect(db_path)
     try:
@@ -924,7 +1086,8 @@ def run_curate(db_path, progress=None):
         for r in rows:
             by_pid.setdefault(r[1], []).append(r)
 
-        flags = {}        # id -> redundant_why (is_redundant = 1 になる行)
+        flags = {}        # id -> redundant_why (is_redundant = 1 になる行 = 6-1)
+        traces = {}       # id -> redundant_why (6-3 で圧縮。is_redundant = 0)
         forced = {}       # id -> redundant_why (6-4 で残す行。is_redundant = 0)
         repr_ids = []
 
@@ -935,18 +1098,23 @@ def run_curate(db_path, progress=None):
             def val(n, _ev=ev):
                 return _ev(n)[0]
 
-            reasons = {}      # id -> 6-1/6-2 の理由 or None
+            reasons = {}      # id -> 6-1 の理由 or None
             survivors = []
             for r in prs:
                 tree = parse_shape(r[2])
-                reason = (classify_nullified(tree, val)
-                          or classify_identity(tree, val))
+                base = val(tree)
+                # 6-1 は 2 つの判定の OR (5.2)。桁単位の一般判定が主で、定義域が
+                # 狭くて桁を動かせない部分式をパターン側が補う。どちらの docstring
+                # にも、なぜ両方要るかを書いてある。
+                # 6-2 (classify_identity) は 5.2 で廃止した。理由は同関数の docstring
+                reason = (classify_nullified(tree, digits, base)
+                          or _nullified_by_pattern(tree, val))
                 reasons[r[0]] = reason
                 if reason is None:
                     survivors.append(r)
 
             if survivors:
-                # 通常ルート: 6-1 / 6-2 を適用し、生き残りを 6-3 で圧縮する
+                # 通常ルート: 6-1 を適用し、生き残りを 6-3 で代表 1 件に圧縮する
                 for r in prs:
                     if reasons[r[0]] is not None:
                         flags[r[0]] = reasons[r[0]]
@@ -960,10 +1128,14 @@ def run_curate(db_path, progress=None):
                     keep = members[0]
                     repr_ids.append(keep[0])
                     for m in members[1:]:
-                        flags[m[0]] = "6-3: compressed into id=%d" % keep[0]
+                        # 5.2: 6-3 は is_redundant を立てない (痕跡だけ残す)。
+                        # 解答例と min_score の母集団はここを通した後の
+                        # is_redundant = 0、つまり 6-1 を除いた全解になる
+                        traces[m[0]] = "6-3: compressed into id=%d" % keep[0]
             else:
-                # 6-4: このままでは解が全滅する。読みやすさ順で1件だけ残す
-                prs_sorted = sorted(prs, key=_repr_sort_key)
+                # 6-4: このままでは解が全滅する。潰す形しか無いので、
+                # その中で最も簡単な 1 件を残す（_rescue_sort_key）
+                prs_sorted = sorted(prs, key=_rescue_sort_key)
                 keep = prs_sorted[0]
                 repr_ids.append(keep[0])
                 forced[keep[0]] = "6-4: kept (only solution)"
@@ -979,15 +1151,22 @@ def run_curate(db_path, progress=None):
             "UPDATE solutions SET is_repr = 1 WHERE id = ?",
             [(sid,) for sid in repr_ids],
         )
+        # 6-3 で圧縮された行。is_redundant は立てず、痕跡だけ残す (5.2)
+        conn.executemany(
+            "UPDATE solutions SET redundant_why = ? WHERE id = ?",
+            [(why, sid) for sid, why in traces.items()],
+        )
         # 6-4 で残した行は「代表」だが、なぜ他が消えたかの痕跡として理由も残す
         conn.executemany(
             "UPDATE solutions SET redundant_why = ? WHERE id = ?",
             [(why, sid) for sid, why in forced.items()],
         )
 
-        # problems テーブル: 冗長解を除いた解の数、代表解、スコアの最小/最大。
-        # min_score / max_score は「冗長でない解」(is_redundant = 0) のスコア範囲。
-        # これは constrain の base_min_score / puzzles.min_score と同じ基準。
+        # problems テーブル: 代表解の数、代表解、スコアの最小/最大。
+        # solution_count は is_repr = 1 の数 (重複を圧縮した一覧の本数)。
+        # min_score / max_score は is_redundant = 0 (5.2 以降は「6-1 を除いた全解」)
+        # のスコア範囲。これは constrain の base_min_score / puzzles.min_score と
+        # 同じ基準。6-3 で圧縮された行もここには含まれる (5.2 で変わった点)。
         conn.execute("DELETE FROM problems")
         best = {}   # pid -> (sort_key, id)
         for r in conn.execute(_CURATE_COLS + " WHERE is_repr = 1 ORDER BY id"):
@@ -1016,8 +1195,10 @@ def run_curate(db_path, progress=None):
             "total": len(rows),
             "kept": len(repr_ids),
             "n_6_1": sum(1 for w in flags.values() if w.startswith("6-1")),
+            # 6-2 は 5.2 で廃止したので常に 0。キーは残す (集計の形を変えない)
             "n_6_2": sum(1 for w in flags.values() if w.startswith("6-2")),
-            "n_6_3": sum(1 for w in flags.values() if w.startswith("6-3")),
+            # 6-3 は is_redundant を立てないので flags ではなく traces を数える
+            "n_6_3": len(traces),
             "n_6_4": len(forced),
             "problems": len(counts),
         }
@@ -1091,6 +1272,12 @@ def _kind_ok(count, cmp, n):
     raise ValueError("unknown constraint comparator %r" % (cmp,))
 
 
+# 6-5 (5.2): puzzle 単位の救済の印。redundant_why の末尾に足す。
+# 「example_solution_id の解が is_redundant=1」でも判別できるが、
+# 6-4 と同じ作法で文字列にも残しておく
+_RESCUE_MARK = " | 6-5: kept as constrained puzzle example"
+
+
 def _example_key(s):
     """解答例の選び方: スコア最小 -> 読みやすさ (括弧->割り算->引き算->表示長) -> id。
 
@@ -1114,7 +1301,12 @@ def run_constrain(db_path, progress=None):
         n_base = 0          # rule_count = 0 (無制約。全問題に 1 件)
         n_constrained = 0   # rule_count >= 1 で採用したもの
         n_rej_hb = 0        # harder_by < 1 で不採用
-        n_rej_noreprsurv = 0  # 冗長でない残存解が無いので不採用
+        n_rej_noreprsurv = 0  # 制約を満たす解が 1 本も無いので不採用
+        n_rescue_puzzle = 0   # 6-5: 潰す形しか無いので救済した puzzle
+        rescued_ids = set()   # 6-5 で解答例にした解の id（痕跡を残す用）
+        rescued_pids = set()
+        surv_ids = []         # puzzle_rows と同じ並びの「制約を満たす解の id」
+        already_repr = set()  # curate が is_repr=1 にした解の id（登場したぶんだけ）
 
         for pid, sols in by_pid.items():
             n = len(sols)
@@ -1171,14 +1363,26 @@ def run_constrain(db_path, progress=None):
                 surv = [sols[i] for i in range(n) if mask >> i & 1]
                 nonred = [s for s in surv if not s[_IDX_REDUNDANT]]
 
-                if not nonred:
-                    # 冗長でない解が 1 つも無い -> 基本問題も含めて不採用
+                was_rescued = False
+                if nonred:
+                    pool = nonred
+                elif surv:
+                    # 6-5 (5.2): 制約を満たす解が「数字を潰す形」しか無い puzzle。
+                    # is_redundant は「どれを解答例にするか」「一覧に何本並べるか」を
+                    # 決める印であって、パズルの存在を左右するものではない。
+                    # 0158 の 0! + 1 ^ 5 + 8 は合法な入力で正解になるので、
+                    # プレイヤーは解ける。解けるパズルを帳簿の都合で消さない。
+                    # 6-4 が problem 単位でやっている救済を puzzle 単位でも行う
+                    pool = surv
+                    was_rescued = True
+                else:
+                    # 制約を満たす解が 1 本も無い -> puzzle が成立しない
                     n_rej_noreprsurv += 1
                     continue
 
-                example = min(nonred, key=_example_key)
-                mn = example[3]                 # = 冗長でない残存解の最小スコア
-                repr_surv_count = sum(1 for s in surv if s[2])
+                example = min(pool, key=_example_key)
+                # 救済時は「制約を満たす全解」の最小スコア。難易度もこの式で付く
+                mn = example[3]
 
                 if rc == 0:
                     hb = mn - base_min           # 定義上 0 (nonred == 全冗長でない解)
@@ -1190,17 +1394,58 @@ def run_constrain(db_path, progress=None):
                         continue
                     n_constrained += 1
 
-                puzzle_rows.append((
-                    pid, rs, rc, len(surv), repr_surv_count, example[0],
+                # repr_survivor_count はまだ確定させない。このあと解答例を
+                # 強制的に is_repr=1 にするので、その結果を織り込んで数え直す
+                puzzle_rows.append([
+                    pid, rs, rc, len(surv), None, example[0],
                     mn, base_min, hb,
-                ))
+                ])
+                surv_ids.append([s[0] for s in surv])
+                already_repr.update(s[0] for s in surv if s[2])
+                # 印を付けるのは採用された puzzle だけ。harder_by で落ちた候補に
+                # 付けると「救済されたのに存在しない puzzle」の痕跡が残ってしまう
+                if was_rescued:
+                    rescued_ids.add(example[0])
+                    rescued_pids.add(pid)
+                    n_rescue_puzzle += 1
 
+        # --- 6-6 (5.2): 解答例を必ず「一覧」に載せる ---
+        # 注: これは solutions.is_repr を書き換えるので、curate -> constrain の
+        # 順に流すこと (curate が is_repr を 0 に戻してから代表を付け直す)。
+        # constrain だけを 2 度流すと前回の昇格が残る
+        # is_repr は 6-3 が problem 単位で選んだ代表なので、制約つき puzzle では
+        # 「制約を満たす最良の解」が代表に選ばれていないことがある。そのままだと
+        # ヒントが指す式が一覧に無い (ヒント 1・2 から一覧へ辿れない) ので、
+        # 解答例に選ばれた解は強制的に is_repr = 1 にして、
+        # 「解答例は必ず一覧にある」を DB 側の不変条件にする。
+        promoted = {row[5] for row in puzzle_rows} - already_repr
+        if promoted:
+            conn.executemany("UPDATE solutions SET is_repr = 1 WHERE id = ?",
+                             [(sid,) for sid in sorted(promoted)])
+        # 昇格を織り込んで repr_survivor_count を確定させる
+        repr_now = already_repr | promoted
+        for row, ids in zip(puzzle_rows, surv_ids):
+            row[4] = sum(1 for i in ids if i in repr_now)
         conn.executemany(
             "INSERT INTO puzzles (problem_id, rules, rule_count, survivor_count, "
             "repr_survivor_count, example_solution_id, min_score, "
             "base_min_score, harder_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            puzzle_rows,
+            [tuple(r) for r in puzzle_rows],
         )
+        # 6-5 の痕跡。6-4 と同じく redundant_why に残す。is_redundant は 6-1 の
+        # ままで下げない（その解は確かに数字を潰している）。何度流しても同じ
+        # 結果になるよう、先に前回の印を落としてから付け直す
+        conn.execute(
+            "UPDATE solutions SET redundant_why = "
+            "replace(redundant_why, ?, '') WHERE redundant_why LIKE ?",
+            (_RESCUE_MARK, "%" + _RESCUE_MARK + "%"),
+        )
+        if rescued_ids:
+            conn.executemany(
+                "UPDATE solutions SET redundant_why = "
+                "COALESCE(redundant_why, '') || ? WHERE id = ?",
+                [(_RESCUE_MARK, sid) for sid in sorted(rescued_ids)],
+            )
         conn.commit()
 
         stats = {
@@ -1210,6 +1455,9 @@ def run_constrain(db_path, progress=None):
             "constrained": n_constrained,
             "rejected_harder_by": n_rej_hb,
             "rejected_no_nonredundant": n_rej_noreprsurv,
+            "rescued_puzzle": n_rescue_puzzle,
+            "promoted_repr": len(promoted),
+            "rescued_problems": len(rescued_pids),
         }
         if progress:
             progress(stats)
@@ -1303,6 +1551,501 @@ def run_export(db_path, out_path, progress=None):
 
 
 # ---------------------------------------------------------------------------
+# BLOB (docs/index.html に埋め込む 3 区分のデータ)  ―― 5.2 で追加
+#
+# ゲーム本体は puzzles 全行をモード別に 3 つへ分けたテキストを読む
+# (index.html の parseBlob)。行の形式は 1 行 1 puzzle の
+#
+#     id,rc,d,n,nf,np,sol
+#
+# で、区分の頭に "§COURSE" / "§FREE" / "§CHAL" の見出しを置く (DATA-SPEC 8-B)。
+# 3 区分は puzzles を**重複なく**分けたもので、和集合が全 puzzle になる。
+#
+#   CHAL   … min_score >= CHAL_MIN_SCORE の全部 (挑戦モード)
+#   COURSE … 残りから COURSE_N 問を選抜規則で選ぶ (本編)
+#   FREE   … 残りの全部 (フリー・べつの問題)
+#
+# 選抜規則は決定的 (乱数を使わず COURSE_SEED からハッシュで順位を付ける) なので、
+# 同じ DB からは何度流しても同じ COURSE になる。
+# ---------------------------------------------------------------------------
+BLOB_HTML_DEFAULT = "docs/index.html"
+CHAL_MIN_SCORE = 17          # 挑戦モードの下限 (GAME-SPEC 7)
+COURSE_N = 1000              # 本編の問題数
+COURSE_SEED = "make10-course-v1"
+# 検証用の定数 (5.3)。難易度の範囲は GAME-SPEC 6-2 の 3〜44
+DIFF_MIN, DIFF_MAX = 3, 44
+COURSE_BLOCK = 100           # 平均難易度を見るブロックの大きさ
+COURSE_LATE_FROM = 201       # ここから先は難易度を絞る
+COURSE_LATE_RANGE = (9, 16)  # _course_floor / _course_target の帰結
+# index.html の RCS と同じ順。FREE / CHAL の並び順に使う
+BLOB_RCS = ("N", "A0", "S0", "M0", "D0", "P0", "F0")
+_BLOB_CODEOF = {"+": "A", "-": "S", "*": "M", "/": "D", "^": "P", "!": "F"}
+_BLOB_MARK_BEGIN = "const BLOB=`"
+_BLOB_MARK_END = "`;"
+
+
+def _blob_rc(rules):
+    """puzzles.rules を index.html の rc 表記にする。"" -> "N" / "!=0" -> "F0"。"""
+    if not rules:
+        return "N"
+    if " | " in rules or rules[1] != "=":
+        raise ValueError("blob: 未対応の制約: %r" % (rules,))
+    return _BLOB_CODEOF[rules[0]] + rules[2:]
+
+
+def _example_feat(display, pid):
+    """解答例の中で「累乗が効いているか」「階乗の引数の最大値」を返す。
+
+    判定は 6-1 と同じ「値が変わるか」を **ノード単位** に当てただけで、新しい
+    基準を持ち込んでいない (5.2)。
+
+    累乗が効いている (peff)
+        `a ^ b` の値が底 `a` と違う。`a ^ b == a` になるのは `a == 1` /
+        `b == 1` / (`a == -1` かつ `b` が奇数) の 3 つだけで、どれも `^` が
+        何もしていない形である (代数的にこれで尽きる)。
+        **6-1 だけでは足りない。** 6-1 は `1 ^ 7` を捕まえるが、`8117` のように
+        全解が 6-1 該当の問題では 6-4 の救済で解答例に残る。さらに
+        `9 - ( 8 - 9 ) ^ 3` は 6-1 を通る ―― 指数 3 を 0 に差し替えると
+        `(-1) ^ 0 = 1` で値が変わるので、桁単位の判定では「寄与している」と
+        出てしまう。桁ではなくノードを見るしかない。
+
+    階乗の引数の最大値 (fmax)
+        `1!` と `2!` は値が変わらないので **生成時に枝刈りされている**
+        (build_evaluator)。したがって階乗の引数は 0 か 3 以上しかなく、
+        「階乗が数を大きくしている」は引数 >= 3 と書ける。`0!` は 0 -> 1 と
+        値は変える (6-1 には該当しない) が数を大きくはしていない。
+    """
+    tree = parse_tree(display)
+    ev = build_evaluator([int(ch) for ch in pid])
+    peff = False
+    fmax = None
+    for n in iter_nodes(tree):
+        if n[0] == "bin" and n[1] == "^":
+            if ev(n)[0] != ev(n[2])[0]:
+                peff = True
+        elif n[0] == "fac":
+            arg = ev(n[1])[0]
+            if fmax is None or arg > fmax:
+                fmax = arg
+    return peff, (int(fmax) if fmax is not None else None)
+
+
+_BLOB_QUERY = """
+SELECT p.problem_id, p.rules, p.min_score, p.survivor_count, s.display
+FROM puzzles p
+JOIN solutions s ON s.id = p.example_solution_id
+ORDER BY p.problem_id, p.rules, p.id
+"""
+
+
+def _blob_rows(conn):
+    """puzzles 全行を選抜と出力に必要な形にして返す。"""
+    needs = {pid: (bool(nf), bool(np))
+             for pid, nf, np in conn.execute(_EXPORT_NEEDS_QUERY)}
+    rows = []
+    for pid, rules, d, surv, sol in conn.execute(_BLOB_QUERY):
+        nf, np_ = needs[pid]
+        ops = set(ch for ch in sol if ch in "+-*/^!")
+        # peff / fbig は COURSE の ★ の位置でしか使わないが、行ごとの素性として
+        # まとめて持たせる (難易度で絞ると条件を足したときに取り落とす)
+        if d <= CHAL_MIN_SCORE - 1:
+            peff, fmax = _example_feat(sol, pid)
+        else:
+            peff, fmax = False, None
+        rows.append({
+            "id": pid, "rc": _blob_rc(rules), "d": d, "n": surv,
+            "nf": nf, "np": np_, "sol": sol,
+            "ops": ops, "par": "(" in sol, "free": not rules,
+            "peff": peff, "fmax": fmax,
+            "fbig": fmax is not None and fmax >= 3,
+        })
+    return rows
+
+
+# --- COURSE の選抜規則 (GAME-SPEC 7-1) ---------------------------------------
+# 段ごとの条件。★ の 2 段は「その演算子を使わないと解けない問題」であることに
+# 加えて、**解答例でその演算子が実際に働いている**ことも要求する (5.2)。
+def _course_stage_cond(i):
+    if i <= 4:
+        return lambda r: r["ops"] <= set("+-") and not r["par"]
+    if i <= 10:
+        return lambda r: (bool(r["ops"] & set("*/")) and not r["par"]
+                          and not (r["ops"] & set("^!")))
+    if i <= 20:
+        return lambda r: r["par"]
+    if i <= 25:
+        return lambda r: len(r["ops"] & set("+-*/")) >= 2
+    if i <= 28:                       # ★階乗必須 + 階乗が数を大きくしている
+        return lambda r: r["nf"] and r["fbig"]
+    if i <= 40:
+        return lambda r: "!" in r["ops"]
+    if i <= 43:                       # ★累乗必須 + 累乗が結果に効いている
+        return lambda r: r["np"] and r["peff"]
+    return lambda r: True
+
+
+# 43 問目までは位置ごとに目標難易度を直接決める (導入の段なので手で置く)
+COURSE_PIN = {
+    **{i: 3 for i in range(1, 5)},
+    5: 4, 6: 4, 7: 5, 8: 5, 9: 6, 10: 6,
+    11: 5, 12: 5, 13: 5, 14: 6, 15: 6, 16: 6, 17: 7, 18: 7, 19: 7, 20: 8,
+    21: 6, 22: 7, 23: 7, 24: 8, 25: 8,
+    26: 8, 27: 9, 28: 10,
+    29: 8, 30: 8, 31: 9, 32: 9, 33: 10, 34: 10, 35: 11, 36: 11,
+    37: 9, 38: 10, 39: 10, 40: 11,
+    41: 7, 42: 8, 43: 9,
+}
+# 44 問目以降の平均難易度。折れ線のアンカー (位置, 平均難易度)
+COURSE_ANCH = [(44, 8.0), (150, 9.9), (250, 9.9), (350, 10.3), (450, 10.5),
+               (550, 11.3), (650, 11.7), (750, 12.8), (850, 12.9), (1000, 13.3)]
+# カーブの上下に振る量。平均は保ったまま 1 問ごとの手応えに緩急を付ける
+COURSE_SPREAD = [-3, 2, -1, 3, 0, -2, 1, 2, -3, 1, -1, 0, 2, -2, 3, -1, 1, -3, 0, 2]
+
+
+def _course_curve(i):
+    if i <= COURSE_ANCH[0][0]:
+        return COURSE_ANCH[0][1]
+    for (x0, y0), (x1, y1) in zip(COURSE_ANCH, COURSE_ANCH[1:]):
+        if i <= x1:
+            return y0 + (y1 - y0) * (i - x0) / (x1 - x0)
+    return COURSE_ANCH[-1][1]
+
+
+def _course_floor(i):
+    """難易度の下限。後半に簡単すぎる問題が落ちてこないようにする。"""
+    if i < 44:
+        return 3
+    return min(9, 4 + (i - 44) * 5 / 156)
+
+
+def _course_target(i):
+    if i in COURSE_PIN:
+        return COURSE_PIN[i]
+    t = _course_curve(i) + COURSE_SPREAD[(i - 44) % len(COURSE_SPREAD)]
+    return max(int(round(_course_floor(i))), min(16, int(round(t))))
+
+
+def _course_want_constrained(i):
+    """その位置に制約つきの問題を置きたいか。1〜50 は操作に慣れる段なので置かない。"""
+    if i <= 50:
+        return False
+    if i <= 100:
+        return (i % 4) == 0          # 1/4
+    if i <= 200:
+        return (i % 2) == 0          # 1/2
+    return (i % 3) != 0              # 2/3
+
+
+def _course_rank(i, r):
+    """候補の順位。乱数ではなく位置と問題から決まるので毎回同じ COURSE になる。"""
+    key = "%s:%d:%s:%s" % (COURSE_SEED, i, r["id"], r["rc"])
+    return hashlib.blake2b(key.encode(), digest_size=8).digest()
+
+
+def select_course(pool, n=COURSE_N):
+    """pool (d <= 16 の全 puzzle) から本編の n 問を選ぶ。(選抜, 拡張回数) を返す。
+
+    位置ごとに「段の条件」「目標難易度」「制約つきかどうか」を満たす候補を集め、
+    _course_rank が最小のものを採る。候補が無ければ難易度の許容幅を 1 ずつ
+    広げ、それでも無ければ最後に「直近 10 問に同じ 4 桁を出さない」を外す。
+    """
+    by = collections.defaultdict(list)
+    for r in pool:
+        by[(r["d"], r["free"])].append(r)
+    used = set()
+    recent = []
+    chosen = []
+    widen = collections.Counter()
+    for i in range(1, n + 1):
+        cond = _course_stage_cond(i)
+        td = _course_target(i)
+        wc = _course_want_constrained(i)
+        pick = None
+        for w in range(0, 14):
+            for dd in ([td] if w == 0 else [td - w, td + w]):
+                if not 3 <= dd <= CHAL_MIN_SCORE - 1:
+                    continue
+                for free in ([False, True] if wc else [True]):
+                    if i <= 50 and not free:
+                        continue
+                    cands = [r for r in by[(dd, free)]
+                             if (r["id"], r["rc"]) not in used and cond(r)
+                             and r["id"] not in recent[-10:]]
+                    if cands:
+                        pick = min(cands, key=lambda r: _course_rank(i, r))
+                        break
+                if pick:
+                    break
+            if pick:
+                widen[w] += 1
+                break
+        if pick is None:
+            for w in range(0, 14):
+                for dd in [td - w, td, td + w]:
+                    if not 3 <= dd <= CHAL_MIN_SCORE - 1:
+                        continue
+                    for free in ([False, True] if wc else [True]):
+                        if i <= 50 and not free:
+                            continue
+                        cands = [r for r in by[(dd, free)]
+                                 if (r["id"], r["rc"]) not in used and cond(r)]
+                        if cands:
+                            pick = min(cands, key=lambda r: _course_rank(i, r))
+                            break
+                    if pick:
+                        break
+                if pick:
+                    widen[("relax", w)] += 1
+                    break
+        if pick is None:
+            raise ValueError("blob: 位置 %d の候補が無い (目標難易度 %d)" % (i, td))
+        used.add((pick["id"], pick["rc"]))
+        recent.append(pick["id"])
+        chosen.append(pick)
+    return chosen, widen
+
+
+# --- 出力と検証 -------------------------------------------------------------
+def _blob_sort_key(r):
+    return (r["id"], BLOB_RCS.index(r["rc"]))
+
+
+def _blob_line(r):
+    return "%s,%s,%d,%d,%d,%d,%s" % (
+        r["id"], r["rc"], r["d"], r["n"], 1 if r["nf"] else 0,
+        1 if r["np"] else 0, r["sol"])
+
+
+def _blob_text(sections):
+    out = []
+    for name in ("COURSE", "FREE", "CHAL"):
+        out.append("§" + name)
+        out.extend(_blob_line(r) for r in sections[name])
+    return "\n".join(out)
+
+
+def _plain_eval(node, digits):
+    """検証用の素朴な評価器。build_evaluator とは別実装にしてある
+    (同じ前提を共有した検証は検証にならない ―― CLAUDE.md)。"""
+    tag = node[0]
+    if tag == "num":
+        return Fraction(digits[node[1]])
+    if tag == "fac":
+        v = _plain_eval(node[1], digits)
+        if v.denominator != 1 or v.numerator < 0:
+            raise ValueError("階乗の引数が不正: %s" % v)
+        return Fraction(factorial(v.numerator))
+    a = _plain_eval(node[2], digits)
+    b = _plain_eval(node[3], digits)
+    op = node[1]
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if op == "/":
+        return a / b
+    if b.denominator != 1:
+        raise ValueError("指数が整数でない: %s" % b)
+    if a == 0 and b == 0:
+        return Fraction(1)
+    return a ** b.numerator
+
+
+def _blob_verify(conn, sections, widen, text, rebuild=None):
+    """生成と同じ実行で回す 12 項目。[(項目名, 合否, 詳細)] を返す。
+
+    rebuild … 同じ DB からもう一度 BLOB を組んで本文を返す関数。
+    検証 12 (再現性) だけが使う。省略すると 12 を「未実施」として落とす。
+    """
+    res = []
+    course, free, chal = sections["COURSE"], sections["FREE"], sections["CHAL"]
+    allrows = course + free + chal
+
+    # 1. 件数と分割 (重複なく全 puzzle を覆う)
+    db_keys = collections.Counter()
+    for pid, rules in conn.execute("SELECT problem_id, rules FROM puzzles"):
+        db_keys[(pid, _blob_rc(rules))] += 1
+    got = collections.Counter((r["id"], r["rc"]) for r in allrows)
+    res.append(("1. 件数と分割", len(course) == COURSE_N and got == db_keys,
+                "COURSE %d / FREE %d / CHAL %d / 計 %d、DB の puzzles %d、"
+                "取りこぼし %d・重複 %d"
+                % (len(course), len(free), len(chal), len(allrows),
+                   sum(db_keys.values()), len(db_keys - got), len(got - db_keys))))
+
+    # 2. 難易度の境目
+    bad = ([r for r in chal if r["d"] < CHAL_MIN_SCORE]
+           + [r for r in course + free if r["d"] >= CHAL_MIN_SCORE])
+    res.append(("2. 難易度の境目", not bad,
+                "CHAL は d>=%d / COURSE・FREE は d<=%d、違反 %d 行"
+                % (CHAL_MIN_SCORE, CHAL_MIN_SCORE - 1, len(bad))))
+
+    # 3. COURSE の段の条件と制約なしの区間
+    segs = [(1, 4, "足し引きのみ・括弧なし"), (5, 10, "×÷が入る"),
+            (11, 20, "括弧を含む"), (21, 25, "四則2種以上"),
+            (26, 28, "★階乗必須"), (29, 40, "階乗を含む"), (41, 43, "★累乗必須")]
+    ng = [lab for a, b, lab in segs
+          if not all(_course_stage_cond(a)(r) for r in course[a - 1:b])]
+    free50 = all(r["free"] for r in course[:50])
+    widen_ok = set(widen) == {0}
+    res.append(("3. COURSE の段の条件", not ng and free50 and widen_ok,
+                "7 段の充足 %d/7、1〜50 が全部制約なし %s、許容幅の拡張 %s"
+                % (7 - len(ng), free50, dict(widen))))
+
+    # 4. COURSE の重複と間隔
+    dup = len(course) - len({(r["id"], r["rc"]) for r in course})
+    mind = min((i - j for i, r in enumerate(course)
+                for j in [max((k for k, q in enumerate(course[:i])
+                               if q["id"] == r["id"]), default=None)]
+                if j is not None), default=None)
+    res.append(("4. COURSE の重複と間隔", dup == 0 and (mind is None or mind > 10),
+                "(id,rc) の重複 %d、同じ 4 桁が再登場する最小間隔 %s 問"
+                % (dup, mind)))
+
+    # 5. DB との一致 (n は survivor_count)
+    db = {}
+    for pid, rules, d, surv, sol in conn.execute(_BLOB_QUERY):
+        db[(pid, _blob_rc(rules))] = (d, surv, sol)
+    needs = {pid: (bool(nf), bool(np))
+             for pid, nf, np in conn.execute(_EXPORT_NEEDS_QUERY)}
+    mism = [r for r in allrows
+            if db[(r["id"], r["rc"])] != (r["d"], r["n"], r["sol"])
+            or needs[r["id"]] != (r["nf"], r["np"])]
+    res.append(("5. DB との一致", not mism,
+                "d / n(=survivor_count) / nf / np / sol の不一致 %d 行 / %d 行"
+                % (len(mism), len(allrows))))
+
+    # 6. 解答例の再評価 (独立実装の _plain_eval で 10 になること)
+    bad = []
+    for r in allrows:
+        try:
+            digits = [int(ch) for ch in r["id"]]
+            if _plain_eval(parse_tree(r["sol"]), digits) != 10:
+                bad.append(r)
+            elif [ch for ch in r["sol"] if ch.isdigit()] != list(r["id"]):
+                bad.append(r)
+        except Exception:
+            bad.append(r)
+    res.append(("6. 解答例の再評価", not bad,
+                "値が 10 でない / 数字が id と違う行 %d / %d 行" % (len(bad), len(allrows))))
+
+    # 7. ★ の導入位置
+    f = [r for r in course[25:28]]
+    p = [r for r in course[40:43]]
+    ok7 = (all(r["nf"] and r["fbig"] for r in f)
+           and all(r["np"] and r["peff"] for r in p))
+    res.append(("7. ★ の導入位置", ok7,
+                "26〜28 階乗の引数 %s / 41〜43 ^ が効く %s"
+                % ([r["fmax"] for r in f], [r["peff"] for r in p])))
+
+    # 8. テンプレートリテラルの安全性 (index.html の ` ` の中に入れるため)
+    lines = [ln for ln in text.split("\n") if not ln.startswith("§")]
+    bad_fields = [ln for ln in lines if len(ln.split(",")) != 7]
+    bad_chars = [ch for ch in ("`", "${", "\r", "\\") if ch in text]
+    res.append(("8. 埋め込みの安全性", not bad_fields and not bad_chars,
+                "7 フィールドでない行 %d、危険な文字 %s、見出し %d 本"
+                % (len(bad_fields), bad_chars or "なし",
+                   len(text.split("\n")) - len(lines))))
+
+    # 9. COURSE の難易度カーブ (100 問ブロックの平均が単調非減少)
+    blocks = [course[k:k + COURSE_BLOCK]
+              for k in range(0, len(course), COURSE_BLOCK)]
+    avgs = [sum(r["d"] for r in b) / len(b) for b in blocks]
+    drops = [(k + 1, round(avgs[k], 2), round(avgs[k + 1], 2))
+             for k in range(len(avgs) - 1) if avgs[k] > avgs[k + 1] + 1e-9]
+    res.append(("9. 難易度カーブ", not drops,
+                "%d 問ブロックの平均 %s、下がった箇所 %d"
+                % (COURSE_BLOCK, [round(a, 2) for a in avgs], len(drops))))
+
+    # 10. 後半の難易度 (COURSE_LATE_FROM 問目以降が全部 9〜16)
+    lo, hi = COURSE_LATE_RANGE
+    late = course[COURSE_LATE_FROM - 1:]
+    outr = [(i, r["d"]) for i, r in enumerate(late, COURSE_LATE_FROM)
+            if not lo <= r["d"] <= hi]
+    res.append(("10. 後半の難易度", not outr,
+                "%d 問目以降 %d 問が d %d〜%d、範囲外 %d 問 (実測 %d〜%d)"
+                % (COURSE_LATE_FROM, len(late), lo, hi, len(outr),
+                   min(r["d"] for r in late), max(r["d"] for r in late))))
+
+    # 11. 難易度の範囲 (区分の境目を見る 2 とは別に、上下の端を見る)
+    bad_d = [r for r in allrows if not DIFF_MIN <= r["d"] <= DIFF_MAX]
+    res.append(("11. 難易度の範囲", not bad_d,
+                "全 %d 行が d %d〜%d、範囲外 %d 行 (実測 %d〜%d)"
+                % (len(allrows), DIFF_MIN, DIFF_MAX, len(bad_d),
+                   min(r["d"] for r in allrows), max(r["d"] for r in allrows))))
+
+    # 12. 再現性 (同じ DB / 同じシードでもう一度組んでバイト単位で一致するか)
+    if rebuild is None:
+        res.append(("12. 再現性", False, "rebuild が渡されていないので未実施"))
+    else:
+        again = rebuild()
+        same = again.encode("utf-8") == text.encode("utf-8")
+        res.append(("12. 再現性", same,
+                    "2 回組んで %s (%d / %d バイト)"
+                    % ("バイト単位で一致" if same else "**不一致**",
+                       len(text.encode("utf-8")), len(again.encode("utf-8")))))
+    return res
+
+
+def _blob_build(conn):
+    """DB から 3 区分を組む。(sections, widen) を返す。
+
+    検証 12 (再現性) がここをもう一度呼んで結果を突き合わせるので、
+    **呼ぶたびに DB から読み直す独立した組み立て**になっている必要がある。
+    """
+    rows = _blob_rows(conn)
+    chal = sorted((r for r in rows if r["d"] >= CHAL_MIN_SCORE),
+                  key=_blob_sort_key)
+    pool = [r for r in rows if r["d"] < CHAL_MIN_SCORE]
+    course, widen = select_course(pool)
+    taken = {(r["id"], r["rc"]) for r in course}
+    free = sorted((r for r in pool if (r["id"], r["rc"]) not in taken),
+                  key=_blob_sort_key)
+    return {"COURSE": course, "FREE": free, "CHAL": chal}, widen
+
+
+def run_blob(db_path, html_path, write=True, progress=None):
+    """3 区分の BLOB を組み、index.html の const BLOB=`...` を差し替える。
+
+    検証 12 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
+    """
+    conn = _connect(db_path)
+    try:
+        sections, widen = _blob_build(conn)
+        text = _blob_text(sections)
+        checks = _blob_verify(conn, sections, widen, text,
+                              lambda: _blob_text(_blob_build(conn)[0]))
+    finally:
+        conn.close()
+
+    failed = [c for c in checks if not c[1]]
+    wrote = False
+    if write and not failed:
+        with open(html_path, encoding="utf-8", newline="") as f:
+            html = f.read()
+        i = html.index(_BLOB_MARK_BEGIN) + len(_BLOB_MARK_BEGIN)
+        j = html.index(_BLOB_MARK_END, i)
+        old = html[i:j]
+        html = html[:i] + text + html[j:]
+        with open(html_path, "w", encoding="utf-8", newline="") as f:
+            f.write(html)
+        wrote = True
+    else:
+        old = None
+
+    stats = {
+        "counts": {k: len(v) for k, v in sections.items()},
+        "chars": len(text), "checks": checks, "failed": len(failed),
+        "wrote": wrote, "html": html_path, "old_chars": len(old) if old else None,
+        "widen": dict(widen),
+    }
+    if progress:
+        progress(stats)
+    return stats
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 def _cmd_generate(args):
@@ -1326,9 +2069,11 @@ def _cmd_curate(args):
     s = run_curate(args.db)
     print("curate: %d solution(s) in, %d kept, %d problem(s)"
           % (s["total"], s["kept"], s["problems"]))
-    print("  6-1 (nullified subexpr) : %d removed" % s["n_6_1"])
-    print("  6-2 (identity op)       : %d removed" % s["n_6_2"])
-    print("  6-3 (compressed dup)    : %d removed" % s["n_6_3"])
+    print("  6-1 (nullified subexpr) : %d flagged is_redundant" % s["n_6_1"])
+    print("  6-2 (identity op)       : %d (abolished in 5.2, always 0)"
+          % s["n_6_2"])
+    print("  6-3 (compressed dup)    : %d not is_repr (is_redundant stays 0)"
+          % s["n_6_3"])
     print("  6-4 (kept as only soln) : %d problem(s) rescued" % s["n_6_4"])
 
 
@@ -1339,8 +2084,12 @@ def _cmd_constrain(args):
     print("  base (rule_count=0)              : %d" % s["base"])
     print("  constrained (adopted)           : %d" % s["constrained"])
     print("  rejected: harder_by<1           : %d" % s["rejected_harder_by"])
-    print("  rejected: no non-redundant soln : %d"
+    print("  rejected: no surviving soln     : %d"
           % s["rejected_no_nonredundant"])
+    print("  6-5 rescued (nullifying-only)   : %d puzzle(s) / %d problem(s)"
+          % (s["rescued_puzzle"], s["rescued_problems"]))
+    print("  6-6 promoted to is_repr         : %d solution(s)"
+          % s["promoted_repr"])
 
 
 def _cmd_export(args):
@@ -1351,6 +2100,25 @@ def _cmd_export(args):
     print("  without constraint : %d" % s["without_constraint"])
     print("  needs_fac / needs_pow : %d / %d"
           % (s["needs_fac"], s["needs_pow"]))
+
+
+def _cmd_blob(args):
+    stats = run_blob(args.db, args.html, write=not args.dry_run)
+    c = stats["counts"]
+    print("blob: COURSE %d / FREE %d / CHAL %d  (計 %d 行 / %d 文字)"
+          % (c["COURSE"], c["FREE"], c["CHAL"],
+             c["COURSE"] + c["FREE"] + c["CHAL"], stats["chars"]))
+    print("  難易度の許容幅を広げた回数: %s" % stats["widen"])
+    for name, ok, detail in stats["checks"]:
+        print("  [%s] %-20s %s" % ("OK" if ok else "NG", name, detail))
+    if stats["failed"]:
+        raise SystemExit("blob: 検証 %d 項目が落ちたので書き込んでいない"
+                         % stats["failed"])
+    if stats["wrote"]:
+        print("  %s の BLOB を差し替えた (%d -> %d 文字)"
+              % (stats["html"], stats["old_chars"], stats["chars"]))
+    else:
+        print("  --dry-run: 書き込んでいない")
 
 
 def _cmd_verify(args):
@@ -1391,6 +2159,13 @@ def main(argv=None):
     e.add_argument("--db", default=DB_DEFAULT)
     e.add_argument("--out", default=EXPORT_DEFAULT)
     e.set_defaults(func=_cmd_export)
+
+    b = sub.add_parser("blob", help="rebuild the BLOB inside docs/index.html")
+    b.add_argument("--db", default=DB_DEFAULT)
+    b.add_argument("--html", default=BLOB_HTML_DEFAULT)
+    b.add_argument("--dry-run", action="store_true",
+                   help="組んで検証するだけで index.html を書き換えない")
+    b.set_defaults(func=_cmd_blob)
 
     v = sub.add_parser("verify", help="re-check every display string == 10")
     v.add_argument("--db", default=DB_DEFAULT)

@@ -315,18 +315,42 @@ class CurateClassifiers(unittest.TestCase):
         ev = m.build_evaluator(digits)
         return lambda n: ev(n)[0]
 
-    def test_nullified_x_pow_0(self):
-        # ( 1 + 2 ) ^ 0 + 9  ->  x ^ 0 (x に演算子あり)
-        tree = m.parse_shape("n0 n1 + n2 ^ n3 +")
-        self.assertEqual(
-            m.classify_nullified(tree, self._val(tree, [1, 2, 0, 9])),
-            "6-1: x ^ 0")
+    # 6-1 は 5.2 で「パターンの列挙」から「その桁を別の値に替えても値が変わらないか」
+    # という一般判定 (classify_nullified) に作り直し、定義域が狭くて桁を動かせない
+    # 部分式だけをパターン側 (_nullified_by_pattern) が補う形になった (DATA-SPEC 6-1)。
+    # 両方を OR で使うので、両方を別々に確かめる
+    def _nullified(self, shape, digits):
+        tree = m.parse_shape(shape)
+        ev = m.build_evaluator(digits)
+        base = ev(tree)[0]
+        return (m.classify_nullified(tree, digits, base),
+                m._nullified_by_pattern(tree, lambda n: ev(n)[0]))
 
-    def test_nullified_needs_operator_in_x(self):
-        # 5 ^ 0 は x に演算子が無いので 6-1 の対象外
-        tree = m.parse_shape("n0 n1 ^ n2 + n3 +")   # (5^0) + 9 + 0
-        self.assertIsNone(
-            m.classify_nullified(tree, self._val(tree, [5, 0, 9, 0])))
+    def test_nullified_x_pow_0(self):
+        # ( 1 + 2 ) ^ 0 + 9 : 底の 1 を何に替えても ( d + 2 ) ^ 0 = 1 で値が変わらない
+        general, pattern = self._nullified("n0 n1 + n2 ^ n3 +", [1, 2, 0, 9])
+        self.assertEqual(general, "6-1: digit#0 not contributing")
+        self.assertEqual(pattern, "6-1: x ^ 0")
+
+    def test_nullified_leaf_base_is_caught(self):
+        # 5 ^ 0 + 9 + 0 : 5.1 までは「x に演算子が無い」ので対象外だったが、
+        # 5.2 で葉にも広げた。5 を何に替えても d ^ 0 = 1（0 ^ 0 も 1）なので潰れている。
+        # 葉を見逃すと 6-2 廃止後に `1 ^ 6` のような解答例が露出した (DATA-SPEC 6-1)
+        general, pattern = self._nullified("n0 n1 ^ n2 + n3 +", [5, 0, 9, 0])
+        self.assertEqual(general, "6-1: digit#0 not contributing")
+        self.assertEqual(pattern, "6-1: x ^ 0")
+
+    def test_nullified_all_digits_contribute(self):
+        # ( 1 + 2 ) * 3 + 1 : どの桁を替えても値が変わる → どちらの判定にも掛からない
+        self.assertEqual(
+            self._nullified("n0 n1 + n2 * n3 +", [1, 2, 3, 1]), (None, None))
+
+    def test_nullified_unsubstitutable_digit_contributes(self):
+        # 3343 ( 3! )! / ( 3! * 4 * 3 ) : 最初の 3 は ( d! )! が d=3 以外すべて無効で
+        # 差し替えられないが、式の値を決めている。「判定できない」は寄与している側に
+        # 倒す (DATA-SPEC 6-1。逆に数えると 27,507 本に誤検出が混ざった)
+        self.assertEqual(
+            self._nullified("n0 ! ! n1 ! n2 * n3 * /", [3, 3, 4, 3]), (None, None))
 
     def test_identity_x_plus_0(self):
         # ( 3 + 0 ) + 0 + 7  ->  x + 0
@@ -450,13 +474,20 @@ class AnnotateAndCurate(unittest.TestCase):
 
 
 class Curate64OnlySolution(unittest.TestCase):
-    """6-4: 全解が 6-1/6-2 該当でも、問題を空にせず1件残す。"""
+    """6-4: 全解が 6-1 該当でも、問題を空にせず1件残す。
+
+    5.1 までは問題 0050 (数字 0,0,5,0) で確かめていた。0050 は全 10 解が 6-2
+    (`x * 1` / `x + 0` など) に掛かって全滅していたが、**5.2 で 6-2 を廃止した**ので
+    6 解が生き残り、救済が起きなくなった (test_0050_no_longer_needs_rescue)。
+    救済の経路は、今の 6-1 で実際に全滅する 0075 (数字 0,0,7,5) で確かめる。
+    0075 の 6 解はどれも `0 * 7` で 7 を潰すので全部 6-1 に掛かる。
+    """
 
     def setUp(self):
         fd, self.db = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         os.unlink(self.db)
-        m.generate_into(self.db, 50, 50)     # 問題 0050 (数字 0,0,5,0)
+        m.generate_into(self.db, 75, 75)     # 問題 0075 (数字 0,0,7,5)
 
     def tearDown(self):
         for suffix in ("", "-wal", "-shm"):
@@ -469,20 +500,25 @@ class Curate64OnlySolution(unittest.TestCase):
         import sqlite3
         m.run_annotate(self.db)
         s = m.run_curate(self.db)
+        self.assertEqual(s["total"], 6)
+        self.assertEqual(s["n_6_1"], 5)        # 6 解のうち救済した 1 解以外
         self.assertEqual(s["n_6_4"], 1)
         self.assertEqual(s["kept"], 1)
 
         conn = sqlite3.connect(self.db)
         row = conn.execute(
-            "SELECT is_repr, is_redundant, redundant_why FROM solutions "
-            "WHERE problem_id = '0050' AND is_repr = 1").fetchone()
+            "SELECT is_repr, is_redundant, redundant_why, display FROM solutions "
+            "WHERE problem_id = '0075' AND is_repr = 1").fetchone()
         self.assertEqual(row[0], 1)
         self.assertEqual(row[1], 0)
         self.assertEqual(row[2], "6-4: kept (only solution)")
+        # 残す 1 件は「スコア最小 → 読みやすさ → id」(_rescue_sort_key)。
+        # 生成済みの make10.db で 0075 に残っている解と同じもの
+        self.assertEqual(row[3], "( 0! + ( 0 * 7 )! ) * 5")
 
         prob = conn.execute(
             "SELECT solution_count, repr_solution_id FROM problems "
-            "WHERE problem_id = '0050'").fetchone()
+            "WHERE problem_id = '0075'").fetchone()
         self.assertEqual(prob[0], 1)
         self.assertIsNotNone(prob[1])
         conn.close()
@@ -496,6 +532,34 @@ class Curate64OnlySolution(unittest.TestCase):
         s1 = m.run_curate(self.db)
         s2 = m.run_curate(self.db)
         self.assertEqual(s1, s2)
+
+    def test_0050_no_longer_needs_rescue(self):
+        # 6-2 廃止 (5.2) の回帰。0050 の `( 0! + 0! ) * 5 + 0` などは `+ 0` で
+        # 余った 0 を吸収しているだけで、数字は潰していない (DATA-SPEC 6-2)。
+        # 10 解のうち 6-3 で 4 解が圧縮され、6 解が代表として残る。救済は起きない
+        # setUp の DB には 0075 が入っていて統計が合算されるので、専用の DB を使う
+        import sqlite3
+        fd, db = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        os.unlink(db)
+        self.addCleanup(lambda: [os.path.exists(db + x) and os.unlink(db + x)
+                                 for x in ("", "-wal", "-shm")])
+        m.generate_into(db, 50, 50)
+        m.run_annotate(db)
+        s = m.run_curate(db)
+        self.assertEqual(s["total"], 10)
+        self.assertEqual(s["n_6_4"], 0)
+        self.assertEqual(s["n_6_1"], 0)
+        conn = sqlite3.connect(db)
+        kept = conn.execute(
+            "SELECT COUNT(*) FROM solutions WHERE problem_id = '0050' "
+            "AND is_repr = 1 AND is_redundant = 0").fetchone()[0]
+        why = conn.execute(
+            "SELECT COUNT(*) FROM solutions WHERE problem_id = '0050' "
+            "AND redundant_why LIKE '6-4%'").fetchone()[0]
+        conn.close()
+        self.assertEqual(kept, 6)
+        self.assertEqual(why, 0)
 
 
 class Constrain(unittest.TestCase):
@@ -518,11 +582,43 @@ class Constrain(unittest.TestCase):
             except OSError:
                 pass
 
+    def _db_state(self):
+        import sqlite3
+        conn = sqlite3.connect(self.db)
+        state = (
+            conn.execute(
+                "SELECT problem_id, rules, rule_count, survivor_count, "
+                "repr_survivor_count, example_solution_id, min_score, "
+                "base_min_score, harder_by FROM puzzles "
+                "ORDER BY problem_id, rules").fetchall(),
+            conn.execute(
+                "SELECT id, is_repr, is_redundant, redundant_why FROM solutions "
+                "ORDER BY id").fetchall(),
+        )
+        conn.close()
+        return state
+
     def test_invariants_and_idempotent(self):
         import sqlite3
         s1 = m.run_constrain(self.db)
+        d1 = self._db_state()
         s2 = m.run_constrain(self.db)
-        self.assertEqual(s1, s2)                    # 冪等
+        d2 = self._db_state()
+        # 冪等 = 2 回流しても DB の中身が変わらないこと
+        self.assertEqual(d1, d2)
+        # promoted_repr は「この実行で is_repr を 0 → 1 に昇格させた解答例の数」(6-6)。
+        # 昇格は DB に残るので、constrain だけを 2 度流すと 2 回目は昇格済みで 0 になる
+        # (make10.py の 6-6 のコメントどおり。curate が is_repr を付け直してから
+        # constrain を流すのが正規の順)。それ以外の統計は完全に一致する
+        self.assertGreater(s1["promoted_repr"], 0)  # 0 だとこの確認が空振りになる
+        self.assertEqual(s2["promoted_repr"], 0)
+        self.assertEqual({k: v for k, v in s1.items() if k != "promoted_repr"},
+                         {k: v for k, v in s2.items() if k != "promoted_repr"})
+        # 正規の順 (curate → constrain) で流し直せば、統計も DB も 1 回目と完全に一致する
+        m.run_curate(self.db)
+        s3 = m.run_constrain(self.db)
+        self.assertEqual(s3, s1)
+        self.assertEqual(self._db_state(), d1)
 
         conn = sqlite3.connect(self.db)
         rows = conn.execute(
