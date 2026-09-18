@@ -675,7 +675,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="5.3";
+const APP_VERSION="5.4";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -23093,8 +23093,9 @@ const totalScore=()=>Object.values(G.best).reduce((a,b)=>a+b,0);
 /* ═══ 正解演出 ═══ */
 function win(){
   if(!solved)return;              // 別の問題へ移った後に発火した予約は無効
+  const code=codeOf(cur);
   // record() が G.best を書き換えるので、自己ベスト更新の判定は記録より先に取る
-  const prev=G.best[codeOf(cur)]||0;
+  const prev=G.best[code]||0;
   lastScore=calcScore();
   const secs=lastScore.sec;
   const tier = cur.d>=14?3 : cur.d>=9?2 : 1;
@@ -23106,6 +23107,19 @@ function win(){
   // なく win() に置くのは、ホームへ戻って「つぎへ」を押さなくてもクリアだからである。
   // 挑戦の問題は chalShown により二度と出題されないので、同じ問題で稼ぐことはできない
   const gained = (MODE==="chal") && chalReward();
+  /* クリアの確定（5.4）。5.3 まで chalDone / seen / cleared は advance()（つぎへ）が
+     担っていた。報酬だけが win() にあったので、**正解して「つぎへ」を押さずホームへ
+     戻ると、ヒントは配られるのにクリア数が増えない**という食い違いがあった。
+     しかも挑戦の問題は表示した時点で chalShown に積まれ二度と出題されないので、
+     その分は「N / 1929」では永久に埋まらなかった。記録・報酬・クリア数を
+     「クリアが確定する 1 点」＝ここへ集約する（GAME-SPEC 3-1）。
+     firstClear の判定は seen を積む**前に**取る ―― 順序を崩すと cleared が増えない */
+  const firstClear=!G.seen.includes(code);
+  if(firstClear){
+    G.seen.push(code); if(G.seen.length>5000)G.seen.shift();
+    G.cleared++;       // 挑戦モードの解放条件（CHAL_AT）もこれで進む（GAME-SPEC 7-2）
+  }
+  if(MODE==="chal"&&!G.chalDone.includes(code))G.chalDone.push(code);
   record(); save();               // 記録はここで 1 回だけ確定する（GAME-SPEC 3）
   document.querySelectorAll(".num").forEach((n,i)=>
     setTimeout(()=>{n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop")},i*70));
@@ -23219,12 +23233,9 @@ function record(){
   st.band[b]=(st.band[b]||0)+1;
 }
 function advance(){
-  const code=codeOf(cur), firstClear=!G.seen.includes(code);
-  if(firstClear){G.seen.push(code); if(G.seen.length>5000)G.seen.shift()}
-  if(MODE==="chal"&&!G.chalDone.includes(code))G.chalDone.push(code);
-  // record() は win() で済んでいる（GAME-SPEC 3）。ここは進行だけを進める
-  if(MODE==="course"){G.ci++; if(firstClear)G.cleared++}
-  else if(firstClear)G.cleared++;
+  // 記録もクリアの確定（chalDone / seen / cleared）も win() で済んでいる
+  // （GAME-SPEC 3-1）。ここは進行だけ ―― 本編の位置を進めて次の問題を読む
+  if(MODE==="course")G.ci++;
   save();
   const n=nextOf(MODE);
   if(!n){chalEnd();go("home");return}
