@@ -7,10 +7,11 @@ Playwright を入れると「検証を回すために別のものを入れる」
 「ページを開く／JS を評価する／画面の大きさを決める」の 3 つだけなので、
 WebSocket を自前で話しても 200 行に収まる。
 
-つまずいた点を 3 つ実装に入れてある（詳しくは verify_ui.py の冒頭）:
+つまずいた点を 4 つ実装に入れてある（詳しくは verify_ui.py の冒頭）:
   - Chrome の実行パスは MAKE10_CHROME で上書きできる
   - file:// ではなく 127.0.0.1 の HTTP で開く（localStorage のため）
   - 画面の大きさは読み込みより先に決める（applyMetrics() の latch を避ける）
+  - キャッシュを使わない（配信は常に 200・no-store、ブラウザは setCacheDisabled）
 """
 import base64
 import functools
@@ -50,6 +51,25 @@ def find_chrome():
 
 
 class _QuietHandler(http.server.SimpleHTTPRequestHandler):
+    """常に今のファイルを 200 で返す。
+
+    標準の send_head() は If-Modified-Since を見て、ファイルの更新時刻が
+    それ以前なら**応答ヘッダを書く前に** 304 を返す。更新時刻の新しい古い版
+    （worktree で配ったものなど）をブラウザが持っていると、手元の新しい版が
+    304 で握りつぶされる（5.4 で 5.3 のページに 5.4 のテストを当てていた）。
+    end_headers() で Cache-Control を足すだけでは 304 は止まらないので、
+    条件付きの要求ヘッダそのものを消してから標準の処理に渡す。
+    """
+
+    def send_head(self):
+        del self.headers["If-Modified-Since"]
+        del self.headers["If-None-Match"]
+        return super().send_head()
+
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def log_message(self, *a):
         pass
 
@@ -178,6 +198,10 @@ class Chrome:
         self.ws = WS(pages[0]["webSocketDebuggerUrl"])
         self.ws.call("Runtime.enable")
         self.ws.call("Page.enable")
+        # ブラウザのキャッシュを使わない。CDP のセッション（ここで繋ぐ 1 本）ごとの
+        # 設定なので、セッションを作り直すならそこでも呼ぶこと
+        self.ws.call("Network.enable")
+        self.ws.call("Network.setCacheDisabled", {"cacheDisabled": True})
 
     def on_new_document(self, source):
         """読み込みのたびに先頭で走る script を仕込む（localStorage の種まき用）。"""

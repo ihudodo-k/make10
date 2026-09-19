@@ -29,12 +29,27 @@
    「normal」と書いた測定が実は compact だった）
 4. **判定はできるだけ DOM の見える値で取る。** 変数が正しくても画面に出ていない
    ことがある（4.5 で #pmode に値を入れたのに親が display:none だった）
+5. **キャッシュを使わず、読んだ版を照合する。** 5.4 の検証は、実際には 5.3 の
+   ページに 5.4 のテストを当てていた。Chrome のプロファイルが `%TEMP%` の固定パスに
+   残り、そこに worktree から配った 5.3（更新時刻が手元の 5.4 より新しい）が
+   キャッシュされていた。次の実行で Chrome が `If-Modified-Since` を送ると、
+   標準の `SimpleHTTPRequestHandler` は手元のファイルのほうが古いので 304 を返し、
+   キャッシュの 5.3 がそのまま動いた。3 層で塞いである ――
+   配信は条件付き要求を無視して常に 200・`Cache-Control: no-store`（cdp.serve）／
+   ブラウザは `Network.setCacheDisabled`（cdp.Chrome）／プロファイルは実行ごとに
+   `tempfile.mkdtemp()` で作って終了時に消す。さらに起動直後に
+   `docs/index.html` のソースの `APP_VERSION` と、設定画面に**見えている**
+   `#appver` を突き合わせ、食い違えばケースを回さずに赤で止まる
+   （キャッシュ以外の原因で古い版が読まれた場合もここで止まる）
 """
 import argparse
 import importlib
 import os
 import pkgutil
+import re
+import shutil
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -43,7 +58,6 @@ from uiharness import cdp, ui as uilib          # noqa: E402
 DOCS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
 PORT = 8790
 DEBUG_PORT = 9390
-PROFILE = os.path.join(os.environ.get("TEMP", "/tmp"), "make10-verify-ui-profile")
 # 実機（Android）が normal、幅の狭い端末が compact。両方を必ず回す（DESIGN.md 2-2）
 VIEWPORTS = [("normal", 430, 900), ("compact", 360, 690)]
 
@@ -60,6 +74,27 @@ def load_cases(only):
         if missing:
             raise SystemExit("そんなケースは無い: " + ", ".join(sorted(missing)))
     return mods
+
+
+def source_version():
+    """docs/index.html のソースに書いてある APP_VERSION"""
+    with open(os.path.join(DOCS, "index.html"), encoding="utf-8") as f:
+        m = re.search(r'const APP_VERSION="([^"]+)"', f.read())
+    if not m:
+        raise SystemExit("docs/index.html に APP_VERSION が見つからない")
+    return m.group(1)
+
+
+def check_version(chrome, url, want):
+    """読み込んだページが手元の版かを、設定画面に見えている #appver で確かめる
+    （つまずき 4・5）。#appver は設定画面にしか無いので、開いてから読む。"""
+    helper = uilib.UI(chrome, url, [], "version")
+    helper.open()
+    helper.click("gear")
+    shown = helper.visible("appver")
+    text = helper.text("appver")
+    ok = shown and text == "バージョン " + want + "（試作）"
+    return ok, shown, text
 
 
 def main():
@@ -82,13 +117,25 @@ def main():
     views = [v for v in VIEWPORTS if not args.viewport or v[0] == args.viewport]
     serve = cdp.serve(DOCS, PORT)
     url = "http://127.0.0.1:%d/index.html" % PORT
-    chrome = cdp.Chrome(DEBUG_PORT, PROFILE)
+    # プロファイルは実行ごとに作って消す。前回の実行のキャッシュや localStorage を
+    # 持ち越さない（つまずき 5）
+    profile = tempfile.mkdtemp(prefix="make10-verify-ui-")
+    chrome = cdp.Chrome(DEBUG_PORT, profile)
     print("Chrome : %s" % chrome.version)
     print("対象   : %s" % url)
     results = []
     broken = []
     t0 = time.time()
     try:
+        # 版の照合。食い違ったらケースは 1 つも回さない
+        want = source_version()
+        chrome.metrics(*VIEWPORTS[0][1:])
+        ok, shown, text = check_version(chrome, url, want)
+        print("版     : ソース %s ／ 画面 %r（%s）"
+              % (want, text, "表示あり" if shown else "表示なし"))
+        if not ok:
+            print("\n版が一致しない。古い版が読まれている。ケースは回さずに止める")
+            return 1
         for name, w, h in views:
             print("\n===== %s (%d×%d) =====" % (name, w, h))
             # 読み込みより先に画面の大きさを決める（つまずき 3）
@@ -115,6 +162,8 @@ def main():
     finally:
         chrome.close()
         serve.shutdown()
+        serve.server_close()
+        shutil.rmtree(profile, ignore_errors=True)
 
     ok = sum(1 for r in results if r[0])
     print("\n合計 %d / %d 項目  (%.1f 秒)" % (ok, len(results), time.time() - t0))
