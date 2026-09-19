@@ -1049,6 +1049,8 @@ def _rescue_sort_key(row):
 
     救済解はそのまま解答例になり min_score にもなるので、難易度が過大に付き、
     ヒントも余計に難しい式を見せていた。6-5 / 6-6 と基準を揃える。
+    (5.4 までの話。5.5 から救済された問題は出題しないので、救済解が解答例や
+    難易度になることは無い。残るのは problems.repr_solution_id だけ)
     """
     return (row[11], row[10], row[7], row[5], len(row[3]), row[0])
 
@@ -1075,6 +1077,10 @@ def run_curate(db_path, progress=None):
     読みやすさ -> id) で1件だけ残し、その行の redundant_why に
     "6-4: kept (only solution)" を記録する。6-1 を一般判定にしたので、この救済は
     実際に起きる (0075 など。件数と数え方は DATA-SPEC 6-7)。
+    5.5 から、救済された問題の puzzle は constrain の規則 2 で採られない (全解が
+    6-1 の式なので一番簡単な解も 6-1 の式)。救済が残るのは problems 表と印だけ。
+
+    problems.min_score / max_score は全解 (6-1 を含む) のスコア範囲 (5.5。DATA-SPEC 7 章)。
     """
     conn = _connect(db_path)
     try:
@@ -1168,9 +1174,9 @@ def run_curate(db_path, progress=None):
 
         # problems テーブル: 代表解の数、代表解、スコアの最小/最大。
         # solution_count は is_repr = 1 の数 (重複を圧縮した一覧の本数)。
-        # min_score / max_score は is_redundant = 0 (5.2 以降は「6-1 を除いた全解」)
-        # のスコア範囲。これは constrain の base_min_score / puzzles.min_score と
-        # 同じ基準。6-3 で圧縮された行もここには含まれる (5.2 で変わった点)。
+        # min_score / max_score は**全解** (6-1 を含む) のスコア範囲 (5.5 規則 1)。
+        # プレイヤーは 6-1 の式も入力できるので、難易度は全解の最小で決める。
+        # これは constrain の base_min_score と同じ基準 (DATA-SPEC 7 章)。
         conn.execute("DELETE FROM problems")
         best = {}   # pid -> (sort_key, id)
         for r in conn.execute(_CURATE_COLS + " WHERE is_repr = 1 ORDER BY id"):
@@ -1184,7 +1190,7 @@ def run_curate(db_path, progress=None):
         score_range = {
             pid: (lo, hi) for pid, lo, hi in conn.execute(
                 "SELECT problem_id, MIN(score), MAX(score) FROM solutions "
-                "WHERE is_redundant = 0 GROUP BY problem_id")
+                "GROUP BY problem_id")
         }
         conn.executemany(
             "INSERT INTO problems (problem_id, solution_count, min_score, "
@@ -1224,35 +1230,48 @@ def run_curate(db_path, progress=None):
 #   4. ルールを 1..MAX_CONSTRAINTS 個組み合わせ、マスク AND で残存解を求める
 #   5. 残存解が無制約より真に少なく、採用条件を満たすものを puzzle にする
 #   6. 残存解集合が同一の puzzle は、rules が短い→辞書順で先のものだけ残す
-#   7. rule_count = 0 の無制約 puzzle は harder_by 条件なしで全問題に 1 件入れる
+#   7. rule_count = 0 の無制約 puzzle は harder_by 条件なしで入れる (規則 2 は当てる)
 #
-# 難易度と解答例は「冗長でない解」(is_redundant = 0) から取る (第6-B章)。
-#   min_score / example_solution_id = 冗長でない残存解のうち _example_key が最小のもの
-#                                     (スコア最小 -> 読みやすさ -> id)。難易度と解答例は同じ解。
-#                                     冗長でない残存解が無ければ残存解全体から取る (6-5)
-#   base_min_score = その問題の冗長でない解の最小スコア (= problems.min_score)
-#   harder_by      = min_score - base_min_score
-# 採用条件 (制約付きのみ):
-#   - 残存解が 1 つ以上ある (全部冗長でも 6-5 で救済する。5.2)
-#   - harder_by >= 1
+# 難易度と採用条件 (第6-B章・第7章。5.5)。「6-1 の解」= redundant_why が 6-1 / 6-4 で
+# 始まる解 (数字を潰している式。_is_nullified)。
+#   規則 1: min_score      = 残存解 (6-1 を含む) の最小スコア
+#           base_min_score = その問題の全解 (6-1 を含む) の最小スコア (= problems.min_score)
+#           harder_by      = min_score - base_min_score
+#           プレイヤーは 6-1 の式も入力できるので、難易度は一番簡単な解き方で決める
+#   規則 2: 残存解に 6-1 でない解があり、かつ 6-1 の解の最小スコアが 6-1 でない解の
+#           最小スコアより真に大きいときだけ採る (同点も採らない。無制約・制約付きとも)。
+#           一番簡単な解き方が数字を潰す式になるパズルは出さない
+#   制約付きはさらに harder_by >= 1
+#   example_solution_id = 冗長でない残存解のうち _example_key が最小のもの (6-1 の式は
+#           出さない)。規則 2 を通った puzzle では一番簡単な解が 6-1 でない解なので、
+#           min_score と必ず一致する (崩れたら RuntimeError で止まる)
 #
-# 「制約下で最もラクな解が冗長解でない」ことは保証しない。
-#   - 「残存解の一部が冗長で、その冗長解が一番ラク」は素通りする
-#     (件数と数え方は DATA-SPEC 6-7)。min_score / example を冗長でない解から取るので
-#     表示上の難易度と解答例は正しいが、プレイヤーは冗長な式でも突破できる。
-#   - これは意図的に許容する。プレイヤーは何も強制されていないし、
-#     基本問題 (rule_count = 0) でも同じ状況は起きるので、扱いを揃える。
+# 5.4 までは難易度を冗長でない解から取り、6-1 の式のほうが簡単な puzzle を素通りさせて
+# いた (表示の難易度が実際より高かった)。件数と数え方は DATA-SPEC 6-7。
 
 _CONSTRAIN_SOL_COLS = (
     "SELECT id, problem_id, is_repr, score, cnt_paren, cnt_sub, cnt_div, "
-    "LENGTH(display), cnt_add, cnt_mul, cnt_pow, cnt_fac, is_redundant "
+    "LENGTH(display), cnt_add, cnt_mul, cnt_pow, cnt_fac, is_redundant, "
+    "COALESCE(redundant_why, '') "
     "FROM solutions ORDER BY problem_id, id")
 # 列: 0 id  1 pid  2 is_repr  3 score  4 cnt_paren  5 cnt_sub  6 cnt_div
 #     7 len(display)  8 cnt_add  9 cnt_mul  10 cnt_pow  11 cnt_fac  12 is_redundant
+#     13 redundant_why (5.5。規則 2 の「6-1 の解」の判定に使う。末尾に足したので
+#        _example_key など既存の添字は変わらない)
 
 # CONSTRAINT_OPS の各記号 -> 上のクエリでの使用回数カラムのインデックス
 _OP_COL = {"+": 8, "-": 5, "*": 9, "/": 6, "^": 10, "!": 11}
 _IDX_REDUNDANT = 12
+_IDX_WHY = 13
+
+# 5.5: 規則 2 の「6-1 の解」= 数字を潰している式。6-1 の印に加え、6-4 で救済した解も
+# 数字を潰す式なので同じ側に数える (6-5 の印は "6-1: ... | 6-5: ..." なのでここに入る)
+_NULLIFIED_PREFIXES = ("6-1", "6-4")
+
+
+def _is_nullified(s):
+    """_CONSTRAIN_SOL_COLS の行が 6-1 の解 (数字を潰している式) か。"""
+    return s[_IDX_WHY].startswith(_NULLIFIED_PREFIXES)
 
 
 def _parse_kind(kind):
@@ -1302,10 +1321,11 @@ def run_constrain(db_path, progress=None):
             by_pid.setdefault(s[1], []).append(s)
 
         puzzle_rows = []
-        n_base = 0          # rule_count = 0 (無制約。全問題に 1 件)
+        n_base = 0          # rule_count = 0 (無制約。規則 2 を通った問題に 1 件)
         n_constrained = 0   # rule_count >= 1 で採用したもの
         n_rej_hb = 0        # harder_by < 1 で不採用
         n_rej_noreprsurv = 0  # 制約を満たす解が 1 本も無いので不採用
+        n_rej_null = 0        # 5.5 規則 2: 一番簡単な解が 6-1 の式なので不採用
         n_rescue_puzzle = 0   # 6-5: 潰す形しか無いので救済した puzzle
         rescued_ids = set()   # 6-5 で解答例にした解の id（痕跡を残す用）
         rescued_pids = set()
@@ -1315,9 +1335,9 @@ def run_constrain(db_path, progress=None):
         for pid, sols in by_pid.items():
             n = len(sols)
             full = (1 << n) - 1
-            nonred_scores = [s[3] for s in sols if not s[_IDX_REDUNDANT]]
-            # curate により全問題に is_redundant=0 の解が最低 1 つある
-            base_min = min(nonred_scores)
+            # 5.5 規則 1: 難易度の基準は 6-1 を含む全解の最小。プレイヤーは 6-1 の
+            # 式も入力できるので、それが一番簡単なら実際の手応えはそこで決まる
+            base_min = min(s[3] for s in sols)
 
             # --- 候補ルール -> マスク (同一マスクのルールは簡潔な方だけ残す) ---
             # 候補は CONSTRAINT_OPS × CONSTRAINT_RULE_KINDS のみ。>= や 2 個の
@@ -1365,12 +1385,25 @@ def run_constrain(db_path, progress=None):
             # --- puzzle 行を組み立てる ---
             for mask, (rc, _ln, rs) in best.items():
                 surv = [sols[i] for i in range(n) if mask >> i & 1]
+                # 5.5 規則 2: 6-1 の解の最小が 6-1 でない解の最小以下 (同点も) なら
+                # 採らない。一番簡単な解き方が数字を潰す式になるパズルは出さない。
+                # 6-1 でない解が 1 つも無い puzzle (6-4 / 6-5 の救済で成り立って
+                # いたもの) もここで落ちるので、下の 6-5 の分岐には来なくなる
+                ok_scores = [s[3] for s in surv if not _is_nullified(s)]
+                null_scores = [s[3] for s in surv if _is_nullified(s)]
+                if surv and (not ok_scores or (null_scores and
+                                               min(null_scores) <= min(ok_scores))):
+                    n_rej_null += 1
+                    continue
                 nonred = [s for s in surv if not s[_IDX_REDUNDANT]]
 
                 was_rescued = False
                 if nonred:
                     pool = nonred
                 elif surv:
+                    # 5.5 から規則 2 がここに来る前に落とすので、この分岐は通らない
+                    # (6-1 でない解が無い puzzle は規則 2 で不採用)。残す・消すは
+                    # 別の作業で判断する (DATA-SPEC 6-5)
                     # 6-5 (5.2): 制約を満たす解が「数字を潰す形」しか無い puzzle。
                     # is_redundant は「どれを解答例にするか」「一覧に何本並べるか」を
                     # 決める印であって、パズルの存在を左右するものではない。
@@ -1385,11 +1418,17 @@ def run_constrain(db_path, progress=None):
                     continue
 
                 example = min(pool, key=_example_key)
-                # 救済時は「制約を満たす全解」の最小スコア。難易度もこの式で付く
-                mn = example[3]
+                # 5.5 規則 1: 難易度は制約を満たす全解 (6-1 を含む) の最小スコア。
+                # 規則 2 を通った puzzle では一番簡単な解が 6-1 でない解なので、
+                # 解答例 (_example_key の最小) と必ず一致する。崩れたら止める
+                mn = min(s[3] for s in surv)
+                if example[3] != mn:
+                    raise RuntimeError(
+                        "constrain: 解答例のスコア %d と難易度 %d が一致しない (%s %r)"
+                        % (example[3], mn, pid, rs))
 
                 if rc == 0:
-                    hb = mn - base_min           # 定義上 0 (nonred == 全冗長でない解)
+                    hb = mn - base_min           # 定義上 0 (surv == 全解)
                     n_base += 1
                 else:
                     hb = mn - base_min
@@ -1459,6 +1498,7 @@ def run_constrain(db_path, progress=None):
             "constrained": n_constrained,
             "rejected_harder_by": n_rej_hb,
             "rejected_no_nonredundant": n_rej_noreprsurv,
+            "rejected_nullified_easiest": n_rej_null,
             "rescued_puzzle": n_rescue_puzzle,
             "promoted_repr": len(promoted),
             "rescued_problems": len(rescued_pids),
@@ -1675,14 +1715,18 @@ def _course_stage_cond(i):
     if i <= 10:
         return lambda r: (bool(r["ops"] & set("*/")) and not r["par"]
                           and not (r["ops"] & set("^!")))
+    # 11〜25 は「^ と ! をまだ知らない」段。26〜28 の★で階乗、41〜43 の★で累乗を
+    # 初めて出すので、それより前の解答例 (= 規則 2 により一番簡単な解) に使わせない
+    # (5.5。5.2 で 5〜10 にだけ除外を書き、11〜25 と 29〜40 に書き漏れていた)
     if i <= 20:
-        return lambda r: r["par"]
+        return lambda r: r["par"] and not (r["ops"] & set("^!"))
     if i <= 25:
-        return lambda r: len(r["ops"] & set("+-*/")) >= 2
-    if i <= 28:                       # ★階乗必須 + 階乗が数を大きくしている
-        return lambda r: r["nf"] and r["fbig"]
-    if i <= 40:
-        return lambda r: "!" in r["ops"]
+        return lambda r: (len(r["ops"] & set("+-*/")) >= 2
+                          and not (r["ops"] & set("^!")))
+    if i <= 28:                       # ★階乗必須 + 階乗が数を大きくしている (累乗はまだ)
+        return lambda r: r["nf"] and r["fbig"] and "^" not in r["ops"]
+    if i <= 40:                       # 階乗は既知・累乗はまだ (41〜43 の★で初めて)
+        return lambda r: "!" in r["ops"] and "^" not in r["ops"]
     if i <= 43:                       # ★累乗必須 + 累乗が結果に効いている
         return lambda r: r["np"] and r["peff"]
     return lambda r: True
@@ -1858,7 +1902,7 @@ def _plain_eval(node, digits):
 
 
 def _blob_verify(conn, sections, widen, text, rebuild=None):
-    """生成と同じ実行で回す 12 項目。[(項目名, 合否, 詳細)] を返す。
+    """生成と同じ実行で回す 14 項目。[(項目名, 合否, 詳細)] を返す。
 
     rebuild … 同じ DB からもう一度 BLOB を組んで本文を返す関数。
     検証 12 (再現性) だけが使う。省略すると 12 を「未実施」として落とす。
@@ -1989,6 +2033,49 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
                     "2 回組んで %s (%d / %d バイト)"
                     % ("バイト単位で一致" if same else "**不一致**",
                        len(text.encode("utf-8")), len(again.encode("utf-8")))))
+
+    # 13. 一番簡単な解が 6-1 でないこと・難易度がその解のスコアであること (5.5)
+    # **constrain とは独立に**、solutions 表から SQL で直接求める (CLAUDE.md
+    # 「検証は生成と独立に実装する」)。6-1 の解の定義 (redundant_why が 6-1 / 6-4
+    # で始まる) も、rc と使用回数の列の対応も、ここで改めて書く
+    # redundant_why は冗長でない解では NULL。NOT (NULL LIKE ...) は NULL になって
+    # 「6-1 でない解」から抜け落ちるので、必ず COALESCE してから比べる
+    nul = ("(COALESCE(redundant_why, '') LIKE '6-1%' "
+           "OR COALESCE(redundant_why, '') LIKE '6-4%')")
+    rc_col = {"N": None, "A0": "cnt_add", "S0": "cnt_sub", "M0": "cnt_mul",
+              "D0": "cnt_div", "P0": "cnt_pow", "F0": "cnt_fac"}
+    mins = {}
+    for rc, col in rc_col.items():
+        where = "" if col is None else " WHERE %s = 0" % col
+        for pid, nmin, omin in conn.execute(
+                "SELECT problem_id, MIN(CASE WHEN %s THEN score END), "
+                "MIN(CASE WHEN NOT %s THEN score END) FROM solutions%s "
+                "GROUP BY problem_id" % (nul, nul, where)):
+            mins[(pid, rc)] = (nmin, omin)
+    bad_easy, bad_d = [], []
+    for r in allrows:
+        nmin, omin = mins.get((r["id"], r["rc"]), (None, None))
+        if omin is None or (nmin is not None and nmin <= omin):
+            bad_easy.append(r)
+        elif r["d"] != omin:
+            bad_d.append(r)
+    res.append(("13. 一番簡単な解", not bad_easy and not bad_d,
+                "6-1 の解の最小が 6-1 でない解の最小以下 %d 行、"
+                "d が 6-1 でない解の最小と違う %d 行 / %d 行"
+                % (len(bad_easy), len(bad_d), len(allrows))))
+
+    # 14. 演算子を★より前に出さない (5.5。GAME-SPEC 7-1)
+    # _course_stage_cond / r["ops"] は使わず、COURSE の各位置の解答例の**文字列**を
+    # 直接見る。階乗は 26〜28 の★で、累乗は 41〜43 の★で初めて出すので、
+    # 1〜25 問目の解答例に "!" が、1〜40 問目の解答例に "^" が現れないこと
+    early = [(i, r["id"], r["sol"]) for i, r in enumerate(course[:25], 1)
+             if "!" in r["sol"]]
+    mid = [(i, r["id"], r["sol"]) for i, r in enumerate(course[:40], 1)
+           if "^" in r["sol"]]
+    res.append(("14. ★より前の演算子", not early and not mid,
+                "1〜25 問目に ! %d 問、1〜40 問目に ^ %d 問%s"
+                % (len(early), len(mid),
+                   ("  例 %s" % (early + mid)[:3]) if early or mid else "")))
     return res
 
 
@@ -2012,7 +2099,7 @@ def _blob_build(conn):
 def run_blob(db_path, html_path, write=True, progress=None):
     """3 区分の BLOB を組み、index.html の const BLOB=`...` を差し替える。
 
-    検証 12 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
+    検証 14 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
     """
     conn = _connect(db_path)
     try:
@@ -2090,6 +2177,8 @@ def _cmd_constrain(args):
     print("  rejected: harder_by<1           : %d" % s["rejected_harder_by"])
     print("  rejected: no surviving soln     : %d"
           % s["rejected_no_nonredundant"])
+    print("  rejected: easiest is 6-1 (5.5)  : %d"
+          % s["rejected_nullified_easiest"])
     print("  6-5 rescued (nullifying-only)   : %d puzzle(s) / %d problem(s)"
           % (s["rescued_puzzle"], s["rescued_problems"]))
     print("  6-6 promoted to is_repr         : %d solution(s)"

@@ -29,7 +29,8 @@ def run(ui):
     ui.ev("go('home')")
     s = ui.ev(SNAP)
     ui.check("つぎへを押さずホームへ戻ってもクリア数は戻らない", s["chalDone"], 1)
-    ui.check("ホームの挑戦の表示も増える", ui.text("m-chal-v"), "1 / 1929")
+    ui.check("ホームの挑戦の表示も増える", ui.text("m-chal-v"),
+             "1 / %d" % ui.ev("CHAL.length"))
 
     ui.ev("start('chal')")
     ui.check("挑戦の 2 問目を解く", ui.solve(1.4), "10|正解")
@@ -109,7 +110,8 @@ def run(ui):
     ui.ev("start('free')")
     ui.check("あと 1 問を解く", ui.solve(), "10|正解")
     ui.ev("go('home')")
-    ui.check("つぎへを押さなくても解放される", ui.text("m-chal-v"), "0 / 1929")
+    ui.check("つぎへを押さなくても解放される", ui.text("m-chal-v"),
+             "0 / %d" % ui.ev("CHAL.length"))
     ui.check("ロックの class が外れる",
              ui.ev("$('m-chal').classList.contains('lock')"), False)
     ui.click("m-chal")

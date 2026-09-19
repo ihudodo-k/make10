@@ -626,21 +626,52 @@ class Constrain(unittest.TestCase):
             "repr_survivor_count, example_solution_id, min_score, "
             "base_min_score, harder_by FROM puzzles").fetchall()
 
-        # 各問題に rule_count=0 の無制約 puzzle がちょうど 1 件
+        # 5.5 規則 2 をここで独立に書く: 「6-1 の解」= redundant_why が 6-1 / 6-4 で
+        # 始まる解。制約を満たす解 (where) の中で、6-1 の解の最小が 6-1 でない解の
+        # 最小より真に大きいときだけ puzzle になる。(6-1 の最小, 6-1 でない最小, 全解の最小)
+        NUL = ("(COALESCE(redundant_why, '') LIKE '6-1%' "
+               "OR COALESCE(redundant_why, '') LIKE '6-4%')")
+        col = {"+": "cnt_add", "-": "cnt_sub", "*": "cnt_mul", "/": "cnt_div",
+               "^": "cnt_pow", "!": "cnt_fac"}
+
+        def mins(pid, rules):
+            where = "" if not rules else " AND %s = 0" % col[rules[0]]
+            return conn.execute(
+                "SELECT MIN(CASE WHEN %s THEN score END), "
+                "MIN(CASE WHEN NOT %s THEN score END), MIN(score) "
+                "FROM solutions WHERE problem_id = ?%s" % (NUL, NUL, where),
+                (pid,)).fetchone()
+
+        def rule2(nmin, omin):
+            return omin is not None and (nmin is None or nmin > omin)
+
+        # 無制約の puzzle は各問題に高々 1 件で、あるのは規則 2 を満たす問題だけ
+        # (5.4 までは「全問題にちょうど 1 件」。5.5 で一番簡単な解が 6-1 の式の
+        # 問題は無制約でも採らなくなった)
         probs = set(p for p, in conn.execute(
             "SELECT DISTINCT problem_id FROM solutions"))
+        no_base = 0
         for p in probs:
             zero = conn.execute(
                 "SELECT COUNT(*), MIN(rules) FROM puzzles "
                 "WHERE problem_id = ? AND rule_count = 0", (p,)).fetchone()
-            self.assertEqual(zero[0], 1)
-            self.assertEqual(zero[1], "")
+            want = 1 if rule2(*mins(p, "")[:2]) else 0
+            self.assertEqual(zero[0], want, p)
+            if want:
+                self.assertEqual(zero[1], "")
+            else:
+                no_base += 1
+        # 規則 2 で無制約の puzzle が落ちる問題 (0009 など) が範囲内にあること。
+        # 0 だとこの確認が空振りになる
+        self.assertGreater(no_base, 0)
 
         base_of = dict(conn.execute(
             "SELECT problem_id, base_min_score FROM puzzles "
             "WHERE rule_count = 0"))
         prob_min = dict(conn.execute(
             "SELECT problem_id, min_score FROM problems"))
+        all_min = dict(conn.execute(
+            "SELECT problem_id, MIN(score) FROM solutions GROUP BY problem_id"))
 
         seen = set()
         for (pid, rules, rc, sc, rsc, ex, mn, base, hb) in rows:
@@ -652,11 +683,20 @@ class Constrain(unittest.TestCase):
             # 残存解集合 (problem_id, rules) は一意 (重複排除できている)
             self.assertNotIn((pid, rules), seen)
             seen.add((pid, rules))
-            # base_min_score は無制約 puzzle とも problems.min_score とも一致
-            self.assertEqual(base, base_of[pid])
+            # base_min_score は 6-1 を含む全解の最小 (規則 1)。無制約 puzzle が
+            # あればそれとも、problems.min_score とも一致
+            self.assertEqual(base, all_min[pid])
+            if pid in base_of:
+                self.assertEqual(base, base_of[pid])
             self.assertEqual(base, prob_min[pid])
             self.assertEqual(hb, mn - base)
             self.assertGreaterEqual(hb, 0)
+            # 規則 2: 6-1 の解の最小が 6-1 でない解の最小より真に大きい。
+            # 規則 1: 難易度は制約を満たす全解の最小で、それは 6-1 でない解の最小
+            nmin, omin, smin = mins(pid, rules)
+            self.assertTrue(rule2(nmin, omin), (pid, rules, nmin, omin))
+            self.assertEqual(mn, smin)
+            self.assertEqual(mn, omin)
 
             # 難易度と解答例は「同じ・冗長でない解」から来る
             ex_score, ex_red = conn.execute(
@@ -666,10 +706,12 @@ class Constrain(unittest.TestCase):
             self.assertEqual(ex_red, 0)
 
             if rc >= 1:
-                # 制約付きは無制約より真に少ない残存解、かつ harder_by >= 1
+                # 制約付きは無制約より真に少ない残存解、かつ harder_by >= 1。
+                # 無制約の残存解 = その問題の全解 (5.5 から無制約 puzzle が無い
+                # 問題があるので、puzzles ではなく solutions から数える)
                 base_sc = conn.execute(
-                    "SELECT survivor_count FROM puzzles WHERE problem_id = ? "
-                    "AND rule_count = 0", (pid,)).fetchone()[0]
+                    "SELECT COUNT(*) FROM solutions WHERE problem_id = ?",
+                    (pid,)).fetchone()[0]
                 self.assertLess(sc, base_sc)
                 self.assertGreaterEqual(hb, 1)
         conn.close()

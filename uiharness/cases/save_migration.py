@@ -77,7 +77,7 @@ def run(ui):
     # ── 画面 ──────────────────────────────────────────────
     ui.check("ホームの本編の件数", ui.text("cnum"), "12 / 1000 問")
     ui.check("ホームの挑戦の件数（捨てた分は数えない）",
-             ui.text("m-chal-v"), "1 / 1929")
+             ui.text("m-chal-v"), "1 / %d" % ui.ev("CHAL.length"))
     # ── 消えたコードの位置で詰まない（5.3 の本命）───────────
     ui.ev("start('course')")
     ui.check("本編が始まる", ui.ev("SCR"), "play")
