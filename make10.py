@@ -53,7 +53,13 @@ SCORE_BONUS = {
     "fraction": 5,          # 途中で分数が現れる (0/1 判定)
     "zero_factorial": 3,    # 0! を使う (気づきにくい。0/1 判定)
     "nested_factorial": 8,  # ( 3! )! のような階乗の 2 回適用 (0/1 判定)
+    "ten_over": 2,          # 10 の倍数を作って割り戻す (is_ten_over。0/1 判定。5.6)
+    "fac_ratio": 2,         # 隣り合う階乗の比 (m+1)!/m! (has_fac_ratio。0/1 判定。5.7)
+    "whole_ratio": -1,      # 式全体がその比だけで完結しているとき戻す (is_whole_ratio。5.7)
 }
+
+# is_ten_over の「割る数」の下限 (第7章。5.6)。b = 1 は割り戻しではない
+TEN_OVER_MIN_DIV = 2
 
 # constrain の制約候補 (第6-B章)。ここを変えれば作り直せる
 CONSTRAINT_OPS = ("+", "-", "*", "/", "^", "!")
@@ -322,12 +328,193 @@ def has_operator(node):
     return node[0] != "num"
 
 
+def _mul_split(node):
+    """node を * と / で展開し (掛ける側の項, 割る側の項) を返す (5.7)。
+
+    降りるのは * と / のノードだけ。括弧の中の足し引き・階乗・累乗・数字は
+    1 つの項として扱う。/ の右側へ回るたびに掛ける側と割る側が入れ替わる。
+    10a/a (is_ten_over) と階乗の比 (fac_ratio_pairs) はこの同じ分解を使う。
+    """
+    num, den = [], []
+    stack = [(node, True)]
+    while stack:
+        n, pos = stack.pop()
+        if n[0] == "bin" and n[1] in ("*", "/"):
+            stack.append((n[2], pos))
+            stack.append((n[3], pos if n[1] == "*" else not pos))
+            continue
+        (num if pos else den).append(n)
+    return num, den
+
+
+def _mul_terms(node, val):
+    """node を * と / で展開した「掛ける側」の項の値を返す (is_ten_over 用)。
+
+    割る側 (分母) に回った項は含めない。
+    """
+    out = []
+    for n in _mul_split(node)[0]:
+        v = val(n)
+        if v is not INVALID:
+            out.append(v)
+    return out
+
+
+def is_ten_over(node, val):
+    """そのノードが「10 の倍数を作ってから割り戻す」形か (第7章。5.6)。
+
+    10 を作るのに a = 10 * b を組んでから b で割る遠回りは、まっすぐ 10 を
+    作るより手応えがあるので加点する。判定はここ 1 か所だけに持ち、
+    score_solution から呼ぶ (同じ式がどこから見ても同じ判定になるように)。
+
+    対象: 二項演算 a / b で
+        値(a) == 10 * 値(b)          (= a / b == 10)
+        値(b) >= TEN_OVER_MIN_DIV
+        値(b) が整数 ―― 24 / 2.4 のような形は「10 の倍数を作る」に当たらない
+        a と b がどちらも階乗ノードではない ―― 10! / 9! は n!/(n-1)! の手筋で、
+            倍率を作って割り戻す遠回りとは別物
+        a を * と / で展開した「掛ける側」の項に 値(b) と同じ値が無い ――
+            ( 8 + 2 ) * 2 / 2 は掛けた分を割り戻しただけの打ち消し
+    """
+    if node[0] != "bin" or node[1] != "/":
+        return False
+    a = val(node[2])
+    b = val(node[3])
+    if a is INVALID or b is INVALID:
+        return False
+    if b < TEN_OVER_MIN_DIV or b.denominator != 1:
+        return False
+    if a != TARGET * b:
+        return False
+    if node[2][0] == "fac" and node[3][0] == "fac":
+        return False
+    return not any(v == b for v in _mul_terms(node[2], val))
+
+
+# --- 階乗の比 (第7章。5.7) ---------------------------------------------------
+# 「10 の倍数を作って割り戻す」(10a/a) と同じ場所にまとめて持つ。判定はここだけで、
+# score_solution から呼ぶ (同じ式がどこから見ても同じ判定になるように)。
+
+
+def iter_conn(node, root=None):
+    """(ノード, そのノードを含む * / のつながりの根) を行きがけ順で返す (5.7)。
+
+    * / のノードは、親も * / ならその根を引き継ぎ、そうでなければ自分が根。
+    それ以外のノードの子は新しいつながりの始まりなので根を引き継がない。
+    """
+    mul = node[0] == "bin" and node[1] in ("*", "/")
+    cr = (node if root is None else root) if mul else None
+    yield node, cr
+    if node[0] == "fac":
+        yield from iter_conn(node[1])
+    elif node[0] == "bin":
+        yield from iter_conn(node[2], cr)
+        yield from iter_conn(node[3], cr)
+
+
+def _fac_arg(node, val):
+    """階乗ノードの引数 (整数でなければ None)。比の照合は値ではなく引数で行う。"""
+    v = val(node[1])
+    if v is INVALID or v.denominator != 1:
+        return None
+    return int(v)
+
+
+def _ratio_num_facs(term, val):
+    """掛ける側の項の中から、比の候補になる階乗ノードを [(ノード, 引数)] で返す。
+
+    項の根からその階乗までの経路に + または - があり、**もう一方の枝の値が 0 で
+    ない**ときは拾わない (5.7)。`( 6! / 2 - 5! ) / 4!` の `5!` は 5!/4! の比では
+    なく、240 を作ってから 24 で割り戻す 10a/a だからである。飾りの 0
+    (`0! + ( 0 + 9! ) / 8!` の `0 +`) は値を変えないので今までどおり拾う。
+    """
+    out = []
+    stack = [term]
+    while stack:
+        n = stack.pop()
+        if n[0] == "fac":
+            a = _fac_arg(n, val)
+            if a is not None:
+                out.append((n, a))
+            stack.append(n[1])
+        elif n[0] == "bin":
+            if n[1] in ("+", "-"):
+                for k in (2, 3):
+                    v = val(n[5 - k])          # もう一方の枝
+                    if v is not INVALID and v == 0:
+                        stack.append(n[k])
+            else:
+                stack.append(n[2])
+                stack.append(n[3])
+    return out
+
+
+def fac_ratio_pairs(connroot, val):
+    """つながりの中の `(m+1)! / m!` の組を [(掛ける側, 割る側, m)] で返す (5.7)。
+
+    掛ける側は項の中まで降りる (_ratio_num_facs)。割る側は**項そのもの**が階乗
+    ノードのときだけ拾う ―― `5! / ( 4! / 2 )` は 4! が割る側の項なので組になるが、
+    `4! / ( 8! / 7! )` の 8!/7! は分解すると 8! が割る側・7! が掛ける側へ回るので
+    拾えない (DATA-SPEC 7 章。詰めるだけの価値が薄いので見送った)。
+    """
+    num_terms, den_terms = _mul_split(connroot)
+    dens = []
+    for t in den_terms:
+        if t[0] == "fac":
+            a = _fac_arg(t, val)
+            if a is not None:
+                dens.append((t, a))
+    if not dens:
+        return []
+    out = []
+    for t in num_terms:
+        for n, a in _ratio_num_facs(t, val):
+            for dt, da in dens:
+                if a == da + 1:
+                    out.append((n, dt, da))
+    return out
+
+
+def has_fac_ratio(tree, val):
+    """規則 2: 解のどこかのつながりに `(m+1)! / m!` の組があるか (第7章。5.7)。"""
+    for n, conn in iter_conn(tree):
+        if conn is n and fac_ratio_pairs(n, val):
+            return True
+    return False
+
+
+def is_whole_ratio(tree, val):
+    """規則 3: 式全体がその比だけで完結しているか (第7章。5.7)。
+
+    木の根が `/`・値が 10・根の左右がどちらも階乗ノードで引数が m+1 と m。
+    `( 0 + 1 + 9 )! / 9!` がこれで、10 へ至る道のりが比ひとつしかない。
+    """
+    if tree[0] != "bin" or tree[1] != "/":
+        return False
+    v = val(tree)
+    if v is INVALID or v != TARGET:
+        return False
+    a, b = tree[2], tree[3]
+    if a[0] != "fac" or b[0] != "fac":
+        return False
+    ia, ib = _fac_arg(a, val), _fac_arg(b, val)
+    return ia is not None and ib is not None and ia == ib + 1
+
+
 def score_solution(tree, val, cnt_paren, uses_fraction):
     """第7章 (暫定) の解スコア = 演算子コスト合計 + ボーナス合計。
 
     val(node) は node の値 (Fraction) を返す関数。0! 判定に使う。
-    ボーナスの zero_factorial / nested_factorial は「その手筋に気づけたか」を
-    測る 0/1 判定 (出現回数では数えない)。
+    ボーナスの zero_factorial / nested_factorial / ten_over / fac_ratio は
+    「その手筋に気づけたか」を測る 0/1 判定 (出現回数では数えない)。
+
+    ten_over … 「10 の倍数を作って割り戻す」形が式のどこかに 1 つでもあれば
+        +2 (is_ten_over。5.6)。ただしその つながり が階乗の比として読める
+        ときは付けない (規則 1。5.7)
+    fac_ratio … 隣り合う階乗の比 `(m+1)! / m!` が 1 つでもあれば +2
+        (規則 2。has_fac_ratio。5.7)
+    whole_ratio … 式全体がその比だけで完結しているなら さらに -1
+        (規則 3。is_whole_ratio。5.7)
     """
     c = count_ops(tree)
     total = (c["+"] * OP_COST["+"] + c["-"] * OP_COST["-"]
@@ -336,13 +523,21 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
 
     has_zero_fac = False
     has_nested_fac = False
-    for n in iter_nodes(tree):
+    has_ten_over = False
+    has_ratio = False
+    for n, conn in iter_conn(tree):
         if n[0] == "fac":
             if n[1][0] == "fac":
                 has_nested_fac = True
             cv = val(n[1])
             if cv is not INVALID and cv == 0:
                 has_zero_fac = True
+        elif is_ten_over(n, val) and not fac_ratio_pairs(conn, val):
+            # 規則 1 (5.7): そのつながりが階乗の比として読めるなら、10 の倍数を
+            # 作って割り戻したのではなく比を書いただけなので 10a/a は付けない
+            has_ten_over = True
+        if conn is n and fac_ratio_pairs(n, val):
+            has_ratio = True
 
     total += SCORE_BONUS["paren"] * cnt_paren
     if uses_fraction:
@@ -351,6 +546,12 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
         total += SCORE_BONUS["zero_factorial"]
     if has_nested_fac:
         total += SCORE_BONUS["nested_factorial"]
+    if has_ten_over:
+        total += SCORE_BONUS["ten_over"]
+    if has_ratio:
+        total += SCORE_BONUS["fac_ratio"]
+        if is_whole_ratio(tree, val):
+            total += SCORE_BONUS["whole_ratio"]
     return total
 
 
@@ -1616,8 +1817,8 @@ BLOB_HTML_DEFAULT = "docs/index.html"
 CHAL_MIN_SCORE = 17          # 挑戦モードの下限 (GAME-SPEC 7)
 COURSE_N = 1000              # 本編の問題数
 COURSE_SEED = "make10-course-v1"
-# 検証用の定数 (5.3)。難易度の範囲は GAME-SPEC 6-2 の 3〜44
-DIFF_MIN, DIFF_MAX = 3, 44
+# 検証用の定数 (5.3)。難易度の範囲は GAME-SPEC 6-2 の 3〜45 (上限は 5.7 で 44 -> 45)
+DIFF_MIN, DIFF_MAX = 3, 45
 COURSE_BLOCK = 100           # 平均難易度を見るブロックの大きさ
 COURSE_LATE_FROM = 201       # ここから先は難易度を絞る
 COURSE_LATE_RANGE = (9, 16)  # _course_floor / _course_target の帰結
@@ -1901,8 +2102,170 @@ def _plain_eval(node, digits):
     return a ** b.numerator
 
 
+def _plain_walk(node):
+    """検証用の木の巡回。iter_nodes とは別実装にしてある。"""
+    out = [node]
+    i = 0
+    while i < len(out):
+        n = out[i]
+        i += 1
+        if n[0] == "fac":
+            out.append(n[1])
+        elif n[0] == "bin":
+            out.append(n[2])
+            out.append(n[3])
+    return out
+
+
+def _plain_ten_over(node, digits):
+    """検証 15 用の 10a/a 判定。is_ten_over とは別実装 (生成側を呼ばない)。"""
+    if node[0] != "bin" or node[1] != "/":
+        return False
+    a = _plain_eval(node[2], digits)
+    b = _plain_eval(node[3], digits)
+    if b < 2 or b.denominator != 1 or a != 10 * b:
+        return False
+    if node[2][0] == "fac" and node[3][0] == "fac":
+        return False
+    terms = []
+
+    def walk(n, pos):
+        if n[0] == "bin" and n[1] in ("*", "/"):
+            walk(n[2], pos)
+            walk(n[3], pos if n[1] == "*" else not pos)
+            return
+        if pos:
+            terms.append(_plain_eval(n, digits))
+
+    walk(node[2], True)
+    return all(t != b for t in terms)
+
+
+def _plain_conns(tree):
+    """検証 15 用。(ノード, つながりの根) の列。iter_conn とは別実装。"""
+    out = []
+
+    def go(n, root):
+        mul = n[0] == "bin" and n[1] in ("*", "/")
+        cr = (n if root is None else root) if mul else None
+        out.append((n, cr))
+        if n[0] == "fac":
+            go(n[1], None)
+        elif n[0] == "bin":
+            go(n[2], cr)
+            go(n[3], cr)
+
+    go(tree, None)
+    return out
+
+
+def _plain_split(node):
+    """検証 15 用。(掛ける側の項, 割る側の項)。_mul_split とは別実装。"""
+    num, den = [], []
+
+    def go(n, pos):
+        if n[0] == "bin" and n[1] in ("*", "/"):
+            go(n[2], pos)
+            go(n[3], pos if n[1] == "*" else not pos)
+            return
+        (num if pos else den).append(n)
+
+    go(node, True)
+    return num, den
+
+
+def _plain_num_facs(term, digits):
+    """検証 15 用。掛ける側の項の中の階乗の引数。+ - は相手が 0 の枝だけ降りる。"""
+    out = []
+
+    def go(n):
+        if n[0] == "fac":
+            v = _plain_eval(n[1], digits)
+            if v.denominator == 1:
+                out.append(int(v))
+            go(n[1])
+        elif n[0] == "bin":
+            if n[1] in ("+", "-"):
+                if _plain_eval(n[3], digits) == 0:
+                    go(n[2])
+                if _plain_eval(n[2], digits) == 0:
+                    go(n[3])
+            else:
+                go(n[2])
+                go(n[3])
+
+    go(term)
+    return out
+
+
+def _plain_fac_ratio(connroot, digits):
+    """検証 15 用。つながりに (m+1)!/m! の組があるか。fac_ratio_pairs とは別実装。"""
+    num, den = _plain_split(connroot)
+    dens = []
+    for t in den:
+        if t[0] == "fac":
+            v = _plain_eval(t[1], digits)
+            if v.denominator == 1:
+                dens.append(int(v))
+    if not dens:
+        return False
+    for t in num:
+        for a in _plain_num_facs(t, digits):
+            if any(a == da + 1 for da in dens):
+                return True
+    return False
+
+
+def _plain_whole_ratio(tree, digits):
+    """検証 15 用。式全体が比だけで完結しているか。is_whole_ratio とは別実装。"""
+    if tree[0] != "bin" or tree[1] != "/":
+        return False
+    if _plain_eval(tree, digits) != 10:
+        return False
+    if tree[2][0] != "fac" or tree[3][0] != "fac":
+        return False
+    a = _plain_eval(tree[2][1], digits)
+    b = _plain_eval(tree[3][1], digits)
+    return a.denominator == 1 and b.denominator == 1 and a == b + 1
+
+
+def _plain_score(tree, digits, cnt_paren):
+    """検証 15 用。(素の点, 10a/a, 階乗の比, 全体が比) を返す。
+
+    素の点は 10a/a と階乗の比の加点を除いたもの。score_solution も
+    is_ten_over も has_fac_ratio も呼ばない。重みの表 (OP_COST /
+    SCORE_BONUS) だけは「仕様の値そのもの」なので共有する。
+    """
+    total = 0
+    zero_fac = nested_fac = frac = over = ratio = False
+    for n, conn in _plain_conns(tree):
+        if n[0] == "bin":
+            total += OP_COST[n[1]]
+            if _plain_eval(n, digits).denominator != 1:
+                frac = True
+            # 規則 1 (5.7): そのつながりが階乗の比として読めるなら 10a/a にしない
+            if _plain_ten_over(n, digits) and not _plain_fac_ratio(conn, digits):
+                over = True
+            if conn is n and _plain_fac_ratio(n, digits):
+                ratio = True
+        elif n[0] == "fac":
+            total += OP_COST["!"]
+            if n[1][0] == "fac":
+                nested_fac = True
+            if _plain_eval(n[1], digits) == 0:
+                zero_fac = True
+    total += SCORE_BONUS["paren"] * cnt_paren
+    if frac:
+        total += SCORE_BONUS["fraction"]
+    if zero_fac:
+        total += SCORE_BONUS["zero_factorial"]
+    if nested_fac:
+        total += SCORE_BONUS["nested_factorial"]
+    return total, over, ratio, ratio and _plain_whole_ratio(tree, digits)
+
+
 def _blob_verify(conn, sections, widen, text, rebuild=None):
-    """生成と同じ実行で回す 14 項目。[(項目名, 合否, 詳細)] を返す。
+    """生成と同じ実行で回す 15 項目。[(項目名, 合否, 詳細)] を返す。
 
     rebuild … 同じ DB からもう一度 BLOB を組んで本文を返す関数。
     検証 12 (再現性) だけが使う。省略すると 12 を「未実施」として落とす。
@@ -2076,6 +2439,38 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
                 "1〜25 問目に ! %d 問、1〜40 問目に ^ %d 問%s"
                 % (len(early), len(mid),
                    ("  例 %s" % (early + mid)[:3]) if early or mid else "")))
+
+    # 15. 10a/a と階乗の比の加点 (5.6・5.7。DATA-SPEC 7 章)
+    # **生成と独立に**書く ―― score_solution も is_ten_over も has_fac_ratio も
+    # 呼ばない。解答例の文字列を parse_tree で木に起こし、_plain_eval /
+    # _plain_ten_over / _plain_fac_ratio / _plain_whole_ratio / _plain_score で
+    # ここから素の点と加点の有無を組み直して d と突き合わせる。
+    # 規則 2 (検証 13) により d は解答例のスコアなので、
+    # d == 素の点 + ten_over + fac_ratio + whole_ratio に一致するはず
+    n_over, n_ratio, n_whole, bad = 0, 0, 0, []
+    for r in allrows:
+        digits = [int(ch) for ch in r["id"]]
+        base, over, ratio, whole = _plain_score(
+            parse_tree(r["sol"]), digits, r["sol"].count("("))
+        want = base
+        if over:
+            n_over += 1
+            want += SCORE_BONUS["ten_over"]
+        if ratio:
+            n_ratio += 1
+            want += SCORE_BONUS["fac_ratio"]
+        if whole:
+            n_whole += 1
+            want += SCORE_BONUS["whole_ratio"]
+        if r["d"] != want:
+            bad.append((r["id"], r["rc"], r["d"], want))
+    res.append(("15. 10a/a と階乗の比", not bad,
+                "10a/a %d 行 (+%d)・階乗の比 %d 行 (+%d)・全体が比 %d 行 (%d)、"
+                "残り %d 行は素の点。不一致 %d 行%s"
+                % (n_over, SCORE_BONUS["ten_over"], n_ratio,
+                   SCORE_BONUS["fac_ratio"], n_whole, SCORE_BONUS["whole_ratio"],
+                   len(allrows) - n_over - n_ratio, len(bad),
+                   ("  例 %s" % bad[:3]) if bad else "")))
     return res
 
 
@@ -2099,7 +2494,7 @@ def _blob_build(conn):
 def run_blob(db_path, html_path, write=True, progress=None):
     """3 区分の BLOB を組み、index.html の const BLOB=`...` を差し替える。
 
-    検証 14 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
+    検証 15 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
     """
     conn = _connect(db_path)
     try:

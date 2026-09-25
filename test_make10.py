@@ -387,6 +387,201 @@ class CurateClassifiers(unittest.TestCase):
             m.classify_identity(tree, self._val(tree, [0, 0, 0, 8])))
 
 
+class TenOverBonus(unittest.TestCase):
+    """10 の倍数を作って割り戻す形の加点 (第7章。5.6)。
+
+    式はすべて make10.db に実在するもの (括弧内は problem_id)。
+    """
+
+    def _over(self, display, digits):
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10), display)   # 式が 10 になる
+        return any(m.is_ten_over(n, val) for n in m.iter_nodes(tree))
+
+    def test_plain_case_is_counted(self):
+        # 5663: 30 を作って 3 で割り戻す
+        self.assertTrue(self._over("5 * 6 / ( 6 - 3 )", [5, 6, 6, 3]))
+        # 8898: 割られる側が括弧の中の足し算 (展開しない)
+        self.assertTrue(self._over("( 8 + 8 * 9 ) / 8", [8, 8, 9, 8]))
+        # 5722: 割られる側だけが階乗 (120 ÷ 12)。階乗どうしの比ではない
+        self.assertTrue(self._over("5! / ( 7 * 2 - 2 )", [5, 7, 2, 2]))
+
+    def test_node_in_the_middle_is_counted(self):
+        # 0254: 最上位は '+' で、対象は式の途中の 240 / 24
+        self.assertTrue(self._over("0 + 2 * 5! / 4!", [0, 2, 5, 4]))
+
+    def test_non_integer_divisor_is_excluded(self):
+        # 4175: 24 ÷ 2.4。「10 の倍数を作る」に当たらない
+        self.assertFalse(self._over("4! / ( 1 + 7 / 5 )", [4, 1, 7, 5]))
+
+    def test_factorial_ratio_is_excluded(self):
+        # 0089: 10! / 9! は n!/(n-1)! の手筋で、倍率を作って割り戻す形ではない
+        self.assertFalse(self._over("( 0! + 0! + 8 )! / 9!", [0, 0, 8, 9]))
+
+    def test_cancelling_is_excluded(self):
+        # 8222: 掛けた 2 をそのまま割り戻しただけ
+        self.assertFalse(self._over("( 8 + 2 ) * 2 / 2", [8, 2, 2, 2]))
+
+    def test_divisor_one_is_excluded(self):
+        # 4611: b = 1 は割り戻しではない
+        self.assertFalse(self._over("( 4 + 6 ) / 1 * 1", [4, 6, 1, 1]))
+
+    def test_score_matches_spec_formula(self):
+        # 5663  5 * 6 / ( 6 - 3 ) : '*'2 + '/'3 + '-'1 + 括弧1 = 7、10a/a で +2
+        display, digits = "5 * 6 / ( 6 - 3 )", [5, 6, 6, 3]
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        _v, _fa, _ea, uf = ev(tree)
+        self.assertEqual(
+            m.score_solution(tree, (lambda n: ev(n)[0]), display.count("("), uf),
+            7 + m.SCORE_BONUS["ten_over"])
+
+    def test_bonus_is_added_once_per_solution(self):
+        """対象ノードが複数あっても加点は 1 回。
+
+        4 桁ではそういう式が 1 つも作れない (make10.db の全 246,977 解で 0 件)
+        ので、ここは人工の木で確かめる。
+        (( 5+5+5+5 )/2 + ( 5+5+5+5 )/2 + ( 5+5+5+5 )/2) / 3 = 10
+        """
+        def add4(i):
+            return ("bin", "+", ("bin", "+", ("num", i), ("num", i + 1)),
+                    ("bin", "+", ("num", i + 2), ("num", i + 3)))
+
+        twenty_over_two = lambda i: ("bin", "/", add4(i), ("num", i + 4))
+        inner = ("bin", "+", ("bin", "+", twenty_over_two(0),
+                              twenty_over_two(5)), twenty_over_two(10))
+        tree = ("bin", "/", inner, ("num", 15))
+        digits = [5, 5, 5, 5, 2] * 3 + [3]
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10))
+        self.assertEqual(
+            sum(1 for n in m.iter_nodes(tree) if m.is_ten_over(n, val)), 4)
+        c = m.count_ops(tree)
+        bare = (c["+"] * m.OP_COST["+"] + c["/"] * m.OP_COST["/"])
+        self.assertEqual(m.score_solution(tree, val, 0, ev(tree)[3]),
+                         bare + m.SCORE_BONUS["ten_over"])
+
+
+class FacRatioBonus(unittest.TestCase):
+    """隣り合う階乗の比の 3 規則 (第7章。5.7)。
+
+    式はすべて make10.db に実在するもの (コメントの 4 桁が problem_id)。
+    """
+
+    def _tree(self, display, digits):
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10), display)   # 式が 10 になる
+        return tree, val, ev
+
+    def _ratio(self, display, digits):
+        tree, val, _ev = self._tree(display, digits)
+        return m.has_fac_ratio(tree, val)
+
+    def _ten_over_counted(self, display, digits):
+        """規則 1 を通って 10a/a の加点が実際に付くか。"""
+        tree, val, _ev = self._tree(display, digits)
+        return any(m.is_ten_over(n, val) and not m.fac_ratio_pairs(conn, val)
+                   for n, conn in m.iter_conn(tree))
+
+    def test_adjacent_ratio_is_counted(self):
+        # 0087: 8!/7! は隣り合う階乗の比
+        self.assertTrue(self._ratio("0! + 0! + 8! / 7!", [0, 0, 8, 7]))
+        # 7622: 引き算の中に書かれた 7!/6! も、それ自体が 1 つのつながり
+        self.assertTrue(self._ratio("( 7! / 6! - 2 ) * 2", [7, 6, 2, 2]))
+
+    def test_non_adjacent_ratio_is_not_counted(self):
+        # 0253: 5!/3! は 2 つ離れているので組にならない (隣り合う比だけが対象)
+        self.assertFalse(self._ratio("0! / 2 * ( 5! / 3! )", [0, 2, 5, 3]))
+        # 0243: 6!/4! も同じ
+        self.assertFalse(self._ratio("( ( 0! + 2 )! )! / 4! / 3", [0, 2, 4, 3]))
+
+    def test_ten_over_is_suppressed_by_ratio(self):
+        """規則 1: つながりが比として読めるなら 10a/a は付けない。"""
+        # 0054: ( 0!+0! ) * 5! / 4! は 240/24 だが、5!/4! の比として読める
+        tree, val, ev = self._tree("( 0! + 0! ) * 5! / 4!", [0, 0, 5, 4])
+        self.assertTrue(any(m.is_ten_over(n, val) for n in m.iter_nodes(tree)))
+        self.assertFalse(self._ten_over_counted("( 0! + 0! ) * 5! / 4!",
+                                                [0, 0, 5, 4]))
+        self.assertTrue(m.has_fac_ratio(tree, val))
+
+    def test_plus_minus_with_nonzero_sibling_is_not_a_ratio(self):
+        """+ - をまたぐ組は拾わない。10a/a のほうが残る。"""
+        # 6254: ( 6!/2 - 5! ) / 4! は 360-120=240 を 24 で割り戻す 10a/a で、
+        # 5!/4! の比ではない (5! の相手が 6!/2 = 360 で 0 ではない)
+        self.assertFalse(self._ratio("( 6! / 2 - 5! ) / 4!", [6, 2, 5, 4]))
+        self.assertTrue(self._ten_over_counted("( 6! / 2 - 5! ) / 4!",
+                                               [6, 2, 5, 4]))
+        # 0554: ( 0 + 5! + 5! ) / 4! も 240/24 で、比ではない
+        self.assertFalse(self._ratio("( 0 + 5! + 5! ) / 4!", [0, 5, 5, 4]))
+
+    def test_decorative_zero_is_counted(self):
+        """飾りの 0 (相手が 0 の + -) は今までどおり拾う。"""
+        # 0098: ( 0 + 9! ) / 8! は 9!/8! の比
+        self.assertTrue(self._ratio("0! + ( 0 + 9! ) / 8!", [0, 0, 9, 8]))
+        # 0098: 引き算でも同じ
+        self.assertTrue(self._ratio("0! - ( 0 - 9! ) / 8!", [0, 0, 9, 8]))
+
+    def test_divisor_side_must_be_the_term_itself(self):
+        """割る側は項そのものが階乗のときだけ拾う。"""
+        # 0542: 5! / ( 4! / 2 ) は分解すると割る側の項が 4! なので組になる
+        self.assertTrue(self._ratio("0 + 5! / ( 4! / 2 )", [0, 5, 4, 2]))
+        self.assertFalse(self._ten_over_counted("0 + 5! / ( 4! / 2 )",
+                                                [0, 5, 4, 2]))
+        # 4877: 4! / ( 8! / 7! ) は 8! が割る側・7! が掛ける側へ回るので拾えない
+        # (DATA-SPEC 7 章。詰めずに見送った形の回帰)
+        self.assertFalse(self._ratio("4! / ( 8! / 7! ) + 7", [4, 8, 7, 7]))
+
+    def test_whole_ratio_gives_back_one(self):
+        """規則 3: 式全体が比だけで完結しているなら 1 点戻す。"""
+        display, digits = "( 0 + 1 + 9 )! / 9!", [0, 1, 9, 9]
+        tree, val, ev = self._tree(display, digits)
+        self.assertTrue(m.is_whole_ratio(tree, val))
+        # '+'1×2 + '/'3 + '!'4×2 = 13、括弧 1 で 14、比 +2、全体が比 -1 = 15
+        self.assertEqual(
+            m.score_solution(tree, val, display.count("("), ev(tree)[3]),
+            13 + m.SCORE_BONUS["paren"] + m.SCORE_BONUS["fac_ratio"]
+            + m.SCORE_BONUS["whole_ratio"])
+        # 0087 は途中に比があるだけなので戻さない
+        tree2, val2, _ = self._tree("0! + 0! + 8! / 7!", [0, 0, 8, 7])
+        self.assertFalse(m.is_whole_ratio(tree2, val2))
+
+    def test_score_matches_spec_formula(self):
+        # 0087  0! + 0! + 8! / 7! : '+'1×2 + '/'3 + '!'4×4 = 21、0! で +3、比 +2
+        display, digits = "0! + 0! + 8! / 7!", [0, 0, 8, 7]
+        tree, val, ev = self._tree(display, digits)
+        self.assertEqual(
+            m.score_solution(tree, val, display.count("("), ev(tree)[3]),
+            21 + m.SCORE_BONUS["zero_factorial"] + m.SCORE_BONUS["fac_ratio"])
+
+    def test_bonus_is_added_once_per_solution(self):
+        """組が 2 つあっても加点は 1 回（4 桁では作れないので人工の木）。
+
+        5! / 4! * ( 4! / 3! ) / 2 = 5 * 4 / 2 = 10。5!/4! と 4!/3! の 2 組。
+        根の 20/2 は 10a/a に当たるが、同じつながりが比として読めるので
+        規則 1 で消える。
+        """
+        fac = lambda i: ("fac", ("num", i))
+        left = ("bin", "/", fac(0), fac(1))          # 5! / 4!
+        right = ("bin", "/", fac(2), fac(3))         # 4! / 3!
+        tree = ("bin", "/", ("bin", "*", left, right), ("num", 4))
+        digits = [5, 4, 4, 3, 2]
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10))
+        self.assertEqual(len(m.fac_ratio_pairs(tree, val)), 2)
+        self.assertTrue(any(m.is_ten_over(n, val) for n in m.iter_nodes(tree)))
+        c = m.count_ops(tree)
+        bare = (c["*"] * m.OP_COST["*"] + c["/"] * m.OP_COST["/"]
+                + c["fac"] * m.OP_COST["!"])
+        self.assertEqual(m.score_solution(tree, val, 0, ev(tree)[3]),
+                         bare + m.SCORE_BONUS["fac_ratio"])
+
+
 class AnnotateAndCurate(unittest.TestCase):
     def setUp(self):
         fd, self.db = tempfile.mkstemp(suffix=".db")

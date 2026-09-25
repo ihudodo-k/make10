@@ -10,10 +10,10 @@ def run(ui):
     # 件数そのものは DATA-SPEC 8-B の値を固定で見る（BLOB が意図せず変わったら赤くする）。
     # 画面の「N / 全問」は下で CHAL.length / COURSE.length から組む
     ui.check("COURSE の件数", ui.ev("COURSE.length"), 1000)
-    ui.check("CHAL の件数", ui.ev("CHAL.length"), 1203)
-    ui.check("FREE の件数", ui.ev("FREE.length"), 15588)
-    ui.check("合計", ui.ev("COURSE.length+FREE.length+CHAL.length"), 17791)
-    ui.check("コードの索引も同じ数", ui.ev("INDEX.size"), 17791)
+    ui.check("CHAL の件数", ui.ev("CHAL.length"), 1450)
+    ui.check("FREE の件数", ui.ev("FREE.length"), 15342)
+    ui.check("合計", ui.ev("COURSE.length+FREE.length+CHAL.length"), 17792)
+    ui.check("コードの索引も同じ数", ui.ev("INDEX.size"), 17792)
     ui.check("CHAL は全部 d>=17", ui.ev("CHAL.every(p=>p.d>=17)"), True)
     ui.check("COURSE・FREE は全部 d<=16",
              ui.ev("COURSE.concat(FREE).every(p=>p.d<=16)"), True)

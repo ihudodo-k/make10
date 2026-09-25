@@ -2,14 +2,16 @@
 
 solutions.display を「GAME-SPEC 2-2 の標準文法」で読み直し、
 そこから uses_fraction / score を再計算して DB の値と突き合わせる。
-生成側のコードは一切参照しない。
+生成側のコードは一切参照しない。10a/a（5.6）と階乗の比の 3 規則（5.7）も
+ここで独立に書き直してある（DATA-SPEC 7 章）。
 """
 import sqlite3
 from fractions import Fraction
 from math import factorial
 
 OP_COST = {"+": 1, "-": 1, "*": 2, "/": 3, "^": 5, "!": 4}
-BONUS = {"paren": 1, "fraction": 5, "zero_factorial": 3, "nested_factorial": 8}
+BONUS = {"paren": 1, "fraction": 5, "zero_factorial": 3, "nested_factorial": 8,
+         "ten_over": 2, "fac_ratio": 2, "whole_ratio": -1}
 MAX_FAC = 12
 MAX_EXP = 24
 
@@ -163,6 +165,139 @@ def walk(n):
         yield from walk(n[3])
 
 
+def conns(tree):
+    """(ノード, そのノードを含む * / のつながりの根) の列（DATA-SPEC 7 章。5.7）。
+
+    * / のノードは親も * / ならその根を引き継ぎ、そうでなければ自分が根。
+    """
+    out = []
+
+    def go(n, root):
+        mul = n[0] == "bin" and n[1] in ("*", "/")
+        cr = (n if root is None else root) if mul else None
+        out.append((n, cr))
+        if n[0] == "fac":
+            go(n[1], None)
+        elif n[0] == "bin":
+            go(n[2], cr)
+            go(n[3], cr)
+
+    go(tree, None)
+    return out
+
+
+def split_mul(n):
+    """n を * と / で展開して（掛ける側の項, 割る側の項）に分ける。"""
+    num, den = [], []
+
+    def go(x, pos):
+        if x[0] == "bin" and x[1] in ("*", "/"):
+            go(x[2], pos)
+            go(x[3], pos if x[1] == "*" else not pos)
+            return
+        (num if pos else den).append(x)
+
+    go(n, True)
+    return num, den
+
+
+def fac_args_num(term):
+    """掛ける側の項の中の階乗の引数（DATA-SPEC 7 章。5.7）。
+
+    項の根からその階乗までの経路に + または - があり、もう一方の枝の値が 0 で
+    なければ拾わない。`( 6! / 2 - 5! ) / 4!` の 5! は比ではないため。
+    """
+    out = []
+
+    def go(x):
+        if x[0] == "fac":
+            v = ev(x[1], [])
+            if v is not INVALID and v.denominator == 1:
+                out.append(int(v))
+            go(x[1])
+        elif x[0] == "bin":
+            if x[1] in ("+", "-"):
+                if ev(x[3], []) == 0:
+                    go(x[2])
+                if ev(x[2], []) == 0:
+                    go(x[3])
+            else:
+                go(x[2])
+                go(x[3])
+
+    go(term)
+    return out
+
+
+def fac_ratio(connroot):
+    """つながりに (m+1)! / m! の組があるか（規則 2 の判定。5.7）。
+
+    割る側は項そのものが階乗のときだけ拾う。
+    """
+    num, den = split_mul(connroot)
+    dens = []
+    for t in den:
+        if t[0] == "fac":
+            v = ev(t[1], [])
+            if v is not INVALID and v.denominator == 1:
+                dens.append(int(v))
+    if not dens:
+        return False
+    for t in num:
+        for a in fac_args_num(t):
+            if any(a == d + 1 for d in dens):
+                return True
+    return False
+
+
+def whole_ratio(tree):
+    """式全体がその比だけで完結しているか（規則 3。5.7）。"""
+    if tree[0] != "bin" or tree[1] != "/":
+        return False
+    if ev(tree, []) != 10:
+        return False
+    if tree[2][0] != "fac" or tree[3][0] != "fac":
+        return False
+    a = ev(tree[2][1], [])
+    b = ev(tree[3][1], [])
+    if a is INVALID or b is INVALID:
+        return False
+    return a.denominator == 1 and b.denominator == 1 and a == b + 1
+
+
+def ten_over(n):
+    """「10 の倍数を作ってから割り戻す」形か（DATA-SPEC 7 章。5.6）。
+
+    a / b で 値(a) == 10 * 値(b)、値(b) は 2 以上の整数、a と b がどちらも
+    階乗ではない（10!/9! 型を除く）、a を * と / で展開した掛ける側の項に
+    値(b) と同じものが無い（打ち消しを除く）。
+    """
+    if n[0] != "bin" or n[1] != "/":
+        return False
+    a = ev(n[2], [])
+    b = ev(n[3], [])
+    if a is INVALID or b is INVALID:
+        return False
+    if b < 2 or b.denominator != 1 or a != 10 * b:
+        return False
+    if n[2][0] == "fac" and n[3][0] == "fac":
+        return False
+    terms = []
+
+    def factors(x, pos):
+        if x[0] == "bin" and x[1] in ("*", "/"):
+            factors(x[2], pos)
+            factors(x[3], pos if x[1] == "*" else not pos)
+            return
+        if pos:
+            v = ev(x, [])
+            if v is not INVALID:
+                terms.append(v)
+
+    factors(n[2], True)
+    return all(t != b for t in terms)
+
+
 def rescore(disp):
     tree = parse(disp)
     seen = []
@@ -171,10 +306,15 @@ def rescore(disp):
         return None
     uses_fraction = any(v.denominator != 1 for v in seen)
     total = 0
-    zero_fac = nested_fac = False
-    for n in walk(tree):
+    zero_fac = nested_fac = over = ratio = False
+    for n, conn in conns(tree):
         if n[0] == "bin":
             total += OP_COST[n[1]]
+            # 規則 1（5.7）: つながりが階乗の比として読めるなら 10a/a にしない
+            if ten_over(n) and not fac_ratio(conn):
+                over = True
+            if conn is n and fac_ratio(n):
+                ratio = True
         elif n[0] == "fac":
             total += OP_COST["!"]
             if n[1][0] == "fac":
@@ -190,6 +330,12 @@ def rescore(disp):
         total += BONUS["zero_factorial"]
     if nested_fac:
         total += BONUS["nested_factorial"]
+    if over:
+        total += BONUS["ten_over"]
+    if ratio:                                   # 規則 2（5.7）
+        total += BONUS["fac_ratio"]
+        if whole_ratio(tree):                   # 規則 3（5.7）
+            total += BONUS["whole_ratio"]
     return val, uses_fraction, total
 
 
