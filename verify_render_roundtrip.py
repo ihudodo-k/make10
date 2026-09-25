@@ -2,8 +2,8 @@
 
 solutions.display を「GAME-SPEC 2-2 の標準文法」で読み直し、
 そこから uses_fraction / score を再計算して DB の値と突き合わせる。
-生成側のコードは一切参照しない。10a/a（5.6）と階乗の比の 3 規則（5.7）も
-ここで独立に書き直してある（DATA-SPEC 7 章）。
+生成側のコードは一切参照しない。10a/a（5.6）・階乗の比の 3 規則（5.7）・
+負の累乗（5.8）もここで独立に書き直してある（DATA-SPEC 7 章）。
 """
 import sqlite3
 from fractions import Fraction
@@ -11,7 +11,9 @@ from math import factorial
 
 OP_COST = {"+": 1, "-": 1, "*": 2, "/": 3, "^": 5, "!": 4}
 BONUS = {"paren": 1, "fraction": 5, "zero_factorial": 3, "nested_factorial": 8,
-         "ten_over": 2, "fac_ratio": 2, "whole_ratio": -1}
+         "ten_over": 2, "fac_ratio": 2, "whole_ratio": -1,
+         "neg_exp": 4, "neg_base_even": 3, "neg_base_odd": 2}
+POW_BONUS = {"A": "neg_exp", "B": "neg_base_even", "C": "neg_base_odd"}
 MAX_FAC = 12
 MAX_EXP = 24
 
@@ -250,6 +252,27 @@ def fac_ratio(connroot):
     return False
 
 
+def pow_kinds(n):
+    """負の累乗の種類（DATA-SPEC 7 章。5.8）。
+
+    `^` が効いている（値が底と違う）ものだけが対象。指数 0 は B にも C にも
+    入れない（`^ 0` は何を入れても 1 にしているだけ）。
+    """
+    if n[0] != "bin" or n[1] != "^":
+        return set()
+    a = ev(n[2], [])
+    b = ev(n[3], [])
+    v = ev(n, [])
+    if a is INVALID or b is INVALID or v is INVALID or v == a:
+        return set()
+    out = set()
+    if b < 0:
+        out.add("A")
+    if a < 0 and b.denominator == 1 and b != 0:
+        out.add("B" if b.numerator % 2 == 0 else "C")
+    return out
+
+
 def whole_ratio(tree):
     """式全体がその比だけで完結しているか（規則 3。5.7）。"""
     if tree[0] != "bin" or tree[1] != "/":
@@ -306,10 +329,12 @@ def rescore(disp):
         return None
     uses_fraction = any(v.denominator != 1 for v in seen)
     total = 0
+    neg_pow = set()
     zero_fac = nested_fac = over = ratio = False
     for n, conn in conns(tree):
         if n[0] == "bin":
             total += OP_COST[n[1]]
+            neg_pow |= pow_kinds(n)
             # 規則 1（5.7）: つながりが階乗の比として読めるなら 10a/a にしない
             if ten_over(n) and not fac_ratio(conn):
                 over = True
@@ -336,6 +361,8 @@ def rescore(disp):
         total += BONUS["fac_ratio"]
         if whole_ratio(tree):                   # 規則 3（5.7）
             total += BONUS["whole_ratio"]
+    for k in sorted(neg_pow):                   # 負の累乗（5.8）
+        total += BONUS[POW_BONUS[k]]
     return val, uses_fraction, total
 
 

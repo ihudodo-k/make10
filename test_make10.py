@@ -582,6 +582,129 @@ class FacRatioBonus(unittest.TestCase):
                          bare + m.SCORE_BONUS["fac_ratio"])
 
 
+class NegPowBonus(unittest.TestCase):
+    """負の累乗の加点 3 種類と、2 つの詰め (第7章。5.8)。
+
+    式はすべて make10.db に実在するもの (コメントの 4 桁が problem_id)。
+    """
+
+    def _kinds(self, display, digits):
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10), display)   # 式が 10 になる
+        got = set()
+        for n in m.iter_nodes(tree):
+            got |= m.pow_kinds(n, val)
+        return got
+
+    def _bare(self, tree):
+        c = m.count_ops(tree)
+        return (c["+"] * m.OP_COST["+"] + c["-"] * m.OP_COST["-"]
+                + c["*"] * m.OP_COST["*"] + c["/"] * m.OP_COST["/"]
+                + c["^"] * m.OP_COST["^"] + c["fac"] * m.OP_COST["!"])
+
+    def test_negative_exponent(self):
+        # 2523: 5 ^ -1 = 1/5 で逆数になる
+        self.assertEqual(self._kinds("2 / 5 ^ ( 2 - 3 )", [2, 5, 2, 3]), {"A"})
+
+    def test_negative_base_even(self):
+        # 1692: ( -3 ) ^ 2 = 9 で符号が消える
+        self.assertEqual(self._kinds("1 + ( 6 - 9 ) ^ 2", [1, 6, 9, 2]), {"B"})
+        # 9674: ( -1 ) ^ 4 = 1 も同じ
+        self.assertEqual(self._kinds("9 + ( 6 - 7 ) ^ 4", [9, 6, 7, 4]), {"B"})
+
+    def test_negative_base_odd(self):
+        # 2133: ( -2 ) ^ 3 = -8
+        self.assertEqual(self._kinds("2 - ( 1 - 3 ) ^ 3", [2, 1, 3, 3]), {"C"})
+
+    def test_positive_power_is_not_counted(self):
+        # 2417: 底も指数も正。★累乗の導入問題
+        self.assertEqual(self._kinds("2 ^ 4 + 1 - 7", [2, 4, 1, 7]), set())
+
+    def test_ineffective_power_is_excluded(self):
+        """詰め①: `^` が効いていない (値が底と同じ) 形は対象外。"""
+        # 0019: 1 ^ -1 = 1。底が 1 なので指数が負でも何も起きない
+        self.assertEqual(self._kinds("0! ^ ( 0 - 1 ) + 9", [0, 0, 1, 9]), set())
+        # 1091: ( -9 ) ^ 1 = -9。指数 1 は恒等
+        self.assertEqual(self._kinds("1 - ( 0 - 9 ) ^ 1", [1, 0, 9, 1]), set())
+
+    def test_exponent_zero_is_excluded(self):
+        """詰め②: 指数 0 は B にも C にも入れない。
+
+        `( -1 ) ^ 0 = 1` は「負の数を偶数乗すると符号が消える」ではなく、
+        `^ 0` が何を入れても 1 にしているだけ。値 1 は底 -1 と違うので
+        詰め① (pow_effective) では落ちない。
+        """
+        # 0009
+        tree = m.parse_tree("( 0 - 0! ) ^ 0 + 9")
+        ev = m.build_evaluator([0, 0, 0, 9])
+        val = (lambda n: ev(n)[0])
+        pw = [n for n in m.iter_nodes(tree) if n[0] == "bin" and n[1] == "^"]
+        self.assertTrue(m.pow_effective(pw[0], val))      # 詰め① は通る
+        self.assertEqual(self._kinds("( 0 - 0! ) ^ 0 + 9", [0, 0, 0, 9]), set())
+
+    def test_peff_is_shared_with_star_position(self):
+        """`^` が効いているかの判定は ★ の導入位置と同じ関数を使う。"""
+        # 2417 は ★累乗の導入問題 (効いている)、1091 は効いていない
+        self.assertTrue(m._example_feat("2 ^ 4 + 1 - 7", "2417")[0])
+        self.assertFalse(m._example_feat("1 - ( 0 - 9 ) ^ 1", "1091")[0])
+        tree = m.parse_tree("2 ^ 4 + 1 - 7")
+        ev = m.build_evaluator([2, 4, 1, 7])
+        val = (lambda n: ev(n)[0])
+        pw = [n for n in m.iter_nodes(tree) if n[0] == "bin" and n[1] == "^"]
+        self.assertTrue(m.pow_effective(pw[0], val))
+
+    def test_score_matches_spec_formula(self):
+        # 1692  1 + ( 6 - 9 ) ^ 2 : '+'1 + '-'1 + '^'5 = 7、括弧 1、負の底・偶数乗 +3
+        display, digits = "1 + ( 6 - 9 ) ^ 2", [1, 6, 9, 2]
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        self.assertEqual(
+            m.score_solution(tree, (lambda n: ev(n)[0]), display.count("("),
+                             ev(tree)[3]),
+            7 + m.SCORE_BONUS["paren"] + m.SCORE_BONUS["neg_base_even"])
+
+    def test_bonus_is_added_once_per_kind(self):
+        """同じ種類が 2 か所あっても 1 回（4 桁では作れないので人工の木）。
+
+        ( ( 0 - 1 ) ^ 2 + ( 0 - 2 ) ^ 2 ) * 2 = ( 1 + 4 ) * 2 = 10
+        """
+        tree = ("bin", "*", ("bin", "+",
+                ("bin", "^", ("bin", "-", ("num", 0), ("num", 1)), ("num", 2)),
+                ("bin", "^", ("bin", "-", ("num", 3), ("num", 4)), ("num", 5))),
+                ("num", 6))
+        digits = [0, 1, 2, 0, 2, 2, 2]
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10))
+        pw = [n for n in m.iter_nodes(tree) if n[0] == "bin" and n[1] == "^"]
+        self.assertEqual([sorted(m.pow_kinds(n, val)) for n in pw], [["B"], ["B"]])
+        self.assertEqual(m.score_solution(tree, val, 0, ev(tree)[3]),
+                         self._bare(tree) + m.SCORE_BONUS["neg_base_even"])
+
+    def test_kinds_stack(self):
+        """違う種類は重ねて付く（人工の木）。
+
+        ( 0 - 2 ) ^ ( 0 - 1 ) * ( 4 - 9 ) * 4 = -1/2 * -5 * 4 = 10
+        負の指数（A）と 負の底・奇数乗（C）の両方に当たる。
+        """
+        tree = ("bin", "*", ("bin", "*",
+                ("bin", "^", ("bin", "-", ("num", 0), ("num", 1)),
+                 ("bin", "-", ("num", 2), ("num", 3))),
+                ("bin", "-", ("num", 4), ("num", 5))), ("num", 6))
+        digits = [0, 2, 0, 1, 4, 9, 4]
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10))
+        pw = [n for n in m.iter_nodes(tree) if n[0] == "bin" and n[1] == "^"]
+        self.assertEqual(sorted(m.pow_kinds(pw[0], val)), ["A", "C"])
+        self.assertTrue(ev(tree)[3])                      # 途中に分数が出る
+        self.assertEqual(m.score_solution(tree, val, 0, ev(tree)[3]),
+                         self._bare(tree) + m.SCORE_BONUS["fraction"]
+                         + m.SCORE_BONUS["neg_exp"] + m.SCORE_BONUS["neg_base_odd"])
+
+
 class AnnotateAndCurate(unittest.TestCase):
     def setUp(self):
         fd, self.db = tempfile.mkstemp(suffix=".db")

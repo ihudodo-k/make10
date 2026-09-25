@@ -56,6 +56,9 @@ SCORE_BONUS = {
     "ten_over": 2,          # 10 の倍数を作って割り戻す (is_ten_over。0/1 判定。5.6)
     "fac_ratio": 2,         # 隣り合う階乗の比 (m+1)!/m! (has_fac_ratio。0/1 判定。5.7)
     "whole_ratio": -1,      # 式全体がその比だけで完結しているとき戻す (is_whole_ratio。5.7)
+    "neg_exp": 4,           # 負の指数 (逆数になる。pow_kinds の A。0/1 判定。5.8)
+    "neg_base_even": 3,     # 負の底を偶数乗 (符号が消える。B。0/1 判定。5.8)
+    "neg_base_odd": 2,      # 負の底を奇数乗 (C。0/1 判定。5.8)
 }
 
 # is_ten_over の「割る数」の下限 (第7章。5.6)。b = 1 は割り戻しではない
@@ -501,6 +504,58 @@ def is_whole_ratio(tree, val):
     return ia is not None and ib is not None and ia == ib + 1
 
 
+# --- 負の累乗 (第7章。5.8) ---------------------------------------------------
+
+
+def pow_effective(node, val):
+    """`a ^ b` の値が底 `a` と違うか ―― その累乗が結果に効いているか (5.8)。
+
+    `a ^ b == a` になるのは `a == 1` / `b == 1` / (`a == -1` かつ `b` が奇数) の
+    3 つだけで、どれも `^` が何もしていない形である (代数的にこれで尽きる)。
+
+    **★の導入位置の判定 (_example_feat の peff) と負の累乗の加点 (pow_kinds) は
+    この 1 つの関数を共用する。** 同じことを 2 か所に書くと、片方を直したときに
+    もう片方がずれる。
+    """
+    v = val(node)
+    a = val(node[2])
+    if v is INVALID or a is INVALID:
+        return False
+    return v != a
+
+
+def pow_kinds(node, val):
+    """その累乗ノードが当たる負の累乗の種類 ("A" / "B" / "C") を返す (5.8)。
+
+    A 負の指数       値(b) < 0            逆数になり、見た目と結果がずれる
+    B 負の底・偶数乗 値(a) < 0 で b が偶数  符号が消える
+    C 負の底・奇数乗 値(a) < 0 で b が奇数
+
+    どれも **`^` が効いている** (pow_effective) ものだけが対象。効いていない
+    `1 ^ -3` / `( 0 - 9 ) ^ 1` に手応えは無い。
+    **指数 0 は B にも C にも入れない** ―― `( 0 - 0! ) ^ 0` は「負の数を偶数乗
+    すると符号が消える」ではなく、`^ 0` が何を入れても 1 にしているだけで、
+    偶数乗でも奇数乗でもない (peff では落ちない。値 1 は底 -1 と違うため)。
+    """
+    if node[0] != "bin" or node[1] != "^":
+        return frozenset()
+    a = val(node[2])
+    b = val(node[3])
+    if a is INVALID or b is INVALID:
+        return frozenset()
+    if not pow_effective(node, val):
+        return frozenset()
+    out = set()
+    if b < 0:
+        out.add("A")
+    if a < 0 and b.denominator == 1 and b != 0:
+        out.add("B" if b.numerator % 2 == 0 else "C")
+    return frozenset(out)
+
+
+_POW_BONUS = {"A": "neg_exp", "B": "neg_base_even", "C": "neg_base_odd"}
+
+
 def score_solution(tree, val, cnt_paren, uses_fraction):
     """第7章 (暫定) の解スコア = 演算子コスト合計 + ボーナス合計。
 
@@ -515,6 +570,8 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
         (規則 2。has_fac_ratio。5.7)
     whole_ratio … 式全体がその比だけで完結しているなら さらに -1
         (規則 3。is_whole_ratio。5.7)
+    neg_exp / neg_base_even / neg_base_odd … 負の累乗 (pow_kinds。5.8)。
+        種類ごとに 1 解 1 回で、違う種類は重ねて付く
     """
     c = count_ops(tree)
     total = (c["+"] * OP_COST["+"] + c["-"] * OP_COST["-"]
@@ -525,6 +582,7 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
     has_nested_fac = False
     has_ten_over = False
     has_ratio = False
+    neg_pow = set()
     for n, conn in iter_conn(tree):
         if n[0] == "fac":
             if n[1][0] == "fac":
@@ -538,6 +596,7 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
             has_ten_over = True
         if conn is n and fac_ratio_pairs(n, val):
             has_ratio = True
+        neg_pow |= pow_kinds(n, val)
 
     total += SCORE_BONUS["paren"] * cnt_paren
     if uses_fraction:
@@ -552,6 +611,8 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
         total += SCORE_BONUS["fac_ratio"]
         if is_whole_ratio(tree, val):
             total += SCORE_BONUS["whole_ratio"]
+    for k in sorted(neg_pow):
+        total += SCORE_BONUS[_POW_BONUS[k]]
     return total
 
 
@@ -1845,9 +1906,8 @@ def _example_feat(display, pid):
     基準を持ち込んでいない (5.2)。
 
     累乗が効いている (peff)
-        `a ^ b` の値が底 `a` と違う。`a ^ b == a` になるのは `a == 1` /
-        `b == 1` / (`a == -1` かつ `b` が奇数) の 3 つだけで、どれも `^` が
-        何もしていない形である (代数的にこれで尽きる)。
+        `a ^ b` の値が底 `a` と違う。判定は **pow_effective() を共用する**
+        (5.8。負の累乗の加点と同じ式なので 1 か所に持つ)。
         **6-1 だけでは足りない。** 6-1 は `1 ^ 7` を捕まえるが、`8117` のように
         全解が 6-1 該当の問題では 6-4 の救済で解答例に残る。さらに
         `9 - ( 8 - 9 ) ^ 3` は 6-1 を通る ―― 指数 3 を 0 に差し替えると
@@ -1862,11 +1922,12 @@ def _example_feat(display, pid):
     """
     tree = parse_tree(display)
     ev = build_evaluator([int(ch) for ch in pid])
+    val = (lambda n: ev(n)[0])
     peff = False
     fmax = None
     for n in iter_nodes(tree):
         if n[0] == "bin" and n[1] == "^":
-            if ev(n)[0] != ev(n[2])[0]:
+            if pow_effective(n, val):
                 peff = True
         elif n[0] == "fac":
             arg = ev(n[1])[0]
@@ -2229,14 +2290,31 @@ def _plain_whole_ratio(tree, digits):
     return a.denominator == 1 and b.denominator == 1 and a == b + 1
 
 
-def _plain_score(tree, digits, cnt_paren):
-    """検証 15 用。(素の点, 10a/a, 階乗の比, 全体が比) を返す。
+def _plain_pow_kinds(node, digits):
+    """検証 15 用。負の累乗の種類。pow_kinds / pow_effective とは別実装 (5.8)。"""
+    if node[0] != "bin" or node[1] != "^":
+        return set()
+    a = _plain_eval(node[2], digits)
+    b = _plain_eval(node[3], digits)
+    if _plain_eval(node, digits) == a:
+        return set()                      # ^ が効いていない
+    out = set()
+    if b < 0:
+        out.add("A")
+    if a < 0 and b.denominator == 1 and b != 0:
+        out.add("B" if b.numerator % 2 == 0 else "C")
+    return out
 
-    素の点は 10a/a と階乗の比の加点を除いたもの。score_solution も
-    is_ten_over も has_fac_ratio も呼ばない。重みの表 (OP_COST /
+
+def _plain_score(tree, digits, cnt_paren):
+    """検証 15 用。(素の点, 10a/a, 階乗の比, 全体が比, 負の累乗の種類) を返す。
+
+    素の点は 10a/a・階乗の比・負の累乗の加点を除いたもの。score_solution も
+    is_ten_over も has_fac_ratio も pow_kinds も呼ばない。重みの表 (OP_COST /
     SCORE_BONUS) だけは「仕様の値そのもの」なので共有する。
     """
     total = 0
+    neg_pow = set()
     zero_fac = nested_fac = frac = over = ratio = False
     for n, conn in _plain_conns(tree):
         if n[0] == "bin":
@@ -2248,6 +2326,7 @@ def _plain_score(tree, digits, cnt_paren):
                 over = True
             if conn is n and _plain_fac_ratio(n, digits):
                 ratio = True
+            neg_pow |= _plain_pow_kinds(n, digits)
         elif n[0] == "fac":
             total += OP_COST["!"]
             if n[1][0] == "fac":
@@ -2261,7 +2340,8 @@ def _plain_score(tree, digits, cnt_paren):
         total += SCORE_BONUS["zero_factorial"]
     if nested_fac:
         total += SCORE_BONUS["nested_factorial"]
-    return total, over, ratio, ratio and _plain_whole_ratio(tree, digits)
+    return (total, over, ratio, ratio and _plain_whole_ratio(tree, digits),
+            neg_pow)
 
 
 def _blob_verify(conn, sections, widen, text, rebuild=None):
@@ -2440,17 +2520,18 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
                 % (len(early), len(mid),
                    ("  例 %s" % (early + mid)[:3]) if early or mid else "")))
 
-    # 15. 10a/a と階乗の比の加点 (5.6・5.7。DATA-SPEC 7 章)
+    # 15. 10a/a・階乗の比・負の累乗の加点 (5.6〜5.8。DATA-SPEC 7 章)
     # **生成と独立に**書く ―― score_solution も is_ten_over も has_fac_ratio も
-    # 呼ばない。解答例の文字列を parse_tree で木に起こし、_plain_eval /
-    # _plain_ten_over / _plain_fac_ratio / _plain_whole_ratio / _plain_score で
-    # ここから素の点と加点の有無を組み直して d と突き合わせる。
-    # 規則 2 (検証 13) により d は解答例のスコアなので、
-    # d == 素の点 + ten_over + fac_ratio + whole_ratio に一致するはず
+    # pow_kinds も呼ばない。解答例の文字列を parse_tree で木に起こし、
+    # _plain_eval / _plain_ten_over / _plain_fac_ratio / _plain_whole_ratio /
+    # _plain_pow_kinds / _plain_score でここから素の点と加点の有無を組み直して
+    # d と突き合わせる。規則 2 (検証 13) により d は解答例のスコアなので、
+    # d == 素の点 + ten_over + fac_ratio + whole_ratio + 負の累乗 に一致するはず
     n_over, n_ratio, n_whole, bad = 0, 0, 0, []
+    n_pow = collections.Counter()
     for r in allrows:
         digits = [int(ch) for ch in r["id"]]
-        base, over, ratio, whole = _plain_score(
+        base, over, ratio, whole, neg = _plain_score(
             parse_tree(r["sol"]), digits, r["sol"].count("("))
         want = base
         if over:
@@ -2462,15 +2543,19 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
         if whole:
             n_whole += 1
             want += SCORE_BONUS["whole_ratio"]
+        for k in sorted(neg):
+            n_pow[k] += 1
+            want += SCORE_BONUS[_POW_BONUS[k]]
         if r["d"] != want:
             bad.append((r["id"], r["rc"], r["d"], want))
-    res.append(("15. 10a/a と階乗の比", not bad,
-                "10a/a %d 行 (+%d)・階乗の比 %d 行 (+%d)・全体が比 %d 行 (%d)、"
-                "残り %d 行は素の点。不一致 %d 行%s"
+    res.append(("15. 加点の再計算", not bad,
+                "10a/a %d 行 (+%d)・階乗の比 %d 行 (+%d)・全体が比 %d 行 (%d)・"
+                "負の累乗 A %d / B %d / C %d 行 (+%d / +%d / +%d)。不一致 %d 行%s"
                 % (n_over, SCORE_BONUS["ten_over"], n_ratio,
                    SCORE_BONUS["fac_ratio"], n_whole, SCORE_BONUS["whole_ratio"],
-                   len(allrows) - n_over - n_ratio, len(bad),
-                   ("  例 %s" % bad[:3]) if bad else "")))
+                   n_pow["A"], n_pow["B"], n_pow["C"], SCORE_BONUS["neg_exp"],
+                   SCORE_BONUS["neg_base_even"], SCORE_BONUS["neg_base_odd"],
+                   len(bad), ("  例 %s" % bad[:3]) if bad else "")))
     return res
 
 
