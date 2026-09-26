@@ -346,7 +346,9 @@ def rescore(disp):
                 nested_fac = True
             s2 = []
             cv = ev(n[1], s2)
-            if cv is not INVALID and cv == 0:
+            # 5.9: 引数が数字の 0 そのもの（`0!`）なら数えない。ここでは
+            # 葉の中身を直に見る（make10.py は木の種類／部分木の大きさで見ている）
+            if cv is not INVALID and cv == 0 and n[1] != ("num", 0):
                 zero_fac = True
     total += BONUS["paren"] * disp.count("(")
     if uses_fraction:

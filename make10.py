@@ -51,7 +51,8 @@ OP_COST = {"+": 1, "-": 1, "*": 2, "/": 3, "^": 5, "!": 4}
 SCORE_BONUS = {
     "paren": 1,             # 括弧 1 組につき
     "fraction": 5,          # 途中で分数が現れる (0/1 判定)
-    "zero_factorial": 3,    # 0! を使う (気づきにくい。0/1 判定)
+    "zero_factorial": 3,    # 引数の値が 0 になる階乗 (0/1 判定)。数字の 0 そのもの
+                            # (0!) は対象外 (5.9。第7章)
     "nested_factorial": 8,  # ( 3! )! のような階乗の 2 回適用 (0/1 判定)
     "ten_over": 2,          # 10 の倍数を作って割り戻す (is_ten_over。0/1 判定。5.6)
     "fac_ratio": 2,         # 隣り合う階乗の比 (m+1)!/m! (has_fac_ratio。0/1 判定。5.7)
@@ -559,9 +560,16 @@ _POW_BONUS = {"A": "neg_exp", "B": "neg_base_even", "C": "neg_base_odd"}
 def score_solution(tree, val, cnt_paren, uses_fraction):
     """第7章 (暫定) の解スコア = 演算子コスト合計 + ボーナス合計。
 
-    val(node) は node の値 (Fraction) を返す関数。0! 判定に使う。
+    val(node) は node の値 (Fraction) を返す関数。階乗の引数の判定に使う。
     ボーナスの zero_factorial / nested_factorial / ten_over / fac_ratio は
     「その手筋に気づけたか」を測る 0/1 判定 (出現回数では数えない)。
+
+    zero_factorial … 引数の値が 0 になる階乗が 1 つでもあれば +3。ただし
+        **引数が数字の 0 そのもの (`0!`) のものは数えない** (5.9)。`0! = 1` は
+        一度覚えれば使い回しが効くが、`( 0 * 7 )!` は数字を 1 つ捨てて 0 を
+        作る別の手筋なので、そちらには今までどおり付ける。0/1 判定なので
+        `0!` と `( 0 * 7 )!` の両方を含む解は +3 のまま (走査の順番には
+        依らない ―― 条件に合うノードが 1 つでもあるか だけを見る)
 
     ten_over … 「10 の倍数を作って割り戻す」形が式のどこかに 1 つでもあれば
         +2 (is_ten_over。5.6)。ただしその つながり が階乗の比として読める
@@ -588,7 +596,9 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
             if n[1][0] == "fac":
                 has_nested_fac = True
             cv = val(n[1])
-            if cv is not INVALID and cv == 0:
+            if cv is not INVALID and cv == 0 and n[1][0] != "num":
+                # 5.9: 引数が葉 (= 数字の 0 そのもの) の `0!` は数えない。
+                # val が 0 を返すリーフは digit 0 しかないので、種類を見れば足りる
                 has_zero_fac = True
         elif is_ten_over(n, val) and not fac_ratio_pairs(conn, val):
             # 規則 1 (5.7): そのつながりが階乗の比として読めるなら、10 の倍数を
@@ -1183,8 +1193,9 @@ def classify_nullified(tree, digits, base):
     基準に照らせば捕まるのが正しい。数字を潰す形しか無い問題は解が全滅するが、
     6-4 (problem 単位) と 6-5 (puzzle 単位) の救済に任せる。実例は 0075
     (数字 0,0,7,5) で、全解が `0 * 7` などで 7 を潰し、6-4 が
-    `( 0! + ( 0 * 7 )! ) * 5` を 1 件だけ残す。0009 (数字 0,0,0,9) は `0!` で
-    1 を作れるので全滅しない (非冗長な解が残る)。件数と数え方は DATA-SPEC 6-7。
+    `( 0! + 0! ^ 7 ) * 5` を 1 件だけ残す。0009 (数字 0,0,0,9) は `0!` で
+    1 を作れるので全滅しない (非冗長な解が残る。ただし 5.9 から puzzle は 0 件
+    ―― DATA-SPEC 6-1)。件数と数え方は DATA-SPEC 6-7。
 
     **`0 ^ x` は単独では 6-1 に該当しない。** 「0 ^ 7 は 7 を何に変えても 0」は
     誤りで、指数を 0 にすると `0 ^ 0 = 1` になり値が変わる。底も指数も寄与して
@@ -2331,7 +2342,9 @@ def _plain_score(tree, digits, cnt_paren):
             total += OP_COST["!"]
             if n[1][0] == "fac":
                 nested_fac = True
-            if _plain_eval(n[1], digits) == 0:
+            # 5.9: 引数が数字の 0 そのものなら数えない。生成側は木の種類
+            # (n[1][0] != "num") で見ているので、こちらは「部分木の大きさ」で見る
+            if len(_plain_walk(n[1])) > 1 and _plain_eval(n[1], digits) == 0:
                 zero_fac = True
     total += SCORE_BONUS["paren"] * cnt_paren
     if frac:
