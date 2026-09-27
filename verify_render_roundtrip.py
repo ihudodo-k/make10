@@ -3,7 +3,8 @@
 solutions.display を「GAME-SPEC 2-2 の標準文法」で読み直し、
 そこから uses_fraction / score を再計算して DB の値と突き合わせる。
 生成側のコードは一切参照しない。10a/a（5.6）・階乗の比の 3 規則（5.7）・
-負の累乗（5.8）・`0!` の扱い（5.9・6.0）もここで独立に書き直してある
+負の累乗（5.8）・`0!` の扱い（5.9・6.0）・式の階乗（6.1）もここで独立に
+書き直してある
 （DATA-SPEC 7 章）。
 """
 import sqlite3
@@ -12,8 +13,11 @@ from math import factorial
 
 OP_COST = {"+": 1, "-": 1, "*": 2, "/": 3, "^": 5, "!": 4}
 BONUS = {"paren": 1, "fraction": 5, "zero_factorial": 3, "nested_factorial": 8,
+         "expr_factorial": 2,
          "ten_over": 2, "fac_ratio": 2, "whole_ratio": -1,
          "neg_exp": 4, "neg_base_even": 3, "neg_base_odd": 2}
+# 6.1: 「数字 1 個」の葉。この 10 個のどれでもない引数が「式の階乗」
+DIGIT_LEAF = tuple(("num", d) for d in range(10))
 POW_BONUS = {"A": "neg_exp", "B": "neg_base_even", "C": "neg_base_odd"}
 MAX_FAC = 12
 MAX_EXP = 24
@@ -332,6 +336,7 @@ def rescore(disp):
     total = 0
     neg_pow = set()
     n_bare = 0                                  # 6.0: `0!` の個数
+    n_expr = 0                                  # 6.1: 式の階乗のノード数
     zero_fac = nested_fac = over = ratio = False
     for n, conn in conns(tree):
         if n[0] == "bin":
@@ -354,10 +359,15 @@ def rescore(disp):
                 n_bare += 1                     # 6.0: `!` の 4 点は 1 解 1 回
             elif cv is not INVALID and cv == 0:
                 zero_fac = True
+            if n[1] not in DIGIT_LEAF and not (cv is not INVALID and cv == 0):
+                # 6.1: 引数が「0〜9 の葉」のどれでもなく、値も 0 でない = 式の階乗。
+                # ここでも葉の中身を直に見る（make10.py は木の種類／部分木の大きさ）
+                n_expr += 1
     if n_bare:
         # 6.0: `0!` の `!` は解ごとに 1 回だけ。上のループは階乗を全部 4 点で
         # 足しているので、2 個目以降を引く（`3!` はノードごとに 4 点のまま）
         total -= OP_COST["!"] * (n_bare - 1)
+    total += BONUS["expr_factorial"] * n_expr   # 6.1: ノードごと（0/1 ではない）
     total += BONUS["paren"] * disp.count("(")
     if uses_fraction:
         total += BONUS["fraction"]

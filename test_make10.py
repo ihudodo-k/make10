@@ -541,11 +541,12 @@ class FacRatioBonus(unittest.TestCase):
         display, digits = "( 0 + 1 + 9 )! / 9!", [0, 1, 9, 9]
         tree, val, ev = self._tree(display, digits)
         self.assertTrue(m.is_whole_ratio(tree, val))
-        # '+'1×2 + '/'3 + '!'4×2 = 13、括弧 1 で 14、比 +2、全体が比 -1 = 15
+        # '+'1×2 + '/'3 + '!'4×2 = 13、括弧 1 で 14、比 +2、全体が比 -1 = 15、
+        # 6.1: ( 0 + 1 + 9 )! は引数が式なので +2 (9! は数字なので対象外) -> 17
         self.assertEqual(
             m.score_solution(tree, val, display.count("("), ev(tree)[3]),
             13 + m.SCORE_BONUS["paren"] + m.SCORE_BONUS["fac_ratio"]
-            + m.SCORE_BONUS["whole_ratio"])
+            + m.SCORE_BONUS["whole_ratio"] + m.SCORE_BONUS["expr_factorial"])
         # 0087 は途中に比があるだけなので戻さない
         tree2, val2, _ = self._tree("0! + 0! + 8! / 7!", [0, 0, 8, 7])
         self.assertFalse(m.is_whole_ratio(tree2, val2))
@@ -835,6 +836,105 @@ class BareZeroFacOnce(unittest.TestCase):
             self.assertEqual(m._plain_score(tree, digits, cp)[0], sc, display)
 
 
+class ExprFactorialBonus(unittest.TestCase):
+    """引数が式の階乗の加点 (第7章。6.1)。ノードごとに +2。
+
+    式はすべて make10.db に実在するもの (コメントの 4 桁が problem_id)。
+    """
+
+    def _score(self, display, digits, cnt_paren=0):
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10), display)   # 式が 10 になる
+        return tree, m.score_solution(tree, val, cnt_paren, ev(tree)[3])
+
+    def _n_expr_fac(self, display, digits):
+        """引数が式で値が 0 でない階乗のノード数 (テスト側で数え直す)。"""
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        k = 0
+        for n in m.iter_nodes(tree):
+            if n[0] == "fac" and n[1][0] != "num" and ev(n[1])[0] != 0:
+                k += 1
+        return k
+
+    def test_expression_argument_is_counted(self):
+        """`( 8 - 7 + 2 )!` は +2。"""
+        # 8724: '-'1 + '+'1×2 = 3、'!'4、括弧 1 組 = +1、式の階乗 = +2 -> 10
+        _t, sc = self._score("( 8 - 7 + 2 )! + 4", [8, 7, 2, 4], 1)
+        self.assertEqual(sc, 3 + m.OP_COST["!"] + m.SCORE_BONUS["paren"]
+                         + m.SCORE_BONUS["expr_factorial"])
+        self.assertEqual(sc, 10)
+        self.assertEqual(self._n_expr_fac("( 8 - 7 + 2 )! + 4", [8, 7, 2, 4]), 1)
+
+    def test_digit_argument_is_not_counted(self):
+        """`3!` は引数が数字なので付かない。"""
+        # 3652: '!'4 + '-'1 + '+'1 + '*'2 = 8。加点なし
+        _t, sc = self._score("3! - 6 + 5 * 2", [3, 6, 5, 2])
+        self.assertEqual(sc, m.OP_COST["!"] + m.OP_COST["-"] + m.OP_COST["+"]
+                         + m.OP_COST["*"])
+        self.assertEqual(sc, 8)
+        self.assertEqual(self._n_expr_fac("3! - 6 + 5 * 2", [3, 6, 5, 2]), 0)
+
+    def test_zero_valued_argument_is_excluded(self):
+        """引数の値が 0 の階乗は対象外 (5.9 の線引きに揃えた)。"""
+        # 0075: '+'1 + '*'2×2 = 5、'!'4×2 = 8、括弧 2 組 = +2、0 の階乗 = +3 -> 18。
+        # `0!` も `( 0 * 7 )!` もどちらも式の階乗には数えない
+        _t, sc = self._score("( 0! + ( 0 * 7 )! ) * 5", [0, 0, 7, 5], 2)
+        self.assertEqual(sc, 5 + 8 + 2 * m.SCORE_BONUS["paren"]
+                         + m.SCORE_BONUS["zero_factorial"])
+        self.assertEqual(sc, 18)
+        # 0009: ( 0 * 0 )! だけの解も動かない ('+'1×2 + '*'2 + '!'4 + 括弧 2 + 3)
+        _t2, sc2 = self._score("0 + ( ( 0 * 0 )! + 9 )", [0, 0, 0, 9], 2)
+        self.assertEqual(sc2, 13)
+
+    def test_nested_factorial_stacks(self):
+        """`( 3! )!` は nested_factorial (+8) と重なり、外側だけが対象。"""
+        # 0319: '*'2 + '+'1×2 = 4、'!'4×2 = 8、括弧 1 組 = +1、
+        # 階乗の 2 回適用 = +8、式の階乗 = +2 (外側だけ) -> 23
+        _t, sc = self._score("0 * ( 3! )! + 1 + 9", [0, 3, 1, 9], 1)
+        self.assertEqual(sc, 4 + 8 + m.SCORE_BONUS["paren"]
+                         + m.SCORE_BONUS["nested_factorial"]
+                         + m.SCORE_BONUS["expr_factorial"])
+        self.assertEqual(sc, 23)
+        # 内側の `3!` は引数が数字なので数えない -> 対象は 1 ノードだけ
+        self.assertEqual(self._n_expr_fac("0 * ( 3! )! + 1 + 9", [0, 3, 1, 9]), 1)
+
+    def test_counted_per_node(self):
+        """0/1 判定ではなくノードごと ―― 2 個あれば +4。"""
+        # 0334: '+'1 + '-'1 + '+'1 = 3、'!'4×2 = 8、括弧 2 組 = +2、
+        # 式の階乗 = +2×2 (外側の ( … - 3 )! と内側の ( 0 + 3 )!) -> 17
+        d = "( ( 0 + 3 )! - 3 )! + 4"
+        self.assertEqual(self._n_expr_fac(d, [0, 3, 3, 4]), 2)
+        _t, sc = self._score(d, [0, 3, 3, 4], 2)
+        self.assertEqual(sc, 3 + 8 + 2 * m.SCORE_BONUS["paren"]
+                         + 2 * m.SCORE_BONUS["expr_factorial"])
+        self.assertEqual(sc, 17)
+
+    def test_star_stage_wants_a_digit_argument(self):
+        """★階乗 (26〜28 問目) の段は引数が数字の解答例だけを採る (6.1)。"""
+        # 4144 は 6.1 の 28 問目 (4! の形)、4568 は式の階乗なので採らない
+        self.assertFalse(m._example_feat("4 + 1 * 4! / 4", "4144")[2])
+        self.assertTrue(m._example_feat("4 + ( 5 + 6 - 8 )!", "4568")[2])
+        cond = m._course_stage_cond(26)
+        base = {"nf": True, "fbig": True, "ops": set("+!"), "np": False,
+                "peff": False, "par": False}
+        self.assertTrue(cond(dict(base, fexpr=False)))
+        self.assertFalse(cond(dict(base, fexpr=True)))
+
+    def test_plain_score_agrees(self):
+        """検証 15 の独立実装 (_plain_score) も同じ数え方をする。"""
+        for display, digits, cp in (("( 8 - 7 + 2 )! + 4", [8, 7, 2, 4], 1),
+                                    ("3! - 6 + 5 * 2", [3, 6, 5, 2], 0),
+                                    ("( 0! + ( 0 * 7 )! ) * 5", [0, 0, 7, 5], 2),
+                                    ("0 * ( 3! )! + 1 + 9", [0, 3, 1, 9], 1),
+                                    ("( ( 0 + 3 )! - 3 )! + 4", [0, 3, 3, 4], 2)):
+            tree, sc = self._score(display, digits, cp)
+            # この 5 式には 10a/a・階乗の比・負の累乗は無いので素の点と一致する
+            self.assertEqual(m._plain_score(tree, digits, cp)[0], sc, display)
+
+
 class AnnotateAndCurate(unittest.TestCase):
     def setUp(self):
         fd, self.db = tempfile.mkstemp(suffix=".db")
@@ -873,7 +973,8 @@ class AnnotateAndCurate(unittest.TestCase):
         #   0! は 5.9 で加点の対象外 (外側の階乗の引数は 3 なので 0 でもない)
         #   6.0: 0! が 3 つあるので 2 つ目と 3 つ目の '!' を数えない -> -8
         #   (外側の ( … )! は 0! ではないので 4 点のまま)
-        #   -> 20 - 8 = 12
+        #   6.1: 外側の ( … )! は引数が式 (値 3) なので 式の階乗 +2
+        #   (内側の 0! は引数が数字なので対象外) -> 20 - 8 + 2 = 14
         import sqlite3
         m.run_annotate(self.db)
         conn = sqlite3.connect(self.db)
@@ -881,7 +982,7 @@ class AnnotateAndCurate(unittest.TestCase):
             "SELECT score FROM solutions WHERE problem_id = '0004' "
             "AND display = ?", ("( 0! + 0! + 0! )! + 4",)).fetchone()[0]
         conn.close()
-        self.assertEqual(sc, 12)
+        self.assertEqual(sc, 14)
 
     def test_curate_partitions_rows_and_is_idempotent(self):
         m.run_annotate(self.db)

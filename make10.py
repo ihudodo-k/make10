@@ -56,6 +56,8 @@ SCORE_BONUS = {
     "zero_factorial": 3,    # 引数の値が 0 になる階乗 (0/1 判定)。数字の 0 そのもの
                             # (0!) は対象外 (5.9。第7章)
     "nested_factorial": 8,  # ( 3! )! のような階乗の 2 回適用 (0/1 判定)
+    "expr_factorial": 2,    # 引数が式の階乗 ( 7 - 3 )! (**ノードごと**。引数の値が
+                            # 0 のものは対象外。6.1。第7章)
     "ten_over": 2,          # 10 の倍数を作って割り戻す (is_ten_over。0/1 判定。5.6)
     "fac_ratio": 2,         # 隣り合う階乗の比 (m+1)!/m! (has_fac_ratio。0/1 判定。5.7)
     "whole_ratio": -1,      # 式全体がその比だけで完結しているとき戻す (is_whole_ratio。5.7)
@@ -565,6 +567,7 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
     val(node) は node の値 (Fraction) を返す関数。階乗の引数の判定に使う。
     ボーナスの zero_factorial / nested_factorial / ten_over / fac_ratio は
     「その手筋に気づけたか」を測る 0/1 判定 (出現回数では数えない)。
+    **例外は paren と expr_factorial の 2 つ**で、こちらはノードごとに数える。
 
     `0!` の `!` は解ごとに 1 回だけ (6.0)
         引数が数字の 0 そのものの階乗 (`0!`) は、何個あっても `!` の 4 点を
@@ -574,6 +577,16 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
         4 点で足しているので、ここでは個数を数えて 2 個目以降を後から引く。
         **zero_factorial (+3) とは別の話**で、こちらは `!` の 4 点の数え方。
         `( 0 * 0 )!` は「引数が式」なので 1 個目から数えるうえ +3 も付く。
+
+    expr_factorial … 階乗の引数が数字 1 個ではなく式のとき **ノードごとに** +2
+        (6.1)。数字にそのまま階乗を付けるのと違い、いったん値を作ってから
+        階乗を付けるのは二段構えで思いつきにくい。どの部分式に付けるかを毎回
+        選ぶので、0/1 ではなくノードごとに数える。
+        **引数の値が 0 になるもの (`( 0 * 7 )!`) は対象外** ―― 5.9 で `0!` を
+        安くしたときと同じ線引きに揃えた。値が 0 の側は zero_factorial の
+        0/1 判定が担当するので、**数え方は非対称になる** (第7章)。
+        nested_factorial (+8) とは重ねる ―― `( 3! )!` は外側だけが対象で
+        +8 と +2 の両方が付き、`( ( 9 - 6 )! )!` は内側も対象で +2 が 2 つ。
 
     zero_factorial … 引数の値が 0 になる階乗が 1 つでもあれば +3。ただし
         **引数が数字の 0 そのもの (`0!`) のものは数えない** (5.9)。`0! = 1` は
@@ -599,6 +612,7 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
 
     has_zero_fac = False
     n_bare_zero_fac = 0          # 6.0: `0!` (引数が数字の 0 そのもの) の個数
+    n_expr_fac = 0               # 6.1: 引数が式の階乗のノード数
     has_nested_fac = False
     has_ten_over = False
     has_ratio = False
@@ -608,6 +622,11 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
             if n[1][0] == "fac":
                 has_nested_fac = True
             cv = val(n[1])
+            if n[1][0] != "num" and not (cv is not INVALID and cv == 0):
+                # 6.1: 引数が数字 1 個ではなく式で、その値が 0 でないもの。値が 0 の
+                # もの (`( 0 * 7 )!`) は zero_factorial (+3) の担当なのでここでは
+                # 数えない (5.9 の線引きに揃えた)
+                n_expr_fac += 1
             if cv is not INVALID and cv == 0:
                 if n[1][0] == "num":
                     # 6.0: 引数が葉 (= 数字の 0 そのもの) の `0!`。`!` の 4 点は
@@ -629,6 +648,8 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
         # 足しているので 2 個目以降の分を引く。zero_factorial (+3) には触らない
         total -= OP_COST["!"] * (n_bare_zero_fac - 1)
 
+    # 6.1: 式の階乗はノードごと (paren と同じ数え方。0/1 判定ではない)
+    total += SCORE_BONUS["expr_factorial"] * n_expr_fac
     total += SCORE_BONUS["paren"] * cnt_paren
     if uses_fraction:
         total += SCORE_BONUS["fraction"]
@@ -1910,8 +1931,9 @@ BLOB_HTML_DEFAULT = "docs/index.html"
 CHAL_MIN_SCORE = 17          # 挑戦モードの下限 (GAME-SPEC 7)
 COURSE_N = 1000              # 本編の問題数
 COURSE_SEED = "make10-course-v1"
-# 検証用の定数 (5.3)。難易度の範囲は GAME-SPEC 6-2 の 3〜45 (上限は 5.7 で 44 -> 45)
-DIFF_MIN, DIFF_MAX = 3, 45
+# 検証用の定数 (5.3)。難易度の範囲は GAME-SPEC 6-2 の 3〜49 (上限は 5.7 で 44 -> 45、
+# 6.1 で 45 -> 49 ―― 式の階乗の加点で階乗を重ねる形が上がった)
+DIFF_MIN, DIFF_MAX = 3, 49
 COURSE_BLOCK = 100           # 平均難易度を見るブロックの大きさ
 COURSE_LATE_FROM = 201       # ここから先は難易度を絞る
 COURSE_LATE_RANGE = (9, 16)  # _course_floor / _course_target の帰結
@@ -1932,7 +1954,7 @@ def _blob_rc(rules):
 
 
 def _example_feat(display, pid):
-    """解答例の中で「累乗が効いているか」「階乗の引数の最大値」を返す。
+    """解答例の (累乗が効いているか, 階乗の引数の最大値, 引数が式の階乗があるか)。
 
     判定は 6-1 と同じ「値が変わるか」を **ノード単位** に当てただけで、新しい
     基準を持ち込んでいない (5.2)。
@@ -1951,12 +1973,20 @@ def _example_feat(display, pid):
         (build_evaluator)。したがって階乗の引数は 0 か 3 以上しかなく、
         「階乗が数を大きくしている」は引数 >= 3 と書ける。`0!` は 0 -> 1 と
         値は変える (6-1 には該当しない) が数を大きくはしていない。
+
+    引数が式の階乗があるか (fexpr)
+        `( 7 - 3 )!` のように階乗の引数が数字 1 個でないもの。★階乗の 3 問
+        (26〜28 問目) を `3!` の形で揃えるために使う (6.1)。加点の
+        expr_factorial とは違い **値が 0 かどうかは見ない** ―― ★の段では
+        「階乗の引数が数字であること」だけが要件で、`( 0 * 7 )!` のような形も
+        階乗の導入には向かないため。
     """
     tree = parse_tree(display)
     ev = build_evaluator([int(ch) for ch in pid])
     val = (lambda n: ev(n)[0])
     peff = False
     fmax = None
+    fexpr = False
     for n in iter_nodes(tree):
         if n[0] == "bin" and n[1] == "^":
             if pow_effective(n, val):
@@ -1965,7 +1995,9 @@ def _example_feat(display, pid):
             arg = ev(n[1])[0]
             if fmax is None or arg > fmax:
                 fmax = arg
-    return peff, (int(fmax) if fmax is not None else None)
+            if n[1][0] != "num":
+                fexpr = True
+    return peff, (int(fmax) if fmax is not None else None), fexpr
 
 
 _BLOB_QUERY = """
@@ -1987,14 +2019,14 @@ def _blob_rows(conn):
         # peff / fbig は COURSE の ★ の位置でしか使わないが、行ごとの素性として
         # まとめて持たせる (難易度で絞ると条件を足したときに取り落とす)
         if d <= CHAL_MIN_SCORE - 1:
-            peff, fmax = _example_feat(sol, pid)
+            peff, fmax, fexpr = _example_feat(sol, pid)
         else:
-            peff, fmax = False, None
+            peff, fmax, fexpr = False, None, False
         rows.append({
             "id": pid, "rc": _blob_rc(rules), "d": d, "n": surv,
             "nf": nf, "np": np_, "sol": sol,
             "ops": ops, "par": "(" in sol, "free": not rules,
-            "peff": peff, "fmax": fmax,
+            "peff": peff, "fmax": fmax, "fexpr": fexpr,
             "fbig": fmax is not None and fmax >= 3,
         })
     return rows
@@ -2018,7 +2050,11 @@ def _course_stage_cond(i):
         return lambda r: (len(r["ops"] & set("+-*/")) >= 2
                           and not (r["ops"] & set("^!")))
     if i <= 28:                       # ★階乗必須 + 階乗が数を大きくしている (累乗はまだ)
-        return lambda r: r["nf"] and r["fbig"] and "^" not in r["ops"]
+        # 6.1: 階乗の引数が数字であることも要求する (3 問とも `3!` の形で揃える)。
+        # 式の階乗 `( 7 - 3 )!` は 6.1 の加点で d が上がって d10 の帯に集まるので、
+        # 条件を足さないと 28 問目が式の階乗になり、導入の段としてはくどい
+        return lambda r: (r["nf"] and r["fbig"] and not r["fexpr"]
+                          and "^" not in r["ops"])
     if i <= 40:                       # 階乗は既知・累乗はまだ (41〜43 の★で初めて)
         return lambda r: "!" in r["ops"] and "^" not in r["ops"]
     if i <= 43:                       # ★累乗必須 + 累乗が結果に効いている
@@ -2345,12 +2381,14 @@ def _plain_score(tree, digits, cnt_paren):
     is_ten_over も has_fac_ratio も pow_kinds も呼ばない。重みの表 (OP_COST /
     SCORE_BONUS) だけは「仕様の値そのもの」なので共有する。
 
-    `0!` の判定は生成側と**書き方を変えてある** ―― 生成側は木の種類
-    (n[1][0] == "num") で見るが、こちらは部分木のノード数で見る (5.9・6.0)。
+    `0!` と「式の階乗」の判定は生成側と**書き方を変えてある** ―― 生成側は木の
+    種類 (n[1][0] == "num" / != "num") で見るが、こちらは部分木のノード数で見る
+    (5.9・6.0・6.1)。
     """
     total = 0
     neg_pow = set()
     bare_zeros = 0               # 6.0: `0!` の個数 (部分木が 1 ノードのもの)
+    expr_facs = 0                # 6.1: 引数の部分木が 2 ノード以上で値が 0 でない階乗
     zero_fac = nested_fac = frac = over = ratio = False
     for n, conn in _plain_conns(tree):
         if n[0] == "bin":
@@ -2374,7 +2412,12 @@ def _plain_score(tree, digits, cnt_paren):
                     zero_fac = True
                 else:
                     bare_zeros += 1       # 6.0: `!` の 4 点は 1 回だけ
+            elif len(_plain_walk(n[1])) > 1:
+                # 6.1: 引数が「数字 1 個」でない = 部分木が 2 ノード以上。生成側は
+                # 木の種類 (n[1][0] != "num") で見ているので、こちらは大きさで見る
+                expr_facs += 1
     total -= OP_COST["!"] * max(0, bare_zeros - 1)   # 6.0: `0!` は 1 回だけ
+    total += SCORE_BONUS["expr_factorial"] * expr_facs   # 6.1: ノードごと
     total += SCORE_BONUS["paren"] * cnt_paren
     if frac:
         total += SCORE_BONUS["fraction"]
@@ -2466,11 +2509,14 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
     # 7. ★ の導入位置
     f = [r for r in course[25:28]]
     p = [r for r in course[40:43]]
-    ok7 = (all(r["nf"] and r["fbig"] for r in f)
+    # 6.1: 階乗の引数が数字であること。_example_feat の fexpr とは**書き方を変えて**
+    # 解答例の文字列を直に見る (引数が式なら必ず `)!` の形で出る。検証 14 と同じ流儀)
+    fnum = [")!" not in r["sol"] for r in f]
+    ok7 = (all(r["nf"] and r["fbig"] for r in f) and all(fnum)
            and all(r["np"] and r["peff"] for r in p))
     res.append(("7. ★ の導入位置", ok7,
-                "26〜28 階乗の引数 %s / 41〜43 ^ が効く %s"
-                % ([r["fmax"] for r in f], [r["peff"] for r in p])))
+                "26〜28 階乗の引数 %s・引数が数字 %s / 41〜43 ^ が効く %s"
+                % ([r["fmax"] for r in f], fnum, [r["peff"] for r in p])))
 
     # 8. テンプレートリテラルの安全性 (index.html の ` ` の中に入れるため)
     lines = [ln for ln in text.split("\n") if not ln.startswith("§")]
