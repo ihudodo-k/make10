@@ -552,12 +552,13 @@ class FacRatioBonus(unittest.TestCase):
 
     def test_score_matches_spec_formula(self):
         # 0087  0! + 0! + 8! / 7! : '+'1×2 + '/'3 + '!'4×4 = 21、比 +2 -> 23
-        # 0! は 5.9 で加点の対象外 (引数が数字の 0 そのものなので)
+        # 0! は 5.9 で加点 (+3) の対象外 (引数が数字の 0 そのものなので)。
+        # さらに 6.0 で 2 つ目の 0! の '!' を数えないので -4 -> 19
         display, digits = "0! + 0! + 8! / 7!", [0, 0, 8, 7]
         tree, val, ev = self._tree(display, digits)
         self.assertEqual(
             m.score_solution(tree, val, display.count("("), ev(tree)[3]),
-            21 + m.SCORE_BONUS["fac_ratio"])
+            21 - m.OP_COST["!"] + m.SCORE_BONUS["fac_ratio"])
 
     def test_bonus_is_added_once_per_solution(self):
         """組が 2 つあっても加点は 1 回（4 桁では作れないので人工の木）。
@@ -724,9 +725,10 @@ class ZeroFacBonus(unittest.TestCase):
         # 0595: '+'1×2 + '-'1 + '!'4 = 7。加点なし
         _t, _v, sc = self._score("0! + 5 + 9 - 5", [0, 5, 9, 5], 0)
         self.assertEqual(sc, 7)
-        # 0026: 0! が 2 つあっても同じ ('!'4×2 + '+'1×3 = 11)
+        # 0026: 0! が 2 つあっても +3 は付かない。'!' の 4 点は 6.0 で
+        # 1 回だけになったので '+'1×3 + '!'4 = 7 (BareZeroFacOnce で詰める)
         _t, _v, sc2 = self._score("0! + 0! + 2 + 6", [0, 0, 2, 6], 0)
-        self.assertEqual(sc2, 11)
+        self.assertEqual(sc2, 7)
 
     def test_computed_zero_argument_is_counted(self):
         """引数が式で値が 0 の階乗には今までどおり付く。"""
@@ -760,6 +762,76 @@ class ZeroFacBonus(unittest.TestCase):
                                     ("( 0! + ( 0 * 0 )! ) * 5", [0, 0, 0, 5], 2)):
             tree, _val, sc = self._score(display, digits, cp)
             # この 4 式には 10a/a・階乗の比・負の累乗は無いので素の点と一致する
+            self.assertEqual(m._plain_score(tree, digits, cp)[0], sc, display)
+
+
+class BareZeroFacOnce(unittest.TestCase):
+    """`0!` の `!` は解ごとに 1 回だけ (第7章。6.0)。
+
+    式はすべて make10.db に実在するもの (コメントの 4 桁が problem_id)。
+    """
+
+    def _score(self, display, digits, cnt_paren=0):
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        val = (lambda n: ev(n)[0])
+        self.assertEqual(val(tree), Fraction(10), display)   # 式が 10 になる
+        return tree, m.score_solution(tree, val, cnt_paren, ev(tree)[3])
+
+    def test_one_bare_zero_is_charged_normally(self):
+        """1 個なら今までどおり 4 点。"""
+        # 0595  0! + 5 + 9 - 5 : '+'1×2 + '-'1 + '!'4 = 7
+        _t, sc = self._score("0! + 5 + 9 - 5", [0, 5, 9, 5])
+        self.assertEqual(sc, 2 * m.OP_COST["+"] + m.OP_COST["-"]
+                         + m.OP_COST["!"])
+        self.assertEqual(sc, 7)
+
+    def test_two_bare_zeros_are_charged_once(self):
+        """2 個目の `!` は数えない。"""
+        # 0026  0! + 0! + 2 + 6 : '+'1×3 + '!'4×1 = 7 (5.9 までは 11)
+        _t, sc = self._score("0! + 0! + 2 + 6", [0, 0, 2, 6])
+        self.assertEqual(sc, 3 * m.OP_COST["+"] + m.OP_COST["!"])
+        self.assertEqual(sc, 7)
+
+    def test_three_bare_zeros_are_charged_once(self):
+        """3 個でも 1 回。DATA-SPEC 7 章で帰結として受け入れた形。"""
+        # 0007  0! + 0! + 0! + 7 : '+'1×3 + '!'4×1 = 7 (5.9 までは 15)
+        _t, sc = self._score("0! + 0! + 0! + 7", [0, 0, 0, 7])
+        self.assertEqual(sc, 3 * m.OP_COST["+"] + m.OP_COST["!"])
+        self.assertEqual(sc, 7)
+        # 同じ問題で 0! が 1 個増えるほど安くなるわけではない ―― 括弧の分だけ高い
+        _t2, sc2 = self._score("0! + ( 0! + 0! + 7 )", [0, 0, 0, 7], 1)
+        self.assertEqual(sc2, sc + m.SCORE_BONUS["paren"])
+
+    def test_other_factorials_are_counted_per_node(self):
+        """`0!` 以外の階乗はノードごとに 4 点のまま。"""
+        # 0233  0 - 2 + 3! + 3! : '-'1 + '+'1×2 + '!'4×2 = 11
+        _t, sc = self._score("0 - 2 + 3! + 3!", [0, 2, 3, 3])
+        self.assertEqual(sc, m.OP_COST["-"] + 2 * m.OP_COST["+"]
+                         + 2 * m.OP_COST["!"])
+        self.assertEqual(sc, 11)
+
+    def test_computed_zero_factorial_is_counted_per_node(self):
+        """引数が式の階乗は `0!` ではないので 1 個目から数える。"""
+        # 0005  ( 0! + ( 0 * 0 )! ) * 5 : '+'1 + '*'2×2 + '!'4×2 = 13、
+        # 括弧 2 組 = +2、0 の階乗 = +3 -> 18。6.0 で 1 点も動かない
+        _t, sc = self._score("( 0! + ( 0 * 0 )! ) * 5", [0, 0, 0, 5], 2)
+        self.assertEqual(sc, 13 + 2 * m.SCORE_BONUS["paren"]
+                         + m.SCORE_BONUS["zero_factorial"])
+        self.assertEqual(sc, 18)
+        # 書く順を変えても同じ
+        _t2, sc2 = self._score("( ( 0 * 0 )! + 0! ) * 5", [0, 0, 0, 5], 2)
+        self.assertEqual(sc2, 18)
+
+    def test_plain_score_agrees(self):
+        """検証 15 の独立実装 (_plain_score) も同じ数え方をする。"""
+        for display, digits, cp in (("0! + 5 + 9 - 5", [0, 5, 9, 5], 0),
+                                    ("0! + 0! + 2 + 6", [0, 0, 2, 6], 0),
+                                    ("0! + 0! + 0! + 7", [0, 0, 0, 7], 0),
+                                    ("0 - 2 + 3! + 3!", [0, 2, 3, 3], 0),
+                                    ("( 0! + ( 0 * 0 )! ) * 5", [0, 0, 0, 5], 2)):
+            tree, sc = self._score(display, digits, cp)
+            # この 5 式には 10a/a・階乗の比・負の累乗は無いので素の点と一致する
             self.assertEqual(m._plain_score(tree, digits, cp)[0], sc, display)
 
 
@@ -799,7 +871,9 @@ class AnnotateAndCurate(unittest.TestCase):
         #   演算子 = '+'*3 + '!'*4 = 3*1 + 4*4 = 19
         #   括弧 1 組 = +1、分数なし、入れ子階乗なし
         #   0! は 5.9 で加点の対象外 (外側の階乗の引数は 3 なので 0 でもない)
-        #   -> 20
+        #   6.0: 0! が 3 つあるので 2 つ目と 3 つ目の '!' を数えない -> -8
+        #   (外側の ( … )! は 0! ではないので 4 点のまま)
+        #   -> 20 - 8 = 12
         import sqlite3
         m.run_annotate(self.db)
         conn = sqlite3.connect(self.db)
@@ -807,7 +881,7 @@ class AnnotateAndCurate(unittest.TestCase):
             "SELECT score FROM solutions WHERE problem_id = '0004' "
             "AND display = ?", ("( 0! + 0! + 0! )! + 4",)).fetchone()[0]
         conn.close()
-        self.assertEqual(sc, 20)
+        self.assertEqual(sc, 12)
 
     def test_curate_partitions_rows_and_is_idempotent(self):
         m.run_annotate(self.db)

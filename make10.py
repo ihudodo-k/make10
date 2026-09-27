@@ -48,6 +48,8 @@ MAX_FAC_CHAIN = 2           # 1 つのノードに積み重ねてよい "!" の�
 
 # スコアの重み (第7章・暫定版)。ここだけ変えて annotate を流し直せば反映される。
 OP_COST = {"+": 1, "-": 1, "*": 2, "/": 3, "^": 5, "!": 4}
+# `!` だけは数え方に例外がある: `0!` (引数が数字の 0 そのもの) の `!` は
+# **解ごとに 1 回**しか数えない (6.0。score_solution と第7章)
 SCORE_BONUS = {
     "paren": 1,             # 括弧 1 組につき
     "fraction": 5,          # 途中で分数が現れる (0/1 判定)
@@ -564,6 +566,15 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
     ボーナスの zero_factorial / nested_factorial / ten_over / fac_ratio は
     「その手筋に気づけたか」を測る 0/1 判定 (出現回数では数えない)。
 
+    `0!` の `!` は解ごとに 1 回だけ (6.0)
+        引数が数字の 0 そのものの階乗 (`0!`) は、何個あっても `!` の 4 点を
+        1 回しか数えない。`0! = 1` は 1 つの決まった手筋で、2 回使っても
+        気づきは 1 回ぶんだから。いっぽう `3!` はどの数字に付けるかを毎回
+        選ぶので、今までどおりノードごとに 4 点。count_ops が階乗を全部
+        4 点で足しているので、ここでは個数を数えて 2 個目以降を後から引く。
+        **zero_factorial (+3) とは別の話**で、こちらは `!` の 4 点の数え方。
+        `( 0 * 0 )!` は「引数が式」なので 1 個目から数えるうえ +3 も付く。
+
     zero_factorial … 引数の値が 0 になる階乗が 1 つでもあれば +3。ただし
         **引数が数字の 0 そのもの (`0!`) のものは数えない** (5.9)。`0! = 1` は
         一度覚えれば使い回しが効くが、`( 0 * 7 )!` は数字を 1 つ捨てて 0 を
@@ -587,6 +598,7 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
              + c["^"] * OP_COST["^"] + c["fac"] * OP_COST["!"])
 
     has_zero_fac = False
+    n_bare_zero_fac = 0          # 6.0: `0!` (引数が数字の 0 そのもの) の個数
     has_nested_fac = False
     has_ten_over = False
     has_ratio = False
@@ -596,10 +608,14 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
             if n[1][0] == "fac":
                 has_nested_fac = True
             cv = val(n[1])
-            if cv is not INVALID and cv == 0 and n[1][0] != "num":
-                # 5.9: 引数が葉 (= 数字の 0 そのもの) の `0!` は数えない。
-                # val が 0 を返すリーフは digit 0 しかないので、種類を見れば足りる
-                has_zero_fac = True
+            if cv is not INVALID and cv == 0:
+                if n[1][0] == "num":
+                    # 6.0: 引数が葉 (= 数字の 0 そのもの) の `0!`。`!` の 4 点は
+                    # 解ごとに 1 回だけ数えるので、ここでは個数だけ覚える。
+                    # zero_factorial (+3) の対象外という 5.9 の扱いは変えない
+                    n_bare_zero_fac += 1
+                else:
+                    has_zero_fac = True
         elif is_ten_over(n, val) and not fac_ratio_pairs(conn, val):
             # 規則 1 (5.7): そのつながりが階乗の比として読めるなら、10 の倍数を
             # 作って割り戻したのではなく比を書いただけなので 10a/a は付けない
@@ -607,6 +623,11 @@ def score_solution(tree, val, cnt_paren, uses_fraction):
         if conn is n and fac_ratio_pairs(n, val):
             has_ratio = True
         neg_pow |= pow_kinds(n, val)
+
+    if n_bare_zero_fac > 1:
+        # 6.0: `0!` の `!` は解ごとに 1 回。count_ops は階乗を全部 4 点で
+        # 足しているので 2 個目以降の分を引く。zero_factorial (+3) には触らない
+        total -= OP_COST["!"] * (n_bare_zero_fac - 1)
 
     total += SCORE_BONUS["paren"] * cnt_paren
     if uses_fraction:
@@ -2323,9 +2344,13 @@ def _plain_score(tree, digits, cnt_paren):
     素の点は 10a/a・階乗の比・負の累乗の加点を除いたもの。score_solution も
     is_ten_over も has_fac_ratio も pow_kinds も呼ばない。重みの表 (OP_COST /
     SCORE_BONUS) だけは「仕様の値そのもの」なので共有する。
+
+    `0!` の判定は生成側と**書き方を変えてある** ―― 生成側は木の種類
+    (n[1][0] == "num") で見るが、こちらは部分木のノード数で見る (5.9・6.0)。
     """
     total = 0
     neg_pow = set()
+    bare_zeros = 0               # 6.0: `0!` の個数 (部分木が 1 ノードのもの)
     zero_fac = nested_fac = frac = over = ratio = False
     for n, conn in _plain_conns(tree):
         if n[0] == "bin":
@@ -2342,10 +2367,14 @@ def _plain_score(tree, digits, cnt_paren):
             total += OP_COST["!"]
             if n[1][0] == "fac":
                 nested_fac = True
-            # 5.9: 引数が数字の 0 そのものなら数えない。生成側は木の種類
+            # 5.9: 引数が数字の 0 そのものなら +3 を数えない。生成側は木の種類
             # (n[1][0] != "num") で見ているので、こちらは「部分木の大きさ」で見る
-            if len(_plain_walk(n[1])) > 1 and _plain_eval(n[1], digits) == 0:
-                zero_fac = True
+            if _plain_eval(n[1], digits) == 0:
+                if len(_plain_walk(n[1])) > 1:
+                    zero_fac = True
+                else:
+                    bare_zeros += 1       # 6.0: `!` の 4 点は 1 回だけ
+    total -= OP_COST["!"] * max(0, bare_zeros - 1)   # 6.0: `0!` は 1 回だけ
     total += SCORE_BONUS["paren"] * cnt_paren
     if frac:
         total += SCORE_BONUS["fraction"]

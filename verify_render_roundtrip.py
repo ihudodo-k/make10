@@ -3,7 +3,8 @@
 solutions.display を「GAME-SPEC 2-2 の標準文法」で読み直し、
 そこから uses_fraction / score を再計算して DB の値と突き合わせる。
 生成側のコードは一切参照しない。10a/a（5.6）・階乗の比の 3 規則（5.7）・
-負の累乗（5.8）もここで独立に書き直してある（DATA-SPEC 7 章）。
+負の累乗（5.8）・`0!` の扱い（5.9・6.0）もここで独立に書き直してある
+（DATA-SPEC 7 章）。
 """
 import sqlite3
 from fractions import Fraction
@@ -330,6 +331,7 @@ def rescore(disp):
     uses_fraction = any(v.denominator != 1 for v in seen)
     total = 0
     neg_pow = set()
+    n_bare = 0                                  # 6.0: `0!` の個数
     zero_fac = nested_fac = over = ratio = False
     for n, conn in conns(tree):
         if n[0] == "bin":
@@ -346,10 +348,16 @@ def rescore(disp):
                 nested_fac = True
             s2 = []
             cv = ev(n[1], s2)
-            # 5.9: 引数が数字の 0 そのもの（`0!`）なら数えない。ここでは
+            # 5.9: 引数が数字の 0 そのもの（`0!`）なら +3 を数えない。ここでは
             # 葉の中身を直に見る（make10.py は木の種類／部分木の大きさで見ている）
-            if cv is not INVALID and cv == 0 and n[1] != ("num", 0):
+            if n[1] == ("num", 0):
+                n_bare += 1                     # 6.0: `!` の 4 点は 1 解 1 回
+            elif cv is not INVALID and cv == 0:
                 zero_fac = True
+    if n_bare:
+        # 6.0: `0!` の `!` は解ごとに 1 回だけ。上のループは階乗を全部 4 点で
+        # 足しているので、2 個目以降を引く（`3!` はノードごとに 4 点のまま）
+        total -= OP_COST["!"] * (n_bare - 1)
     total += BONUS["paren"] * disp.count("(")
     if uses_fraction:
         total += BONUS["fraction"]
