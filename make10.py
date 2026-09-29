@@ -1354,10 +1354,15 @@ _CURATE_COLS = ("SELECT id, problem_id, shape, display, cnt_add, cnt_sub, "
 def _rescue_sort_key(row):
     """6-4 の救済で残す 1 件の選び方 (5.2)。_CURATE_COLS の行を取る。
 
-    **順序は _example_key と同じ「スコア最小 -> 読みやすさ (括弧 -> 割り算 ->
-    引き算 -> 表示長) -> id」。**
+    順序は「スコア最小 -> 読みやすさ (括弧 -> 割り算 -> 引き算 -> 表示長) -> id」。
+    **6.3 で _example_key に足した「飾り」「分数」の 2 鍵はここには足していない。**
     救済されるのは「その problem の解が全部 数字を潰す形」という問題で、
-    どうせ潰す形しか無いなら、その中で最も簡単なものを見せるべきである。
+    5.5 からそういう問題は出題しない (規則 2) ので、ここで選んだ解は
+    解答例にもヒントにもならず、残るのは problems.repr_solution_id だけ。
+    見せない解の選び方を変える理由が無いので、5.2 の順序のまま据え置く。
+
+    スコアを先頭に置いてあるのは、どうせ潰す形しか無いなら、その中で最も簡単な
+    ものを見せるべきだから。
     5.2 の途中までは _repr_sort_key (読みやすさだけ) で選んでいたため、
     最小スコアでない解を救済していた (件数は DATA-SPEC 6-7 の記録)。例:
 
@@ -1560,7 +1565,9 @@ def run_curate(db_path, progress=None):
 #   制約付きはさらに harder_by >= 1
 #   example_solution_id = 冗長でない残存解のうち _example_key が最小のもの (6-1 の式は
 #           出さない)。規則 2 を通った puzzle では一番簡単な解が 6-1 でない解なので、
-#           min_score と必ず一致する (崩れたら RuntimeError で止まる)
+#           min_score と必ず一致する (崩れたら RuntimeError で止まる)。
+#           6.3 で同点の崩し方に「飾りが少ない」「分数を通らない」を足した
+#           (count_decorations と uses_fraction。score は変えていない)
 #
 # 5.4 までは難易度を冗長でない解から取り、6-1 の式のほうが簡単な puzzle を素通りさせて
 # いた (表示の難易度が実際より高かった)。件数と数え方は DATA-SPEC 6-7。
@@ -1568,12 +1575,13 @@ def run_curate(db_path, progress=None):
 _CONSTRAIN_SOL_COLS = (
     "SELECT id, problem_id, is_repr, score, cnt_paren, cnt_sub, cnt_div, "
     "LENGTH(display), cnt_add, cnt_mul, cnt_pow, cnt_fac, is_redundant, "
-    "COALESCE(redundant_why, '') "
+    "COALESCE(redundant_why, ''), shape, uses_fraction "
     "FROM solutions ORDER BY problem_id, id")
 # 列: 0 id  1 pid  2 is_repr  3 score  4 cnt_paren  5 cnt_sub  6 cnt_div
 #     7 len(display)  8 cnt_add  9 cnt_mul  10 cnt_pow  11 cnt_fac  12 is_redundant
 #     13 redundant_why (5.5。規則 2 の「6-1 の解」の判定に使う。末尾に足したので
 #        _example_key など既存の添字は変わらない)
+#     14 shape  15 uses_fraction (6.3。解答例の選び方の鍵。同じく末尾に足した)
 
 # CONSTRAINT_OPS の各記号 -> 上のクエリでの使用回数カラムのインデックス
 _OP_COL = {"+": 8, "-": 5, "*": 9, "/": 6, "^": 10, "!": 11}
@@ -1617,12 +1625,75 @@ def _kind_ok(count, cmp, n):
 _RESCUE_MARK = " | 6-5: kept as constrained puzzle example"
 
 
-def _example_key(s):
-    """解答例の選び方: スコア最小 -> 読みやすさ (括弧->割り算->引き算->表示長) -> id。
+def _is_bare_identity(node, digits, want):
+    """node が「数字 1 個の want」か、want == 1 のとき `0!` か (6.3)。
+
+    値を評価する必要は無い ―― 数字 1 個の 0 は必ず 0、数字 1 個の 1 と `0!` は
+    必ず 1 なので、木の形だけで単位元かどうかが決まる。
+    """
+    if node[0] == "num":
+        return digits[node[1]] == want
+    if want == 1 and node[0] == "fac" and node[1][0] == "num":
+        return digits[node[1][1]] == 0            # 0! = 1
+    return False
+
+
+def count_decorations(tree, digits):
+    """値に影響しない操作 (飾り) の数を返す (6.3)。ノードごとに 1 回。
+
+        + 0 / 0 + / - 0 / * 1 / 1 * / / 1 / ^ 1
+
+    **単位元を「数字 1 個の 0 / 1」か「`0!`」で作っているものだけを数える。**
+    式で 0 や 1 を作っているもの (`3! - 6` や `6 / 6`) は数えない ―― 桁を使って
+    0 や 1 を作るのは手筋の一種で、飾りとは質が違う。本編 26 問目の
+    `3! - 6 + 5 * 2` (3652) を避けないようにするための線引きで、5.9 が
+    `zero_factorial` の加点から `0!` だけを外したときと同じ考え方。
+
+    `1 ^ x` / `x ^ 0` / `0 * x` は入れていない ―― あちらは値に影響しないどころか
+    桁を潰しているので 6-1 の印が付き、解答例の候補 (is_redundant = 0) に来ない。
+
+    両辺とも単位元の `1 * 1` のような形は、ノードは 1 つなので 1 と数える。
+    """
+    n = 0
+    for nd in iter_nodes(tree):
+        if nd[0] != "bin":
+            continue
+        op, a, b = nd[1], nd[2], nd[3]
+        if op == "+":
+            if (_is_bare_identity(b, digits, 0)
+                    or _is_bare_identity(a, digits, 0)):
+                n += 1
+        elif op == "-":
+            if _is_bare_identity(b, digits, 0):
+                n += 1
+        elif op == "*":
+            if (_is_bare_identity(b, digits, 1)
+                    or _is_bare_identity(a, digits, 1)):
+                n += 1
+        elif op in ("/", "^"):
+            if _is_bare_identity(b, digits, 1):
+                n += 1
+    return n
+
+
+def _decorations_of(s):
+    """_CONSTRAIN_SOL_COLS の行の飾りの個数 (6.3)。shape と 4 桁から出す。"""
+    return count_decorations(parse_shape(s[14]),
+                             [int(ch) for ch in s[1]])
+
+
+def _example_key(s, decor):
+    """解答例の選び方 (6.3): スコア最小 -> 飾りが少ない -> 分数を通らない
+    -> 読みやすさ (括弧 -> 割り算 -> 引き算 -> 表示長) -> id。
 
     先頭にスコアを置くので、min_score とここで選ばれる解答例は必ず同じ解になる。
+    2 つめ以降は同点のときだけ効くので、**score には一切影響しない**
+    (6.3 は constrain から流し直すだけでよく、annotate は要らない)。
+
+    decor は id -> 飾りの個数 の dict (count_decorations)。呼ぶ側が
+    まとめて作る ―― shape を読む処理なので、行ごとに毎回やると重い。
     """
-    return (s[3], s[4], s[6], s[5], s[7], s[0])
+    return (s[3], decor[s[0]], s[15], s[4], s[6], s[5], s[7], s[0])
 
 
 def run_constrain(db_path, progress=None):
@@ -1633,8 +1704,12 @@ def run_constrain(db_path, progress=None):
         conn.execute("DELETE FROM puzzles")
 
         by_pid = {}
+        # 6.3: 飾りの個数は _example_key の 2 つめの鍵。DB の列にはせず
+        # ここで shape から数える (理由は _example_key と DATA-SPEC 6-B)
+        decor = {}
         for s in conn.execute(_CONSTRAIN_SOL_COLS):
             by_pid.setdefault(s[1], []).append(s)
+            decor[s[0]] = _decorations_of(s)
 
         puzzle_rows = []
         n_base = 0          # rule_count = 0 (無制約。規則 2 を通った問題に 1 件)
@@ -1733,7 +1808,7 @@ def run_constrain(db_path, progress=None):
                     n_rej_noreprsurv += 1
                     continue
 
-                example = min(pool, key=_example_key)
+                example = min(pool, key=lambda s: _example_key(s, decor))
                 # 5.5 規則 1: 難易度は制約を満たす全解 (6-1 を含む) の最小スコア。
                 # 規則 2 を通った puzzle では一番簡単な解が 6-1 でない解なので、
                 # 解答例 (_example_key の最小) と必ず一致する。崩れたら止める
@@ -2343,6 +2418,52 @@ def _plain_walk(node):
     return out
 
 
+def _plain_decorations(tree, digits):
+    """飾りの個数を独立に数える (検証 6。6.3)。
+
+    生成側の count_decorations は「木の形が 数字 1 個 か `0!` か」で判定するが、
+    ここは **値と部分木の大きさ** で書く ―― 単位元側を _plain_eval で評価して
+    0 / 1 であることを確かめ、さらにその部分木が 2 ノード以下であることを見る。
+    2 ノード以下で値が 1 なのは数字の 1 か `0!` だけ (`1!` `2!` は generate が
+    枝刈りしていて存在せず、`3!` は 6)、値が 0 なのは数字の 0 だけ
+    (階乗の値は必ず 1 以上) なので、生成側と同じ集合になる。
+    """
+    n = 0
+    for nd in _plain_walk(tree):
+        if nd[0] != "bin":
+            continue
+        op, a, b = nd[1], nd[2], nd[3]
+
+        def bare(x, want):
+            return (len(_plain_walk(x)) <= 2
+                    and _plain_eval(x, digits) == want)
+
+        if op == "+":
+            if bare(b, 0) or bare(a, 0):
+                n += 1
+        elif op == "-":
+            if bare(b, 0):
+                n += 1
+        elif op == "*":
+            if bare(b, 1) or bare(a, 1):
+                n += 1
+        elif op in ("/", "^"):
+            if bare(b, 1):
+                n += 1
+    return n
+
+
+def _plain_uses_fraction(tree, digits):
+    """途中で分数を通るかを独立に見る (検証 6。6.3)。
+
+    build_evaluator は子から上へ uses_fraction を伝播させるが、ここは
+    二項ノードを全部拾って 1 つずつ評価し、分母が 1 でないものを探す
+    (階乗と数字の値は必ず整数なので二項ノードだけ見れば足りる)。
+    """
+    return any(_plain_eval(n, digits).denominator != 1
+               for n in _plain_walk(tree) if n[0] == "bin")
+
+
 def _plain_ten_over(node, digits):
     """検証 15 用の 10a/a 判定。is_ten_over とは別実装 (生成側を呼ばない)。"""
     if node[0] != "bin" or node[1] != "/":
@@ -2589,7 +2710,8 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
                 "d / n(=survivor_count) / nf / np / sol の不一致 %d 行 / %d 行"
                 % (len(mism), len(allrows))))
 
-    # 6. 解答例の再評価 (独立実装の _plain_eval で 10 になること)
+    # 6. 解答例の再評価 (独立実装の _plain_eval で 10 になること) と、
+    #    同点の中で「飾りが最少かつ分数を通らない」ものが選ばれていること (6.3)
     bad = []
     for r in allrows:
         try:
@@ -2600,8 +2722,46 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
                 bad.append(r)
         except Exception:
             bad.append(r)
-    res.append(("6. 解答例の再評価", not bad,
-                "値が 10 でない / 数字が id と違う行 %d / %d 行" % (len(bad), len(allrows))))
+
+    # **constrain とは独立に**同点の集合を作る ―― _example_key も
+    # count_decorations も呼ばず、solutions 表から SQL で「その制約を満たし、
+    # 冗長でなく、score が d の解」を集め、display を parse_tree で読み直して
+    # _plain_decorations / _plain_uses_fraction で数え直す
+    rc_col6 = {"N": None, "A0": "cnt_add", "S0": "cnt_sub", "M0": "cnt_mul",
+               "D0": "cnt_div", "P0": "cnt_pow", "F0": "cnt_fac"}
+    ties = {}
+    for rc, col in rc_col6.items():
+        where = "" if col is None else " AND %s = 0" % col
+        for pid, score, disp in conn.execute(
+                "SELECT problem_id, score, display FROM solutions "
+                "WHERE is_redundant = 0%s" % where):
+            ties.setdefault((pid, rc, score), []).append(disp)
+    bad_dec, bad_frac, n_tied = [], [], 0
+    for r in allrows:
+        cand = ties.get((r["id"], r["rc"], r["d"]), [])
+        if len(cand) < 2:
+            continue
+        n_tied += 1
+        digits = [int(ch) for ch in r["id"]]
+        feats = {}
+        for disp in cand:
+            t = parse_tree(disp)
+            feats[disp] = (_plain_decorations(t, digits),
+                           1 if _plain_uses_fraction(t, digits) else 0)
+        mine = feats.get(r["sol"])
+        if mine is None:
+            bad_dec.append(r)                    # 解答例が同点の集合に無い
+            continue
+        if mine[0] != min(f[0] for f in feats.values()):
+            bad_dec.append(r)
+        elif mine[1] != min(f[1] for f in feats.values()
+                            if f[0] == mine[0]):
+            bad_frac.append(r)
+    ok6 = not bad and not bad_dec and not bad_frac
+    res.append(("6. 解答例の再評価", ok6,
+                "値が 10 でない / 数字が id と違う行 %d / %d 行、"
+                "同点 %d 行のうち 飾りが最少でない %d 行・分数を通る %d 行"
+                % (len(bad), len(allrows), n_tied, len(bad_dec), len(bad_frac))))
 
     # 7. ★ の導入位置
     f = [r for r in course[25:28]]

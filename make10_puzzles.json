@@ -2092,7 +2092,7 @@
       "id": "0205",
       "constraint": null,
       "difficulty": 5,
-      "solution": "0 + 2 * ( 0 + 5 )",
+      "solution": "0 - 2 * ( 0 - 5 )",
       "solution_count": 54,
       "needs_fac": false,
       "needs_pow": false
@@ -2620,7 +2620,7 @@
       "id": "0234",
       "constraint": null,
       "difficulty": 4,
-      "solution": "0 + 2 * 3 + 4",
+      "solution": "0 - 2 + 3 * 4",
       "solution_count": 39,
       "needs_fac": false,
       "needs_pow": false
@@ -3370,7 +3370,7 @@
       "id": "0272",
       "constraint": null,
       "difficulty": 5,
-      "solution": "0 + 2 * ( 7 - 2 )",
+      "solution": "( 0 - 2 + 7 ) * 2",
       "solution_count": 15,
       "needs_fac": false,
       "needs_pow": false
@@ -3817,7 +3817,7 @@
         "count": 0
       },
       "difficulty": 14,
-      "solution": "0! * ( 3! - 0! ) * 2",
+      "solution": "( 0! - 3! ) * ( 0 - 2 )",
       "solution_count": 5,
       "needs_fac": true,
       "needs_pow": false
@@ -3826,7 +3826,7 @@
       "id": "0303",
       "constraint": null,
       "difficulty": 9,
-      "solution": "0! + 3 * 0! * 3",
+      "solution": "0! - 3 * ( 0 - 3 )",
       "solution_count": 91,
       "needs_fac": true,
       "needs_pow": false
@@ -3880,7 +3880,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "0! * ( 3 - 0! ) * 5",
+      "solution": "( 0! - 3 ) * ( 0 - 5 )",
       "solution_count": 7,
       "needs_fac": true,
       "needs_pow": false
@@ -4177,7 +4177,7 @@
         "count": 0
       },
       "difficulty": 11,
-      "solution": "0 + 3 ^ 2 + 0!",
+      "solution": "0! + 3! + 2 + 0!",
       "solution_count": 23,
       "needs_fac": true,
       "needs_pow": false
@@ -4621,7 +4621,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "0 + 3! / 3 + 8",
+      "solution": "0! + 3 / 3 + 8",
       "solution_count": 21,
       "needs_fac": true,
       "needs_pow": false
@@ -4645,7 +4645,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "0 + 3! / 3 + 8",
+      "solution": "0! + 3 / 3 + 8",
       "solution_count": 19,
       "needs_fac": true,
       "needs_pow": false
@@ -4828,7 +4828,7 @@
       "id": "0345",
       "constraint": null,
       "difficulty": 9,
-      "solution": "0 + ( 3! - 4 ) * 5",
+      "solution": "( 0! - 3 + 4 ) * 5",
       "solution_count": 35,
       "needs_fac": true,
       "needs_pow": false
@@ -4882,7 +4882,7 @@
       "id": "0348",
       "constraint": null,
       "difficulty": 7,
-      "solution": "0 + 3! - 4 + 8",
+      "solution": "0! - 3 + 4 + 8",
       "solution_count": 31,
       "needs_fac": true,
       "needs_pow": false
@@ -5629,7 +5629,7 @@
       "id": "0384",
       "constraint": null,
       "difficulty": 7,
-      "solution": "0 + 3! + 8 - 4",
+      "solution": "0! - 3 + 8 + 4",
       "solution_count": 30,
       "needs_fac": true,
       "needs_pow": false
@@ -7153,7 +7153,7 @@
       "id": "0474",
       "constraint": null,
       "difficulty": 10,
-      "solution": "0 + 4 + ( 7 - 4 )!",
+      "solution": "( 0 - 4 + 7 )! + 4",
       "solution_count": 6,
       "needs_fac": true,
       "needs_pow": false
@@ -7537,7 +7537,7 @@
       "id": "0502",
       "constraint": null,
       "difficulty": 5,
-      "solution": "0 + 5 * ( 0 + 2 )",
+      "solution": "0 - 5 * ( 0 - 2 )",
       "solution_count": 46,
       "needs_fac": false,
       "needs_pow": false
@@ -8731,7 +8731,7 @@
       "id": "0575",
       "constraint": null,
       "difficulty": 5,
-      "solution": "0 + 5 * ( 7 - 5 )",
+      "solution": "( 0 - 5 + 7 ) * 5",
       "solution_count": 15,
       "needs_fac": false,
       "needs_pow": false
@@ -9127,7 +9127,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "0! * ( 6 - 0! ) * 2",
+      "solution": "( 0! - 6 ) * ( 0 - 2 )",
       "solution_count": 4,
       "needs_fac": true,
       "needs_pow": false
@@ -10744,7 +10744,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "0! * 7 * 2 - 4",
+      "solution": "0 - ( 7 * 2 - 4! )",
       "solution_count": 5,
       "needs_fac": false,
       "needs_pow": false
@@ -10837,7 +10837,7 @@
       "id": "0732",
       "constraint": null,
       "difficulty": 9,
-      "solution": "0 + 7 + 3! / 2",
+      "solution": "( 0! + 7 - 3 ) * 2",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -11950,7 +11950,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "0 + 8 + 3! / 3",
+      "solution": "0! + 8 + 3 / 3",
       "solution_count": 30,
       "needs_fac": true,
       "needs_pow": false
@@ -11974,7 +11974,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "0 + 8 + 3! / 3",
+      "solution": "0! + 8 + 3 / 3",
       "solution_count": 40,
       "needs_fac": true,
       "needs_pow": false
@@ -11983,7 +11983,7 @@
       "id": "0834",
       "constraint": null,
       "difficulty": 7,
-      "solution": "0 + 8 + 3! - 4",
+      "solution": "0! + 8 - 3 + 4",
       "solution_count": 56,
       "needs_fac": true,
       "needs_pow": false
@@ -12100,7 +12100,7 @@
       "id": "0843",
       "constraint": null,
       "difficulty": 7,
-      "solution": "0 + 8 - 4 + 3!",
+      "solution": "0! + 8 + 4 - 3",
       "solution_count": 42,
       "needs_fac": true,
       "needs_pow": false
@@ -13243,7 +13243,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "0 + 9 + 3! / 6",
+      "solution": "0! + 9 / 3 + 6",
       "solution_count": 57,
       "needs_fac": true,
       "needs_pow": false
@@ -13267,7 +13267,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "0 + 9 + 3! / 6",
+      "solution": "0! + 9 / 3 + 6",
       "solution_count": 43,
       "needs_fac": true,
       "needs_pow": false
@@ -15586,7 +15586,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "1 * 1 * 4 + 3!",
+      "solution": "1 + 1 + 4! / 3",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -16117,7 +16117,7 @@
         "count": 0
       },
       "difficulty": 5,
-      "solution": "1 + 1 * 9 * 1",
+      "solution": "1 * 1 * 9 + 1",
       "solution_count": 47,
       "needs_fac": false,
       "needs_pow": false
@@ -16519,7 +16519,7 @@
       "id": "1224",
       "constraint": null,
       "difficulty": 5,
-      "solution": "1 * 2 + 2 * 4",
+      "solution": "( 1 + 2 ) * 2 + 4",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -16894,7 +16894,7 @@
       "id": "1242",
       "constraint": null,
       "difficulty": 5,
-      "solution": "1 * 2 + 4 * 2",
+      "solution": "( 1 + 2 ) * 4 - 2",
       "solution_count": 9,
       "needs_fac": false,
       "needs_pow": false
@@ -16996,7 +16996,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "1 / 2 * 4 * 5",
+      "solution": "( ( 1 + 2 )! - 4 ) * 5",
       "solution_count": 11,
       "needs_fac": false,
       "needs_pow": false
@@ -17872,7 +17872,7 @@
       "id": "1303",
       "constraint": null,
       "difficulty": 5,
-      "solution": "1 + 3 * ( 0 + 3 )",
+      "solution": "1 - 3 * ( 0 - 3 )",
       "solution_count": 79,
       "needs_fac": false,
       "needs_pow": false
@@ -18604,7 +18604,7 @@
       "id": "1334",
       "constraint": null,
       "difficulty": 4,
-      "solution": "1 * 3 + 3 + 4",
+      "solution": "1 - 3 + 3 * 4",
       "solution_count": 39,
       "needs_fac": false,
       "needs_pow": false
@@ -18856,7 +18856,7 @@
       "id": "1343",
       "constraint": null,
       "difficulty": 4,
-      "solution": "1 * 3 + 4 + 3",
+      "solution": "1 - 3 + 4 * 3",
       "solution_count": 44,
       "needs_fac": false,
       "needs_pow": false
@@ -20659,7 +20659,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "1 * 4 + 3! * 1",
+      "solution": "1 + 4! / 3 + 1",
       "solution_count": 23,
       "needs_fac": false,
       "needs_pow": false
@@ -20689,7 +20689,7 @@
       "id": "1433",
       "constraint": null,
       "difficulty": 4,
-      "solution": "1 * 4 + 3 + 3",
+      "solution": "1 + 4 * 3 - 3",
       "solution_count": 44,
       "needs_fac": false,
       "needs_pow": false
@@ -20950,7 +20950,7 @@
       "id": "1443",
       "constraint": null,
       "difficulty": 9,
-      "solution": "1 * 4 * 4 - 3!",
+      "solution": "1 + 4! / 4 + 3",
       "solution_count": 11,
       "needs_fac": true,
       "needs_pow": false
@@ -23818,7 +23818,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "1 * 6 + 3! - 2",
+      "solution": "1 + ( 6 - 3 ) ^ 2",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -30064,7 +30064,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "2 - ( 0! - 9 - 0 )",
+      "solution": "2 - ( 0 - 9 ) - 0!",
       "solution_count": 14,
       "needs_fac": false,
       "needs_pow": false
@@ -30265,7 +30265,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "2 - ( 1 - 0 - 9 )",
+      "solution": "2 - 1 - ( 0 - 9 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -30349,7 +30349,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "2 * 1 * 1 * 5",
+      "solution": "2 * ( 1 - ( 1 - 5 ) )",
       "solution_count": 41,
       "needs_fac": false,
       "needs_pow": false
@@ -30574,7 +30574,7 @@
       "id": "2124",
       "constraint": null,
       "difficulty": 5,
-      "solution": "2 + 1 * 2 * 4",
+      "solution": "2 * ( 1 + 2 ) + 4",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -30991,7 +30991,7 @@
       "id": "2142",
       "constraint": null,
       "difficulty": 5,
-      "solution": "2 + 1 * 4 * 2",
+      "solution": "( 2 + 1 ) * 4 - 2",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -32041,7 +32041,7 @@
       "id": "2204",
       "constraint": null,
       "difficulty": 5,
-      "solution": "2 + 2 * ( 0 + 4 )",
+      "solution": "2 - 2 * ( 0 - 4 )",
       "solution_count": 20,
       "needs_fac": false,
       "needs_pow": false
@@ -32176,7 +32176,7 @@
       "id": "2214",
       "constraint": null,
       "difficulty": 5,
-      "solution": "2 + 2 * 1 * 4",
+      "solution": "2 * ( 2 + 1 ) + 4",
       "solution_count": 12,
       "needs_fac": false,
       "needs_pow": false
@@ -32875,7 +32875,7 @@
       "id": "2241",
       "constraint": null,
       "difficulty": 5,
-      "solution": "2 + 2 * 4 * 1",
+      "solution": "2 * ( 2 + 4 - 1 )",
       "solution_count": 16,
       "needs_fac": false,
       "needs_pow": false
@@ -33937,7 +33937,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "2 / 2 + 9 * 1",
+      "solution": "2 / 2 * 9 + 1",
       "solution_count": 10,
       "needs_fac": false,
       "needs_pow": false
@@ -34372,7 +34372,7 @@
       "id": "2315",
       "constraint": null,
       "difficulty": 4,
-      "solution": "2 + 3 + 1 * 5",
+      "solution": "2 * 3 - 1 + 5",
       "solution_count": 16,
       "needs_fac": false,
       "needs_pow": false
@@ -34480,7 +34480,7 @@
       "id": "2321",
       "constraint": null,
       "difficulty": 6,
-      "solution": "2 * ( 3 + 2 * 1 )",
+      "solution": "2 * ( 3 * 2 - 1 )",
       "solution_count": 48,
       "needs_fac": false,
       "needs_pow": false
@@ -35482,7 +35482,7 @@
       "id": "2351",
       "constraint": null,
       "difficulty": 4,
-      "solution": "2 + 3 + 5 * 1",
+      "solution": "2 * 3 + 5 - 1",
       "solution_count": 19,
       "needs_fac": false,
       "needs_pow": false
@@ -35977,7 +35977,7 @@
       "id": "2366",
       "constraint": null,
       "difficulty": 11,
-      "solution": "2 / 3 * 6 + 6",
+      "solution": "2 * ( 3! - 6 / 6 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -37081,7 +37081,7 @@
       "id": "2412",
       "constraint": null,
       "difficulty": 5,
-      "solution": "2 + 4 * 1 * 2",
+      "solution": "2 * ( 4 - 1 + 2 )",
       "solution_count": 23,
       "needs_fac": false,
       "needs_pow": false
@@ -37252,7 +37252,7 @@
       "id": "2421",
       "constraint": null,
       "difficulty": 5,
-      "solution": "2 + 4 * 2 * 1",
+      "solution": "2 * ( 4 + 2 - 1 )",
       "solution_count": 19,
       "needs_fac": false,
       "needs_pow": false
@@ -37723,7 +37723,7 @@
         "count": 0
       },
       "difficulty": 11,
-      "solution": "2 + 4 / 3 * 6",
+      "solution": "2 * ( 4 + 3! / 6 )",
       "solution_count": 16,
       "needs_fac": false,
       "needs_pow": false
@@ -50242,7 +50242,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "3 - ( 0! - 8 - 0 )",
+      "solution": "3 - ( 0 - 8 ) - 0!",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -50662,7 +50662,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "3 - ( 1 - 0 - 8 )",
+      "solution": "3 - 1 - ( 0 - 8 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -51565,7 +51565,7 @@
         "count": 0
       },
       "difficulty": 5,
-      "solution": "3 * 1 * 4 - 2",
+      "solution": "3 - ( 1 - 4 * 2 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -52834,7 +52834,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "3! - ( 2 - 0 - 3! )",
+      "solution": "3! - 2 - ( 0 - 3! )",
       "solution_count": 9,
       "needs_fac": true,
       "needs_pow": false
@@ -52888,7 +52888,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "3! - ( 2 - 0 - 6 )",
+      "solution": "3! - 2 - ( 0 - 6 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -52921,7 +52921,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "3 - ( 2 - 0 - 9 )",
+      "solution": "3 - 2 - ( 0 - 9 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -52996,7 +52996,7 @@
       "id": "3212",
       "constraint": null,
       "difficulty": 6,
-      "solution": "( 3 + 2 * 1 ) * 2",
+      "solution": "( 3 * 2 - 1 ) * 2",
       "solution_count": 46,
       "needs_fac": false,
       "needs_pow": false
@@ -53059,7 +53059,7 @@
       "id": "3215",
       "constraint": null,
       "difficulty": 4,
-      "solution": "3 + 2 + 1 * 5",
+      "solution": "3 * 2 - 1 + 5",
       "solution_count": 26,
       "needs_fac": false,
       "needs_pow": false
@@ -54322,7 +54322,7 @@
       "id": "3251",
       "constraint": null,
       "difficulty": 4,
-      "solution": "3 + 2 + 5 * 1",
+      "solution": "3 * 2 + 5 - 1",
       "solution_count": 24,
       "needs_fac": false,
       "needs_pow": false
@@ -56086,7 +56086,7 @@
         "count": 0
       },
       "difficulty": 11,
-      "solution": "3! / 3 * ( 0 + 5 )",
+      "solution": "( 3 / 3 + 0! ) * 5",
       "solution_count": 51,
       "needs_fac": false,
       "needs_pow": false
@@ -58069,7 +58069,7 @@
       "id": "3371",
       "constraint": null,
       "difficulty": 8,
-      "solution": "3! - 3 + 7 * 1",
+      "solution": "3 * 3! - 7 - 1",
       "solution_count": 21,
       "needs_fac": true,
       "needs_pow": false
@@ -58771,7 +58771,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "3 / 3 + 9 * 1",
+      "solution": "3 / 3 * 9 + 1",
       "solution_count": 31,
       "needs_fac": false,
       "needs_pow": false
@@ -59206,7 +59206,7 @@
       "id": "3413",
       "constraint": null,
       "difficulty": 4,
-      "solution": "3 + 4 + 1 * 3",
+      "solution": "3 * 4 + 1 - 3",
       "solution_count": 66,
       "needs_fac": false,
       "needs_pow": false
@@ -59350,7 +59350,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "3! - ( 4 - 1 * 8 )",
+      "solution": "3! * ( 4 - 1 ) - 8",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -59779,7 +59779,7 @@
       "id": "3431",
       "constraint": null,
       "difficulty": 4,
-      "solution": "3 + 4 + 3 * 1",
+      "solution": "3 * 4 - 3 + 1",
       "solution_count": 57,
       "needs_fac": false,
       "needs_pow": false
@@ -62173,7 +62173,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "3! - ( 5 - 0 - 9 )",
+      "solution": "3! - 5 - ( 0 - 9 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -66652,7 +66652,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "3! / 6 + 9 * 1",
+      "solution": "3! / 6 * 9 + 1",
       "solution_count": 21,
       "needs_fac": false,
       "needs_pow": false
@@ -72013,7 +72013,7 @@
         "count": 0
       },
       "difficulty": 46,
-      "solution": "( 3! )! / 9! * ( 3! )! * 7",
+      "solution": "( 3! )! / ( 9! / ( 3! )! / 7 )",
       "solution_count": 5,
       "needs_fac": true,
       "needs_pow": false
@@ -72835,7 +72835,7 @@
         "count": 0
       },
       "difficulty": 39,
-      "solution": "( 3! )! / 9! * 6! * 7",
+      "solution": "( 3! )! / ( 9! / 6! / 7 )",
       "solution_count": 5,
       "needs_fac": true,
       "needs_pow": false
@@ -73057,7 +73057,7 @@
         "count": 0
       },
       "difficulty": 46,
-      "solution": "( 3! )! / 9! * 7 * ( 3! )!",
+      "solution": "( 3! )! / ( 9! / 7 / ( 3! )! )",
       "solution_count": 7,
       "needs_fac": true,
       "needs_pow": false
@@ -73144,7 +73144,7 @@
         "count": 0
       },
       "difficulty": 39,
-      "solution": "( 3! )! / 9! * 7 * 6!",
+      "solution": "( 3! )! / ( 9! / 7 / 6! )",
       "solution_count": 7,
       "needs_fac": true,
       "needs_pow": false
@@ -74089,7 +74089,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "( 4! - 0 ) / 2 - 2",
+      "solution": "( 4 - ( 0! - 2 ) ) * 2",
       "solution_count": 12,
       "needs_fac": false,
       "needs_pow": false
@@ -74878,7 +74878,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "4 - ( 0! - 7 - 0 )",
+      "solution": "4 - ( 0 - 7 ) - 0!",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -75400,7 +75400,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "4 - ( 1 - 0 - 7 )",
+      "solution": "4 - 1 - ( 0 - 7 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -75733,7 +75733,7 @@
       "id": "4122",
       "constraint": null,
       "difficulty": 5,
-      "solution": "4 * 1 * 2 + 2",
+      "solution": "4 + ( 1 + 2 ) * 2",
       "solution_count": 27,
       "needs_fac": false,
       "needs_pow": false
@@ -77404,7 +77404,7 @@
       "id": "4203",
       "constraint": null,
       "difficulty": 5,
-      "solution": "4 + 2 * ( 0 + 3 )",
+      "solution": "4 - 2 * ( 0 - 3 )",
       "solution_count": 67,
       "needs_fac": false,
       "needs_pow": false
@@ -77491,7 +77491,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "4 - ( 2 - 0 - 8 )",
+      "solution": "4 - 2 - ( 0 - 8 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -77599,7 +77599,7 @@
       "id": "4212",
       "constraint": null,
       "difficulty": 5,
-      "solution": "4 * 2 + 1 * 2",
+      "solution": "4 + 2 * ( 1 + 2 )",
       "solution_count": 26,
       "needs_fac": false,
       "needs_pow": false
@@ -77884,7 +77884,7 @@
       "id": "4221",
       "constraint": null,
       "difficulty": 5,
-      "solution": "4 * 2 + 2 * 1",
+      "solution": "4 + 2 * ( 2 + 1 )",
       "solution_count": 19,
       "needs_fac": false,
       "needs_pow": false
@@ -77908,7 +77908,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "4! / 2 - 2 * 1",
+      "solution": "( 4! - 2 ) / 2 - 1",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -79501,7 +79501,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "4! - 2 * 7 - 0",
+      "solution": "4 - ( 2 - 7 - 0! )",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -80512,7 +80512,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "4 - ( 3 - 0 - 9 )",
+      "solution": "4 - 3 - ( 0 - 9 )",
       "solution_count": 8,
       "needs_fac": false,
       "needs_pow": false
@@ -80587,7 +80587,7 @@
       "id": "4313",
       "constraint": null,
       "difficulty": 4,
-      "solution": "4 + 3 + 1 * 3",
+      "solution": "4 * 3 + 1 - 3",
       "solution_count": 68,
       "needs_fac": false,
       "needs_pow": false
@@ -81157,7 +81157,7 @@
       "id": "4331",
       "constraint": null,
       "difficulty": 4,
-      "solution": "4 + 3 + 3 * 1",
+      "solution": "4 * 3 - 3 + 1",
       "solution_count": 51,
       "needs_fac": false,
       "needs_pow": false
@@ -85198,7 +85198,7 @@
         "count": 0
       },
       "difficulty": 11,
-      "solution": "4 + 4 / 6 * 9",
+      "solution": "4! / 4 / 6 + 9",
       "solution_count": 24,
       "needs_fac": false,
       "needs_pow": false
@@ -85756,7 +85756,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "4 / 4 + 9 * 1",
+      "solution": "4 / 4 * 9 + 1",
       "solution_count": 20,
       "needs_fac": false,
       "needs_pow": false
@@ -88105,7 +88105,7 @@
         "count": 0
       },
       "difficulty": 13,
-      "solution": "4 + ( 6 / 2 * 1 )!",
+      "solution": "( 4! + 6 ) / ( 2 + 1 )",
       "solution_count": 14,
       "needs_fac": false,
       "needs_pow": false
@@ -97453,7 +97453,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "5 / ( 0 + 4 ) * 8",
+      "solution": "5! / ( 0 + 4 + 8 )",
       "solution_count": 30,
       "needs_fac": false,
       "needs_pow": false
@@ -97729,7 +97729,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "5 - ( 0! - 6 - 0 )",
+      "solution": "5 - ( 0 - 6 ) - 0!",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -98410,7 +98410,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "5 - ( 1 - 0 - 3! )",
+      "solution": "5 - 1 - ( 0 - 3! )",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -98452,7 +98452,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "5 - ( 1 - 0 - 6 )",
+      "solution": "5 - 1 - ( 0 - 6 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -98548,7 +98548,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "5 * 1 * 1 * 2",
+      "solution": "5 * ( 1 - ( 1 - 2 ) )",
       "solution_count": 42,
       "needs_fac": false,
       "needs_pow": false
@@ -98773,7 +98773,7 @@
       "id": "5123",
       "constraint": null,
       "difficulty": 4,
-      "solution": "5 + 1 * 2 + 3",
+      "solution": "5 - 1 + 2 * 3",
       "solution_count": 44,
       "needs_fac": false,
       "needs_pow": false
@@ -98986,7 +98986,7 @@
       "id": "5132",
       "constraint": null,
       "difficulty": 4,
-      "solution": "5 + 1 * 3 + 2",
+      "solution": "5 - 1 + 3 * 2",
       "solution_count": 56,
       "needs_fac": false,
       "needs_pow": false
@@ -100174,7 +100174,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "5! * 1 / 8 - 5",
+      "solution": "5 - 1 + ( 8 - 5 )!",
       "solution_count": 8,
       "needs_fac": false,
       "needs_pow": false
@@ -100540,7 +100540,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "5 - ( 2 - 0 - 7 )",
+      "solution": "5 - 2 - ( 0 - 7 )",
       "solution_count": 52,
       "needs_fac": false,
       "needs_pow": false
@@ -101044,7 +101044,7 @@
       "id": "5228",
       "constraint": null,
       "difficulty": 12,
-      "solution": "5 / ( 2 + 2 ) * 8",
+      "solution": "5! / ( 2 + 2 + 8 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -101095,7 +101095,7 @@
       "id": "5231",
       "constraint": null,
       "difficulty": 4,
-      "solution": "5 + 2 + 3 * 1",
+      "solution": "5 + 2 * 3 - 1",
       "solution_count": 50,
       "needs_fac": false,
       "needs_pow": false
@@ -102616,7 +102616,7 @@
         "count": 0
       },
       "difficulty": 14,
-      "solution": "5 / ( 2 / 8 * 2 )",
+      "solution": "5! / 2 / ( 8 - 2 )",
       "solution_count": 9,
       "needs_fac": false,
       "needs_pow": false
@@ -103189,7 +103189,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "5 - ( 3 - 0 - 8 )",
+      "solution": "5 - 3 - ( 0 - 8 )",
       "solution_count": 12,
       "needs_fac": false,
       "needs_pow": false
@@ -103201,7 +103201,7 @@
         "count": 0
       },
       "difficulty": 16,
-      "solution": "5 / ( 3 + 0! ) * 8",
+      "solution": "5! / ( 3 + 0! + 8 )",
       "solution_count": 4,
       "needs_fac": false,
       "needs_pow": false
@@ -103459,7 +103459,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "5 / ( 3 + 1 ) * 8",
+      "solution": "5! / ( 3 + 1 + 8 )",
       "solution_count": 4,
       "needs_fac": false,
       "needs_pow": false
@@ -103510,7 +103510,7 @@
       "id": "5321",
       "constraint": null,
       "difficulty": 4,
-      "solution": "5 + 3 + 2 * 1",
+      "solution": "5 + 3 * 2 - 1",
       "solution_count": 48,
       "needs_fac": false,
       "needs_pow": false
@@ -103633,7 +103633,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "5 / 3 * ( 2 + 4 )",
+      "solution": "5 * ( ( 3! + 2 ) / 4 )",
       "solution_count": 18,
       "needs_fac": false,
       "needs_pow": false
@@ -103975,7 +103975,7 @@
         "count": 0
       },
       "difficulty": 16,
-      "solution": "5 * 3 / 3! * 4",
+      "solution": "5 * ( ( 3! - 3 )! - 4 )",
       "solution_count": 29,
       "needs_fac": false,
       "needs_pow": false
@@ -105991,7 +105991,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "5 * 3 / 9 * 6",
+      "solution": "5 * ( 3! / ( 9 - 6 ) )",
       "solution_count": 9,
       "needs_fac": false,
       "needs_pow": false
@@ -106231,7 +106231,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "5 - ( 4 - 0 - 9 )",
+      "solution": "5 - 4 - ( 0 - 9 )",
       "solution_count": 8,
       "needs_fac": false,
       "needs_pow": false
@@ -106327,7 +106327,7 @@
         "count": 0
       },
       "difficulty": 14,
-      "solution": "5! / 4 * 1 / 3",
+      "solution": "5 * ( ( 4 - 1 )! / 3 )",
       "solution_count": 18,
       "needs_fac": false,
       "needs_pow": false
@@ -106396,7 +106396,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "5 / 4 * ( 1 + 7 )",
+      "solution": "5! / ( 4 + 1 + 7 )",
       "solution_count": 4,
       "needs_fac": false,
       "needs_pow": false
@@ -106426,7 +106426,7 @@
       "id": "5419",
       "constraint": null,
       "difficulty": 4,
-      "solution": "5 - 4 + 1 * 9",
+      "solution": "5 * 4 - 1 - 9",
       "solution_count": 25,
       "needs_fac": false,
       "needs_pow": false
@@ -106645,7 +106645,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "5 / 4 * ( 2 + 6 )",
+      "solution": "5! / ( 4 + 2 + 6 )",
       "solution_count": 16,
       "needs_fac": false,
       "needs_pow": false
@@ -107851,7 +107851,7 @@
       "id": "5471",
       "constraint": null,
       "difficulty": 12,
-      "solution": "5 / 4 * ( 7 + 1 )",
+      "solution": "5! / ( 4 + 7 + 1 )",
       "solution_count": 4,
       "needs_fac": false,
       "needs_pow": false
@@ -108205,7 +108205,7 @@
         "count": 0
       },
       "difficulty": 19,
-      "solution": "5 / ( 4! / 8 / 6 )",
+      "solution": "5! / ( 4! / ( 8 - 6 ) )",
       "solution_count": 3,
       "needs_fac": false,
       "needs_pow": false
@@ -108358,7 +108358,7 @@
       "id": "5491",
       "constraint": null,
       "difficulty": 4,
-      "solution": "5 - 4 + 9 * 1",
+      "solution": "5 * 4 - 9 - 1",
       "solution_count": 23,
       "needs_fac": false,
       "needs_pow": false
@@ -110428,7 +110428,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "5 / 5 + 9 * 1",
+      "solution": "5 / 5 * 9 + 1",
       "solution_count": 29,
       "needs_fac": false,
       "needs_pow": false
@@ -111259,7 +111259,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "5 / 6 * 3 * 4",
+      "solution": "5 * ( ( 6 - 3 )! - 4 )",
       "solution_count": 17,
       "needs_fac": false,
       "needs_pow": false
@@ -112516,7 +112516,7 @@
         "count": 0
       },
       "difficulty": 12,
-      "solution": "5 / 6 * ( 8 + 4 )",
+      "solution": "5 * ( 6 * 8 / 4! )",
       "solution_count": 12,
       "needs_fac": false,
       "needs_pow": false
@@ -115834,7 +115834,7 @@
       "id": "5850",
       "constraint": null,
       "difficulty": 9,
-      "solution": "5! / 8 - 5 + 0",
+      "solution": "5 * ( 8 - 5 - 0! )",
       "solution_count": 18,
       "needs_fac": true,
       "needs_pow": false
@@ -117481,7 +117481,7 @@
         "count": 0
       },
       "difficulty": 28,
-      "solution": "5! / 9! * 3! * 7!",
+      "solution": "5! / ( 9! / 3! / 7! )",
       "solution_count": 5,
       "needs_fac": false,
       "needs_pow": false
@@ -117868,7 +117868,7 @@
       "id": "5958",
       "constraint": null,
       "difficulty": 12,
-      "solution": "5 / ( 9 - 5 ) * 8",
+      "solution": "5! / ( 9 - 5 + 8 )",
       "solution_count": 4,
       "needs_fac": false,
       "needs_pow": false
@@ -118057,7 +118057,7 @@
       "id": "5967",
       "constraint": null,
       "difficulty": 24,
-      "solution": "5! / 9! * 6 * 7!",
+      "solution": "5! / ( 9! / 6 / 7! )",
       "solution_count": 5,
       "needs_fac": true,
       "needs_pow": false
@@ -118183,7 +118183,7 @@
         "count": 0
       },
       "difficulty": 28,
-      "solution": "5! / 9! * 7! * 3!",
+      "solution": "5! / ( 9! / 7! / 3! )",
       "solution_count": 5,
       "needs_fac": false,
       "needs_pow": false
@@ -118270,7 +118270,7 @@
         "count": 0
       },
       "difficulty": 24,
-      "solution": "5! / 9! * 7! * 6",
+      "solution": "5! / ( 9! / 7! / 6 )",
       "solution_count": 5,
       "needs_fac": true,
       "needs_pow": false
@@ -118993,7 +118993,7 @@
       "id": "6023",
       "constraint": null,
       "difficulty": 7,
-      "solution": "6 + 0 - 2 + 3!",
+      "solution": "6 - 0! + 2 + 3",
       "solution_count": 35,
       "needs_fac": true,
       "needs_pow": false
@@ -119134,7 +119134,7 @@
       "id": "6032",
       "constraint": null,
       "difficulty": 7,
-      "solution": "6 + 0 + 3! - 2",
+      "solution": "6 - 0! + 3 + 2",
       "solution_count": 48,
       "needs_fac": false,
       "needs_pow": false
@@ -119488,7 +119488,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "6 - ( 0! - 5 - 0 )",
+      "solution": "6 - ( 0 - 5 ) - 0!",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -120109,7 +120109,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "6 - ( 1 - 0 - 5 )",
+      "solution": "6 - 1 - ( 0 - 5 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -121831,7 +121831,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "6 - ( 2 - 0 - 3! )",
+      "solution": "6 - 2 - ( 0 - 3! )",
       "solution_count": 9,
       "needs_fac": false,
       "needs_pow": false
@@ -121864,7 +121864,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "6 - ( 2 - 0 - 6 )",
+      "solution": "6 - 2 - ( 0 - 6 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -124432,7 +124432,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "6 - ( 3 - 0 - 7 )",
+      "solution": "6 - 3 - ( 0 - 7 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -124603,7 +124603,7 @@
       "id": "6317",
       "constraint": null,
       "difficulty": 4,
-      "solution": "6 - 3 + 1 * 7",
+      "solution": "6 * 3 - 1 - 7",
       "solution_count": 18,
       "needs_fac": false,
       "needs_pow": false
@@ -126160,7 +126160,7 @@
       "id": "6371",
       "constraint": null,
       "difficulty": 4,
-      "solution": "6 - 3 + 7 * 1",
+      "solution": "6 * 3 - 7 - 1",
       "solution_count": 19,
       "needs_fac": false,
       "needs_pow": false
@@ -126787,7 +126787,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "6 / 3! + 9 * 1",
+      "solution": "6 / 3! * 9 + 1",
       "solution_count": 21,
       "needs_fac": false,
       "needs_pow": false
@@ -127105,7 +127105,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "6 - ( 4 - 0 - 8 )",
+      "solution": "6 - 4 - ( 0 - 8 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -127291,7 +127291,7 @@
         "count": 0
       },
       "difficulty": 5,
-      "solution": "6 - ( 4 - 1 * 8 )",
+      "solution": "6 * ( 4 - 1 ) - 8",
       "solution_count": 5,
       "needs_fac": false,
       "needs_pow": false
@@ -129517,7 +129517,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "6 - ( 5 - 0 - 9 )",
+      "solution": "6 - 5 - ( 0 - 9 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -133090,7 +133090,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "6 / 6 + 9 * 1",
+      "solution": "6 / 6 * 9 + 1",
       "solution_count": 21,
       "needs_fac": false,
       "needs_pow": false
@@ -134605,7 +134605,7 @@
       "id": "6802",
       "constraint": null,
       "difficulty": 6,
-      "solution": "6 + 8 / ( 0 + 2 )",
+      "solution": "6 - 8 / ( 0 - 2 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -136948,7 +136948,7 @@
         "count": 0
       },
       "difficulty": 39,
-      "solution": "6! / 9! * ( 3! )! * 7",
+      "solution": "6! / ( 9! / ( 3! )! / 7 )",
       "solution_count": 5,
       "needs_fac": false,
       "needs_pow": false
@@ -137536,7 +137536,7 @@
         "count": 0
       },
       "difficulty": 24,
-      "solution": "6! / 9! * 6! * 7",
+      "solution": "6! / ( 9! / 6! / 7 )",
       "solution_count": 5,
       "needs_fac": false,
       "needs_pow": false
@@ -137686,7 +137686,7 @@
         "count": 0
       },
       "difficulty": 39,
-      "solution": "6! / 9! * 7 * ( 3! )!",
+      "solution": "6! / ( 9! / 7 / ( 3! )! )",
       "solution_count": 7,
       "needs_fac": true,
       "needs_pow": false
@@ -137749,7 +137749,7 @@
         "count": 0
       },
       "difficulty": 24,
-      "solution": "6! / 9! * 7 * 6!",
+      "solution": "6! / ( 9! / 7 / 6! )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -138547,7 +138547,7 @@
       "id": "7032",
       "constraint": null,
       "difficulty": 9,
-      "solution": "7 + 0 + 3! / 2",
+      "solution": "( 7 + 0! - 3 ) * 2",
       "solution_count": 44,
       "needs_fac": false,
       "needs_pow": false
@@ -138700,7 +138700,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "7 - ( 0! - 4 - 0 )",
+      "solution": "7 - ( 0 - 4 ) - 0!",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -139477,7 +139477,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "7 - ( 1 - 0 - 4 )",
+      "solution": "7 - 1 - ( 0 - 4 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -141124,7 +141124,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "7 - ( 2 - 0 - 5 )",
+      "solution": "7 - 2 - ( 0 - 5 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -141247,7 +141247,7 @@
       "id": "7215",
       "constraint": null,
       "difficulty": 4,
-      "solution": "7 - 2 + 1 * 5",
+      "solution": "7 * 2 + 1 - 5",
       "solution_count": 16,
       "needs_fac": false,
       "needs_pow": false
@@ -142129,7 +142129,7 @@
       "id": "7251",
       "constraint": null,
       "difficulty": 4,
-      "solution": "7 - 2 + 5 * 1",
+      "solution": "7 * 2 - 5 + 1",
       "solution_count": 17,
       "needs_fac": false,
       "needs_pow": false
@@ -142153,7 +142153,7 @@
         "count": 0
       },
       "difficulty": 5,
-      "solution": "7 - ( 2 - 5 * 1 )",
+      "solution": "7 * 2 - ( 5 - 1 )",
       "solution_count": 10,
       "needs_fac": false,
       "needs_pow": false
@@ -143077,7 +143077,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "7 - ( 3 - 0 - 6 )",
+      "solution": "7 - 3 - ( 0 - 6 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -143113,7 +143113,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "7 - ( 3! - 0 - 9 )",
+      "solution": "7 - 3! - ( 0 - 9 )",
       "solution_count": 44,
       "needs_fac": false,
       "needs_pow": false
@@ -145621,7 +145621,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "7 - ( 4 - 0 - 7 )",
+      "solution": "7 - 4 - ( 0 - 7 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -147751,7 +147751,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "7 - ( 5 - 0 - 8 )",
+      "solution": "7 - 5 - ( 0 - 8 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -149374,7 +149374,7 @@
       "id": "7602",
       "constraint": null,
       "difficulty": 6,
-      "solution": "7 + 6 / ( 0 + 2 )",
+      "solution": "7 - 6 / ( 0 - 2 )",
       "solution_count": 24,
       "needs_fac": false,
       "needs_pow": false
@@ -149458,7 +149458,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "7 - ( 6 - 0 - 9 )",
+      "solution": "7 - 6 - ( 0 - 9 )",
       "solution_count": 32,
       "needs_fac": false,
       "needs_pow": false
@@ -152542,7 +152542,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "7 / 7 + 9 * 1",
+      "solution": "7 / 7 * 9 + 1",
       "solution_count": 20,
       "needs_fac": false,
       "needs_pow": false
@@ -153919,7 +153919,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "7 + 9 / ( 0 + 3 )",
+      "solution": "7 - 9 / ( 0 - 3 )",
       "solution_count": 40,
       "needs_fac": false,
       "needs_pow": false
@@ -154612,7 +154612,7 @@
         "count": 0
       },
       "difficulty": 28,
-      "solution": "7! / 9! * 3! * 5!",
+      "solution": "7! / ( 9! / 3! / 5! )",
       "solution_count": 7,
       "needs_fac": true,
       "needs_pow": false
@@ -155101,7 +155101,7 @@
       "id": "7953",
       "constraint": null,
       "difficulty": 28,
-      "solution": "7! / 9! * 5! * 3!",
+      "solution": "7! / ( 9! / 5! / 3! )",
       "solution_count": 5,
       "needs_fac": true,
       "needs_pow": false
@@ -155119,7 +155119,7 @@
       "id": "7956",
       "constraint": null,
       "difficulty": 24,
-      "solution": "7! / 9! * 5! * 6",
+      "solution": "7! / ( 9! / 5! / 6 )",
       "solution_count": 5,
       "needs_fac": true,
       "needs_pow": false
@@ -155338,7 +155338,7 @@
         "count": 0
       },
       "difficulty": 24,
-      "solution": "7! / 9! * 6 * 5!",
+      "solution": "7! / ( 9! / 6 / 5! )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -156382,7 +156382,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "8 - ( 0! - 3 - 0 )",
+      "solution": "8 - ( 0 - 3 ) - 0!",
       "solution_count": 14,
       "needs_fac": true,
       "needs_pow": false
@@ -156415,7 +156415,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "8 + 0 + 3! / 3",
+      "solution": "8 + 0! + 3 / 3",
       "solution_count": 55,
       "needs_fac": false,
       "needs_pow": false
@@ -156439,7 +156439,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "8 + 0 + 3! / 3",
+      "solution": "8 + 0! + 3 / 3",
       "solution_count": 59,
       "needs_fac": false,
       "needs_pow": false
@@ -156448,7 +156448,7 @@
       "id": "8034",
       "constraint": null,
       "difficulty": 7,
-      "solution": "8 + 0 + 3! - 4",
+      "solution": "8 + 0! - 3 + 4",
       "solution_count": 50,
       "needs_fac": true,
       "needs_pow": false
@@ -156646,7 +156646,7 @@
       "id": "8043",
       "constraint": null,
       "difficulty": 7,
-      "solution": "8 + 0 - 4 + 3!",
+      "solution": "8 + 0! + 4 - 3",
       "solution_count": 52,
       "needs_fac": true,
       "needs_pow": false
@@ -157426,7 +157426,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "8 - ( 1 - 0 - 3 )",
+      "solution": "8 - 1 - ( 0 - 3 )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -157771,7 +157771,7 @@
         "count": 0
       },
       "difficulty": 5,
-      "solution": "8 - 1 * ( 2 - 4 )",
+      "solution": "( 8 - 1 ) * 2 - 4",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -159190,7 +159190,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "8 - ( 2 - 0 - 4 )",
+      "solution": "8 - 2 - ( 0 - 4 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -159697,7 +159697,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "8 * 2 - 3! - 0",
+      "solution": "8 - ( 2 - 3 - 0! )",
       "solution_count": 13,
       "needs_fac": false,
       "needs_pow": false
@@ -160807,7 +160807,7 @@
       "id": "8268",
       "constraint": null,
       "difficulty": 12,
-      "solution": "8 * ( 2 - 6 / 8 )",
+      "solution": "( 8 / 2 )! - 6 - 8",
       "solution_count": 3,
       "needs_fac": false,
       "needs_pow": false
@@ -161569,7 +161569,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "8 + 3! / ( 0 + 3 )",
+      "solution": "8 - 3! / ( 0 - 3 )",
       "solution_count": 43,
       "needs_fac": false,
       "needs_pow": false
@@ -161611,7 +161611,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "8 - ( 3 - 0 - 5 )",
+      "solution": "8 - 3 - ( 0 - 5 )",
       "solution_count": 20,
       "needs_fac": false,
       "needs_pow": false
@@ -161677,7 +161677,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "8 - ( 3! - 0 - 8 )",
+      "solution": "8 - 3! - ( 0 - 8 )",
       "solution_count": 10,
       "needs_fac": true,
       "needs_pow": false
@@ -164233,7 +164233,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "8 - ( 4 - 0 - 6 )",
+      "solution": "8 - 4 - ( 0 - 6 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -166783,7 +166783,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "8 - ( 5 - 0 - 7 )",
+      "solution": "8 - 5 - ( 0 - 7 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -168547,7 +168547,7 @@
       "id": "8603",
       "constraint": null,
       "difficulty": 6,
-      "solution": "8 + 6 / ( 0 + 3 )",
+      "solution": "8 - 6 / ( 0 - 3 )",
       "solution_count": 22,
       "needs_fac": false,
       "needs_pow": false
@@ -168631,7 +168631,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "8 - ( 6 - 0 - 8 )",
+      "solution": "8 - 6 - ( 0 - 8 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -170521,7 +170521,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "8 - ( 7 - 0 - 9 )",
+      "solution": "8 - 7 - ( 0 - 9 )",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -172300,7 +172300,7 @@
       "id": "8804",
       "constraint": null,
       "difficulty": 6,
-      "solution": "8 + 8 / ( 0 + 4 )",
+      "solution": "8 - 8 / ( 0 - 4 )",
       "solution_count": 9,
       "needs_fac": false,
       "needs_pow": false
@@ -173896,7 +173896,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "8 / 8 + 9 * 1",
+      "solution": "8 / 8 * 9 + 1",
       "solution_count": 20,
       "needs_fac": false,
       "needs_pow": false
@@ -175702,7 +175702,7 @@
       "id": "9035",
       "constraint": null,
       "difficulty": 7,
-      "solution": "9 + 0 + 3! - 5",
+      "solution": "9 - 0! - 3 + 5",
       "solution_count": 158,
       "needs_fac": true,
       "needs_pow": false
@@ -175921,7 +175921,7 @@
       "id": "9053",
       "constraint": null,
       "difficulty": 7,
-      "solution": "9 + 0 - 5 + 3!",
+      "solution": "9 - 0! + 5 - 3",
       "solution_count": 153,
       "needs_fac": true,
       "needs_pow": false
@@ -175933,7 +175933,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "9 - 0 - ( 5 - 3! )",
+      "solution": "9 - ( 0! - 5 ) - 3",
       "solution_count": 9,
       "needs_fac": true,
       "needs_pow": false
@@ -176065,7 +176065,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "9 + 0 + 6 / 3!",
+      "solution": "9 - 0! + 6 / 3",
       "solution_count": 181,
       "needs_fac": false,
       "needs_pow": false
@@ -176614,7 +176614,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "9 - ( 1 - 0 - 2 )",
+      "solution": "9 - 1 - ( 0 - 2 )",
       "solution_count": 14,
       "needs_fac": false,
       "needs_pow": false
@@ -178183,7 +178183,7 @@
       "id": "9202",
       "constraint": null,
       "difficulty": 6,
-      "solution": "9 + 2 / ( 0 + 2 )",
+      "solution": "9 - 2 / ( 0 - 2 )",
       "solution_count": 51,
       "needs_fac": false,
       "needs_pow": false
@@ -178204,7 +178204,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "9 - ( 2 - 0 - 3 )",
+      "solution": "9 - 2 - ( 0 - 3 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -178537,7 +178537,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "9 + 2 / 2 * 1",
+      "solution": "9 * 2 / 2 + 1",
       "solution_count": 14,
       "needs_fac": false,
       "needs_pow": false
@@ -180085,7 +180085,7 @@
       "id": "9303",
       "constraint": null,
       "difficulty": 6,
-      "solution": "9 + 3 / ( 0 + 3 )",
+      "solution": "9 - 3 / ( 0 - 3 )",
       "solution_count": 215,
       "needs_fac": false,
       "needs_pow": false
@@ -180118,7 +180118,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "9 - ( 3 - 0 - 4 )",
+      "solution": "9 - 3 - ( 0 - 4 )",
       "solution_count": 9,
       "needs_fac": false,
       "needs_pow": false
@@ -180127,7 +180127,7 @@
       "id": "9305",
       "constraint": null,
       "difficulty": 7,
-      "solution": "9 + 3! + 0 - 5",
+      "solution": "9 - 3 - 0! + 5",
       "solution_count": 102,
       "needs_fac": false,
       "needs_pow": false
@@ -180865,7 +180865,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "9 + 3 / 3 * 1",
+      "solution": "9 * 3 / 3 + 1",
       "solution_count": 55,
       "needs_fac": false,
       "needs_pow": false
@@ -181402,7 +181402,7 @@
       "id": "9350",
       "constraint": null,
       "difficulty": 7,
-      "solution": "9 + 3! - 5 + 0",
+      "solution": "9 - 3 + 5 - 0!",
       "solution_count": 115,
       "needs_fac": false,
       "needs_pow": false
@@ -181654,7 +181654,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "9 + 3! / 6 + 0",
+      "solution": "9 / 3 + 6 + 0!",
       "solution_count": 136,
       "needs_fac": false,
       "needs_pow": false
@@ -182596,7 +182596,7 @@
       "id": "9404",
       "constraint": null,
       "difficulty": 6,
-      "solution": "9 + 4 / ( 0 + 4 )",
+      "solution": "9 - 4 / ( 0 - 4 )",
       "solution_count": 114,
       "needs_fac": false,
       "needs_pow": false
@@ -182629,7 +182629,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "9 - ( 4 - 0 - 5 )",
+      "solution": "9 - 4 - ( 0 - 5 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -183451,7 +183451,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "9 + 4 / 4 * 1",
+      "solution": "9 * 4 / 4 + 1",
       "solution_count": 32,
       "needs_fac": false,
       "needs_pow": false
@@ -184405,7 +184405,7 @@
       "id": "9503",
       "constraint": null,
       "difficulty": 7,
-      "solution": "9 - 5 + 0 + 3!",
+      "solution": "9 + 5 - 0! - 3",
       "solution_count": 92,
       "needs_fac": false,
       "needs_pow": false
@@ -184417,7 +184417,7 @@
         "count": 0
       },
       "difficulty": 8,
-      "solution": "9 - ( 5 - 0 - 3! )",
+      "solution": "9 - 5 - ( 0 - 3! )",
       "solution_count": 8,
       "needs_fac": false,
       "needs_pow": false
@@ -184435,7 +184435,7 @@
       "id": "9505",
       "constraint": null,
       "difficulty": 6,
-      "solution": "9 + 5 / ( 0 + 5 )",
+      "solution": "9 - 5 / ( 0 - 5 )",
       "solution_count": 102,
       "needs_fac": false,
       "needs_pow": false
@@ -184468,7 +184468,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "9 - ( 5 - 0 - 6 )",
+      "solution": "9 - 5 - ( 0 - 6 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -184897,7 +184897,7 @@
       "id": "9530",
       "constraint": null,
       "difficulty": 7,
-      "solution": "9 - 5 + 3! + 0",
+      "solution": "9 + 5 - 3 - 0!",
       "solution_count": 118,
       "needs_fac": false,
       "needs_pow": false
@@ -185413,7 +185413,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "9 + 5 / 5 * 1",
+      "solution": "9 * 5 / 5 + 1",
       "solution_count": 31,
       "needs_fac": false,
       "needs_pow": false
@@ -186172,7 +186172,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "9 + 6 / ( 0 + 3! )",
+      "solution": "9 - 6 / ( 0 - 3! )",
       "solution_count": 96,
       "needs_fac": false,
       "needs_pow": false
@@ -186223,7 +186223,7 @@
       "id": "9606",
       "constraint": null,
       "difficulty": 6,
-      "solution": "9 + 6 / ( 0 + 6 )",
+      "solution": "9 - 6 / ( 0 - 6 )",
       "solution_count": 102,
       "needs_fac": false,
       "needs_pow": false
@@ -186256,7 +186256,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "9 - ( 6 - 0 - 7 )",
+      "solution": "9 - 6 - ( 0 - 7 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -186757,7 +186757,7 @@
         "count": 0
       },
       "difficulty": 9,
-      "solution": "9 + 6 / 3! + 0",
+      "solution": "9 + 6 / 3 - 0!",
       "solution_count": 157,
       "needs_fac": false,
       "needs_pow": false
@@ -186790,7 +186790,7 @@
         "count": 0
       },
       "difficulty": 10,
-      "solution": "9 + 6 / 3! * 1",
+      "solution": "9 * 6 / 3! + 1",
       "solution_count": 37,
       "needs_fac": false,
       "needs_pow": false
@@ -187480,7 +187480,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "9 + 6 / 6 * 1",
+      "solution": "9 * 6 / 6 + 1",
       "solution_count": 31,
       "needs_fac": false,
       "needs_pow": false
@@ -187999,7 +187999,7 @@
       "id": "9696",
       "constraint": null,
       "difficulty": 12,
-      "solution": "( 9 + 6 ) / 9 * 6",
+      "solution": "9 + 6 / ( 9 - 6 )!",
       "solution_count": 6,
       "needs_fac": false,
       "needs_pow": false
@@ -188089,7 +188089,7 @@
       "id": "9707",
       "constraint": null,
       "difficulty": 6,
-      "solution": "9 + 7 / ( 0 + 7 )",
+      "solution": "9 - 7 / ( 0 - 7 )",
       "solution_count": 102,
       "needs_fac": false,
       "needs_pow": false
@@ -188122,7 +188122,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "9 - ( 7 - 0 - 8 )",
+      "solution": "9 - 7 - ( 0 - 8 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -189400,7 +189400,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "9 + 7 / 7 * 1",
+      "solution": "9 * 7 / 7 + 1",
       "solution_count": 31,
       "needs_fac": false,
       "needs_pow": false
@@ -189874,7 +189874,7 @@
       "id": "9808",
       "constraint": null,
       "difficulty": 6,
-      "solution": "9 + 8 / ( 0 + 8 )",
+      "solution": "9 - 8 / ( 0 - 8 )",
       "solution_count": 128,
       "needs_fac": false,
       "needs_pow": false
@@ -189907,7 +189907,7 @@
         "count": 0
       },
       "difficulty": 4,
-      "solution": "9 - ( 8 - 0 - 9 )",
+      "solution": "9 - 8 - ( 0 - 9 )",
       "solution_count": 7,
       "needs_fac": false,
       "needs_pow": false
@@ -191263,7 +191263,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "9 + 8 / 8 * 1",
+      "solution": "9 * 8 / 8 + 1",
       "solution_count": 41,
       "needs_fac": false,
       "needs_pow": false
@@ -192598,7 +192598,7 @@
         "count": 0
       },
       "difficulty": 6,
-      "solution": "9 + 9 / 9 * 1",
+      "solution": "9 * 9 / 9 + 1",
       "solution_count": 51,
       "needs_fac": false,
       "needs_pow": false

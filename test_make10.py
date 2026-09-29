@@ -935,6 +935,134 @@ class ExprFactorialBonus(unittest.TestCase):
             self.assertEqual(m._plain_score(tree, digits, cp)[0], sc, display)
 
 
+class ExampleKeyDecorations(unittest.TestCase):
+    """解答例の選び方に足した 2 鍵 (6.3。DATA-SPEC 6-B「解答例の選び方」)。
+
+    スコアの次に「飾りが少ない」→「分数を通らない」を見る。
+    式はすべて make10.db に実在するもの (コメントの 4 桁が problem_id)。
+    """
+
+    def _decor(self, display, digits):
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        self.assertEqual(ev(tree)[0], Fraction(10), display)   # 式が 10 になる
+        return m.count_decorations(tree, digits)
+
+    def _row(self, sid, display, digits):
+        """_CONSTRAIN_SOL_COLS と同じ並びの行を組む。"""
+        tree = m.parse_tree(display)
+        ev = m.build_evaluator(digits)
+        val, _mfa, _mea, uf = ev(tree)
+        self.assertEqual(val, Fraction(10), display)
+        c = m.count_ops(tree)
+        cp = display.count("(")
+        score = m.score_solution(tree, lambda n: ev(n)[0], cp, uf)
+        return (sid, "".join(str(d) for d in digits), 0, score, cp,
+                c["-"], c["/"], len(display), c["+"], c["*"], c["^"],
+                c["fac"], 0, "", m.render_shape(tree), 1 if uf else 0)
+
+    def _pick(self, *rows):
+        """_example_key が選ぶ行を返す (run_constrain と同じ呼び方)。"""
+        decor = {r[0]: m._decorations_of(r) for r in rows}
+        return min(rows, key=lambda s: m._example_key(s, decor))
+
+    # --- 飾りの数え方 ---------------------------------------------------
+    def test_bare_zero_added_is_a_decoration(self):
+        """`0 +` は飾り 1 つ。0348"""
+        self.assertEqual(self._decor("0 + 3! - 4 + 8", [0, 3, 4, 8]), 1)
+        self.assertEqual(self._decor("0! - 3 + 4 + 8", [0, 3, 4, 8]), 0)
+
+    def test_bare_one_multiplied_is_a_decoration(self):
+        """`* 1` は飾り 1 つ。3371"""
+        self.assertEqual(self._decor("3! - 3 + 7 * 1", [3, 3, 7, 1]), 1)
+        self.assertEqual(self._decor("3 * 3! - 7 - 1", [3, 3, 7, 1]), 0)
+
+    def test_zero_factorial_identity_is_a_decoration(self):
+        """`0! *` は飾り 1 つ (単位元を `0!` で作っている)。0302"""
+        self.assertEqual(self._decor("0! * ( 3! - 0! ) * 2", [0, 3, 0, 2]), 1)
+        # 同じ式の `3! - 0!` は「引き算の右が 1」なので飾りではない (単位元は 0)
+        self.assertEqual(self._decor("( 0! - 3! ) * ( 0 - 2 )", [0, 3, 0, 2]), 0)
+
+    def test_several_decorations_are_counted_per_node(self):
+        """`+ 0` と `/ 1` で飾り 2 つ。3071"""
+        self.assertEqual(self._decor("3 + 0 + 7 / 1", [3, 0, 7, 1]), 2)
+
+    def test_compound_zero_is_not_counted(self):
+        """`3! - 6`（式で作った 0）を足す形は数えない。3652 = 本編 26 問目"""
+        self.assertEqual(self._decor("3! - 6 + 5 * 2", [3, 6, 5, 2]), 0)
+
+    def test_compound_one_is_not_counted(self):
+        """`6 / 6`（式で作った 1）を掛ける形は数えない。6691"""
+        self.assertEqual(self._decor("6 / 6 * 9 + 1", [6, 6, 9, 1]), 0)
+        # 同じ 4 桁で `9 * 1` は素の 1 なので数える
+        self.assertEqual(self._decor("6 / 6 + 9 * 1", [6, 6, 9, 1]), 1)
+
+    def test_subtracting_bare_one_is_not_a_decoration(self):
+        """`- 1` は値を変えるので飾りではない。3371"""
+        self.assertEqual(self._decor("3 * 3! - 7 - 1", [3, 3, 7, 1]), 0)
+
+    # --- 同点の崩し方 ---------------------------------------------------
+    def test_decoration_breaks_the_tie(self):
+        """同点なら飾りの無いほうを選ぶ。0348 (どちらも 7 点)"""
+        a = self._row(1, "0 + 3! - 4 + 8", [0, 3, 4, 8])
+        b = self._row(2, "0! - 3 + 4 + 8", [0, 3, 4, 8])
+        self.assertEqual(a[3], b[3])                      # スコアが同点
+        self.assertIs(self._pick(a, b), b)
+        self.assertIs(self._pick(b, a), b)                # 並び順に依らない
+
+    def test_decoration_wins_over_parenthesis_count(self):
+        """飾りは括弧より先に見る。0302 (どちらも 14 点・括弧は 1 対 2)"""
+        a = self._row(1, "0! * ( 3! - 0! ) * 2", [0, 3, 0, 2])
+        b = self._row(2, "( 0! - 3! ) * ( 0 - 2 )", [0, 3, 0, 2])
+        self.assertEqual(a[3], b[3])
+        self.assertLess(a[4], b[4])                       # 飾りつきの方が括弧は少ない
+        self.assertIs(self._pick(a, b), b)
+
+    def test_fraction_breaks_the_tie(self):
+        """飾りが同じなら分数を通らないほうを選ぶ。2366 (どちらも 11 点)"""
+        a = self._row(1, "2 / 3 * 6 + 6", [2, 3, 6, 6])
+        b = self._row(2, "2 * ( 3! - 6 / 6 )", [2, 3, 6, 6])
+        self.assertEqual(a[3], b[3])
+        self.assertEqual((a[15], b[15]), (1, 0))          # 分数を通るのは a だけ
+        self.assertEqual(m._decorations_of(a), m._decorations_of(b))
+        self.assertIs(self._pick(a, b), b)
+
+    def test_score_still_comes_first(self):
+        """スコアは第 1 の鍵のまま。飾りが無くても高い解は選ばれない。0348"""
+        cheap = self._row(1, "0 + 3! - 4 + 8", [0, 3, 4, 8])       # 7 点・飾り 1
+        dear = self._row(2, "0! - ( 3 - 4 - 8 )", [0, 3, 4, 8])    # 8 点・飾り 0
+        self.assertLess(cheap[3], dear[3])
+        self.assertEqual(m._decorations_of(dear), 0)
+        self.assertIs(self._pick(cheap, dear), cheap)
+
+    def test_key_order(self):
+        """鍵の並びが仕様どおりか。"""
+        r = self._row(7, "0 + 3! - 4 + 8", [0, 3, 4, 8])
+        decor = {7: 3}
+        self.assertEqual(m._example_key(r, decor),
+                         (r[3], 3, r[15], r[4], r[6], r[5], r[7], r[0]))
+
+    # --- 独立実装との一致 -----------------------------------------------
+    def test_plain_implementation_agrees(self):
+        """検証 6 の独立実装 (_plain_decorations / _plain_uses_fraction) と一致する。"""
+        for display, digits in (("0 + 3! - 4 + 8", [0, 3, 4, 8]),
+                                ("0! - 3 + 4 + 8", [0, 3, 4, 8]),
+                                ("3! - 3 + 7 * 1", [3, 3, 7, 1]),
+                                ("0! * ( 3! - 0! ) * 2", [0, 3, 0, 2]),
+                                ("3 + 0 + 7 / 1", [3, 0, 7, 1]),
+                                ("3! - 6 + 5 * 2", [3, 6, 5, 2]),
+                                ("6 / 6 * 9 + 1", [6, 6, 9, 1]),
+                                ("6 / 6 + 9 * 1", [6, 6, 9, 1]),
+                                ("2 / 3 * 6 + 6", [2, 3, 6, 6]),
+                                ("2 * ( 3! - 6 / 6 )", [2, 3, 6, 6])):
+            tree = m.parse_tree(display)
+            ev = m.build_evaluator(digits)
+            self.assertEqual(m._plain_decorations(tree, digits),
+                             m.count_decorations(tree, digits), display)
+            self.assertEqual(m._plain_uses_fraction(tree, digits),
+                             bool(ev(tree)[3]), display)
+
+
 class CourseFormRule(unittest.TestCase):
     """本編 1〜100 問目の「同じ形」の制限 (6.2。DATA-SPEC 8-B)。
 
