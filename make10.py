@@ -25,6 +25,7 @@ import argparse
 import collections
 import hashlib
 import json
+import re
 import sqlite3
 import sys
 from fractions import Fraction
@@ -1934,6 +1935,10 @@ COURSE_SEED = "make10-course-v1"
 # 検証用の定数 (5.3)。難易度の範囲は GAME-SPEC 6-2 の 3〜49 (上限は 5.7 で 44 -> 45、
 # 6.1 で 45 -> 49 ―― 式の階乗の加点で階乗を重ねる形が上がった)
 DIFF_MIN, DIFF_MAX = 3, 49
+# 「同じ形」を近くに置かない範囲と窓 (6.2。GAME-SPEC 7-1・DATA-SPEC 8-B)。
+# 前半は目標難易度が固定で在庫の帯が狭く、同じ形が近づきやすいので前半だけに掛ける
+COURSE_FORM_UNTIL = 100      # ここまでの位置に形の制限を掛ける (101 問目以降は掛けない)
+COURSE_FORM_WINDOW = 12      # 直前この問数と同じ形の候補は選ばない
 COURSE_BLOCK = 100           # 平均難易度を見るブロックの大きさ
 COURSE_LATE_FROM = 201       # ここから先は難易度を絞る
 COURSE_LATE_RANGE = (9, 16)  # _course_floor / _course_target の帰結
@@ -1951,6 +1956,70 @@ def _blob_rc(rules):
     if " | " in rules or rules[1] != "=":
         raise ValueError("blob: 未対応の制約: %r" % (rules,))
     return _BLOB_CODEOF[rules[0]] + rules[2:]
+
+
+# --- 「同じ形」の判定 (6.2。DATA-SPEC 8-B) ------------------------------------
+# 解答例の **表示文字列** から作る。表示は空白区切りで、`!` だけが直前のトークンに
+# 密着する (`3!` `)!`)。検証 16 は同じことを**別の書き方**で組み直す (正規表現と
+# _plain_eval)。
+_FORM_BIN = set("+-*/^")
+
+
+def _form_tokens(display):
+    """表示文字列を ("num"|"op"|"lp"|"rp"|"fac", 文字) の列にする。"""
+    out = []
+    for w in display.split():
+        nfac = 0
+        while w.endswith("!"):
+            nfac += 1
+            w = w[:-1]
+        if len(w) == 1 and w.isdigit():
+            out.append(("num", w))
+        elif w in _FORM_BIN:
+            out.append(("op", w))
+        elif w == "(":
+            out.append(("lp", w))
+        elif w == ")":
+            out.append(("rp", w))
+        else:
+            raise ValueError("_form_tokens: 読めないトークン %r (%r)"
+                             % (w, display))
+        out.extend([("fac", "!")] * nfac)
+    return out
+
+
+def _form_skeleton(display):
+    """粒度 B: 数字を `_` に、`+` `-` を `±` に潰した骨格 (6.2)。
+
+    `+` と `-` を同じ記号に潰すのは、`4 + ( 0 - 5 + 8 )!` と `4 + ( 7 + 5 - 9 )!`
+    のように符号の並びだけが違う式が「同じ形」に見えるため。
+
+    **使っている演算子が `+` `-` だけの式は対象外** (空文字を返す) ―― 1〜4 問目は
+    段の条件が「足し引きのみ・括弧なし」なので骨格が `_ ± _ ± _ ± _` の 1 通りしか
+    無く、制限すると 2〜4 問目の在庫が必ず尽きる (DATA-SPEC 8-B)。
+    """
+    toks = _form_tokens(display)
+    if all(t in "+-" for k, t in toks if k in ("op", "fac")):
+        return ""
+    return " ".join("_" if k == "num" else ("±" if k == "op" and t in "+-" else t)
+                    for k, t in toks)
+
+
+def _form_fac_values(display, pid):
+    """粒度 D: 引数が式の階乗の、引数の値の多重集合 (6.2)。無ければ空文字。
+
+    骨格 (B) では捕まらない「同じ手筋」を拾うためのもの ―― `4 + ( 0 - 5 + 8 )!`
+    と `( 7 - 4 )! - 4 + 8` は骨格が違うが、どちらも「3 を作って階乗し 6 にする」
+    で、並ぶと同じ問題に見える。値で見れば両方 `3` に揃う。
+
+    **引数が数字だけの階乗 (`3!` `4!`) は対象外** ―― ★階乗の 26〜28 問目は
+    その形を 3 問続けて出す位置なので、制限すると成立しない (GAME-SPEC 7-1)。
+    """
+    tree = parse_tree(display)
+    ev = build_evaluator([int(ch) for ch in pid])
+    vals = sorted(int(ev(n[1])[0]) for n in iter_nodes(tree)
+                  if n[0] == "fac" and n[1][0] != "num")
+    return ",".join(str(v) for v in vals)
 
 
 def _example_feat(display, pid):
@@ -2028,6 +2097,8 @@ def _blob_rows(conn):
             "ops": ops, "par": "(" in sol, "free": not rules,
             "peff": peff, "fmax": fmax, "fexpr": fexpr,
             "fbig": fmax is not None and fmax >= 3,
+            # 6.2: 「同じ形」の鍵 (B = 骨格 / D = 階乗の引数の値)。空は対象外
+            "fb": _form_skeleton(sol), "fd": _form_fac_values(sol, pid),
         })
     return rows
 
@@ -2120,12 +2191,36 @@ def _course_rank(i, r):
     return hashlib.blake2b(key.encode(), digest_size=8).digest()
 
 
+def _course_form_ban(chosen, i):
+    """6.2: 位置 i で避ける形。直前 COURSE_FORM_WINDOW 問の (B の鍵, D の鍵)。
+
+    COURSE_FORM_UNTIL 問目までにだけ掛ける (101 問目以降は制限しない)。
+    """
+    if i > COURSE_FORM_UNTIL:
+        return (frozenset(), frozenset())
+    back = chosen[-COURSE_FORM_WINDOW:]
+    return (frozenset(k for k in (r["fb"] for r in back) if k),
+            frozenset(k for k in (r["fd"] for r in back) if k))
+
+
+def _course_same_form(r, ban):
+    """6.2: その候補が ban の形 (B か D のどちらか) に当たるか。
+
+    空の鍵 (対象外) は、たとえ ban に空が入っていても当たらない。
+    B と D は**どちらか一方でも一致すれば**除く。
+    """
+    ban_b, ban_d = ban
+    return bool((r["fb"] and r["fb"] in ban_b)
+                or (r["fd"] and r["fd"] in ban_d))
+
+
 def select_course(pool, n=COURSE_N):
     """pool (d <= 16 の全 puzzle) から本編の n 問を選ぶ。(選抜, 拡張回数) を返す。
 
-    位置ごとに「段の条件」「目標難易度」「制約つきかどうか」を満たす候補を集め、
-    _course_rank が最小のものを採る。候補が無ければ難易度の許容幅を 1 ずつ
-    広げ、それでも無ければ最後に「直近 10 問に同じ 4 桁を出さない」を外す。
+    位置ごとに「段の条件」「目標難易度」「制約つきかどうか」「直前 12 問と同じ形で
+    ないこと (6.2。1〜100 問目だけ)」を満たす候補を集め、_course_rank が最小のものを
+    採る。候補が無ければ難易度の許容幅を 1 ずつ広げ、それでも無ければ最後に
+    「直近 10 問に同じ 4 桁を出さない」と形の制限を外す。
     """
     by = collections.defaultdict(list)
     for r in pool:
@@ -2138,6 +2233,7 @@ def select_course(pool, n=COURSE_N):
         cond = _course_stage_cond(i)
         td = _course_target(i)
         wc = _course_want_constrained(i)
+        ban = _course_form_ban(chosen, i)          # 6.2
         pick = None
         for w in range(0, 14):
             for dd in ([td] if w == 0 else [td - w, td + w]):
@@ -2148,7 +2244,8 @@ def select_course(pool, n=COURSE_N):
                         continue
                     cands = [r for r in by[(dd, free)]
                              if (r["id"], r["rc"]) not in used and cond(r)
-                             and r["id"] not in recent[-10:]]
+                             and r["id"] not in recent[-10:]
+                             and not _course_same_form(r, ban)]
                     if cands:
                         pick = min(cands, key=lambda r: _course_rank(i, r))
                         break
@@ -2430,7 +2527,7 @@ def _plain_score(tree, digits, cnt_paren):
 
 
 def _blob_verify(conn, sections, widen, text, rebuild=None):
-    """生成と同じ実行で回す 15 項目。[(項目名, 合否, 詳細)] を返す。
+    """生成と同じ実行で回す 16 項目。[(項目名, 合否, 詳細)] を返す。
 
     rebuild … 同じ DB からもう一度 BLOB を組んで本文を返す関数。
     検証 12 (再現性) だけが使う。省略すると 12 を「未実施」として落とす。
@@ -2644,6 +2741,36 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
                    n_pow["A"], n_pow["B"], n_pow["C"], SCORE_BONUS["neg_exp"],
                    SCORE_BONUS["neg_base_even"], SCORE_BONUS["neg_base_odd"],
                    len(bad), ("  例 %s" % bad[:3]) if bad else "")))
+
+    # 16. 同じ形の間隔 (6.2)
+    # **生成と独立に**書く ―― select_course も _form_skeleton も _form_fac_values も
+    # 呼ばず、BLOB の解答例の文字列から組み直す。骨格は正規表現で数字と `+` `-` を
+    # 置き換え (生成側はトークンに分解している)、階乗の引数の値は parse_tree と
+    # 独立実装の _plain_eval で出す (生成側は build_evaluator)。
+    def _skel16(sol):
+        if not re.search(r"[*/^!]", sol):       # 演算子が + - だけなら対象外
+            return ""
+        return re.sub(r"[+-]", "±", re.sub(r"[0-9]", "_", sol))
+
+    def _facv16(sol, pid):
+        digits = [int(ch) for ch in pid]
+        vals = [int(_plain_eval(n[1], digits)) for n in _plain_walk(parse_tree(sol))
+                if n[0] == "fac" and n[1][0] != "num"]
+        return ",".join(str(v) for v in sorted(vals))
+
+    k16 = [(_skel16(r["sol"]), _facv16(r["sol"], r["id"])) for r in course]
+    bad16 = []
+    for a in range(min(COURSE_FORM_UNTIL, len(course))):
+        for b in range(max(0, a - COURSE_FORM_WINDOW), a):
+            why = ("骨格" if k16[a][0] and k16[a][0] == k16[b][0]
+                   else "階乗の引数" if k16[a][1] and k16[a][1] == k16[b][1] else None)
+            if why:
+                bad16.append((b + 1, a + 1, why))
+    res.append(("16. 同じ形の間隔", not bad16,
+                "1〜%d 問目で直前 %d 問と同じ形になる組 %d 件%s"
+                % (COURSE_FORM_UNTIL, COURSE_FORM_WINDOW, len(bad16),
+                   "" if not bad16 else " 例 %s" % (bad16[:4],))))
+
     return res
 
 
@@ -2667,7 +2794,7 @@ def _blob_build(conn):
 def run_blob(db_path, html_path, write=True, progress=None):
     """3 区分の BLOB を組み、index.html の const BLOB=`...` を差し替える。
 
-    検証 15 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
+    検証 16 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
     """
     conn = _connect(db_path)
     try:

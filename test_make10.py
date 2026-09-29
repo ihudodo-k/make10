@@ -935,6 +935,82 @@ class ExprFactorialBonus(unittest.TestCase):
             self.assertEqual(m._plain_score(tree, digits, cp)[0], sc, display)
 
 
+class CourseFormRule(unittest.TestCase):
+    """本編 1〜100 問目の「同じ形」の制限 (6.2。DATA-SPEC 8-B)。
+
+    式はすべて make10.db に実在する解答例 (コメントの 4 桁が problem_id)。
+    """
+
+    def test_skeleton_merges_plus_and_minus(self):
+        """粒度 B: 符号の並びだけが違う式は同じ骨格になる。"""
+        # 4058 と 4759。6.1 では 34・39 問目に並んでいた 2 問
+        a = m._form_skeleton("4 + ( 0 - 5 + 8 )!")
+        b = m._form_skeleton("4 + ( 7 + 5 - 9 )!")
+        self.assertEqual(a, b)
+        self.assertEqual(a, "_ ± ( _ ± _ ± _ ) !")
+        # 括弧と演算子の位置が違えば別の骨格 (7448)
+        self.assertNotEqual(a, m._form_skeleton("( 7 - 4 )! - 4 + 8"))
+
+    def test_add_sub_only_is_exempt(self):
+        """`+` `-` だけの式は対象外 (1〜4 問目は骨格が 1 通りしか無い)。"""
+        self.assertEqual(m._form_skeleton("8 + 8 - 4 - 2"), "")      # 8842
+        self.assertEqual(m._form_skeleton("0 + 7 + 5 - 2"), "")      # 0752
+        # 階乗が入れば対象外ではない (3769)
+        self.assertEqual(m._form_skeleton("3! + 7 + 6 - 9"),
+                         "_ ! ± _ ± _ ± _")
+        # 掛け算が入れば対象外ではない (9156)
+        self.assertEqual(m._form_skeleton("9 - 1 * 5 + 6"), "_ ± _ * _ ± _")
+
+    def test_fac_values_are_the_arguments_of_expression_factorials(self):
+        """粒度 D: 引数が式の階乗の、引数の値の多重集合。"""
+        # 4058 も 7448 も「3 を作って階乗する」なので同じ鍵になる
+        self.assertEqual(m._form_fac_values("4 + ( 0 - 5 + 8 )!", "4058"), "3")
+        self.assertEqual(m._form_fac_values("( 7 - 4 )! - 4 + 8", "7448"), "3")
+        # 0319: ( 3! )! は外側だけが対象 (引数 3! の値 6)
+        self.assertEqual(m._form_fac_values("0 * ( 3! )! + 1 + 9", "0319"), "6")
+        # 0199: ( 0 + 1 + 9 )! は対象・9! は数字なので対象外
+        self.assertEqual(m._form_fac_values("( 0 + 1 + 9 )! / 9!", "0199"), "10")
+
+    def test_digit_factorial_is_exempt(self):
+        """`3!` `4!` のように引数が数字だけの階乗は対象外 (★階乗の 3 問のため)。"""
+        for display, pid in (("3! - 6 + 5 * 2", "3652"),      # 26 問目
+                             ("0 + 3! / 2 + 7", "0327"),      # 27 問目
+                             ("4 + 1 * 4! / 4", "4144"),      # 28 問目
+                             ("8 / 8 + 0! + 8", "8808")):     # 0! も対象外
+            self.assertEqual(m._form_fac_values(display, pid), "", display)
+
+    def test_same_form_uses_either_key(self):
+        """B と D のどちらか一方でも一致したら同じ形とみなす。空の鍵は当たらない。"""
+        ban = (frozenset(["_ ± ( _ ± _ ± _ ) !"]), frozenset(["3"]))
+        self.assertTrue(m._course_same_form({"fb": "_ ± ( _ ± _ ± _ ) !",
+                                             "fd": "9"}, ban))     # B で一致
+        self.assertTrue(m._course_same_form({"fb": "_ ! ± _", "fd": "3"}, ban))
+        self.assertFalse(m._course_same_form({"fb": "_ ! ± _", "fd": "9"}, ban))
+        # 空の鍵 (対象外) は ban に入っていても当たらない
+        self.assertFalse(m._course_same_form({"fb": "", "fd": ""},
+                                             (frozenset([""]), frozenset([""]))))
+
+    def test_ban_window_and_range(self):
+        """窓は直前 COURSE_FORM_WINDOW 問。COURSE_FORM_UNTIL より後ろは制限しない。"""
+        rows = [{"fb": "b%d" % i, "fd": "d%d" % i} for i in range(30)]
+        ban_b, ban_d = m._course_form_ban(rows, 20)
+        self.assertEqual(len(ban_b), m.COURSE_FORM_WINDOW)
+        self.assertIn("b%d" % (30 - m.COURSE_FORM_WINDOW), ban_b)
+        self.assertNotIn("b%d" % (30 - m.COURSE_FORM_WINDOW - 1), ban_b)
+        self.assertEqual(len(ban_d), m.COURSE_FORM_WINDOW)
+        # 101 問目以降は空
+        self.assertEqual(m._course_form_ban(rows, m.COURSE_FORM_UNTIL + 1),
+                         (frozenset(), frozenset()))
+        # 空の鍵は ban に入れない
+        self.assertEqual(m._course_form_ban([{"fb": "", "fd": ""}], 5),
+                         (frozenset(), frozenset()))
+
+    def test_tokens_reject_unknown_text(self):
+        """トークンに分解できない文字列は黙って通さない。"""
+        with self.assertRaises(ValueError):
+            m._form_tokens("4 + x")
+
+
 class AnnotateAndCurate(unittest.TestCase):
     def setUp(self):
         fd, self.db = tempfile.mkstemp(suffix=".db")
