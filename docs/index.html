@@ -212,6 +212,11 @@ button:active{background:var(--edge)}
  white-space:nowrap}
 .top{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:4px}
 .top button{font-size:12px;padding:6px 11px}
+/* 共有ボタンを三本線 #menu の真下に重ねる（6.4。実機で決めた）。.top 自体の大きさは変わらず、
+   式・トレイ・.foot も動かない。間隔 --shareGap は JS の SHARE_BTN が持つ。
+   right:0 は .top の右端＝#menu の右端（#menu は .top の最後の子で右端に寄る）*/
+.top{position:relative}
+#share{position:absolute;top:calc(100% + var(--shareGap));right:0;z-index:1}
 /* 丸アイコンボタン (ホーム / 全部消す / ヒント) */
 .iconbtn{width:var(--btnW);height:var(--btnW);padding:0;border-radius:50%;background:none;
  border:1.5px solid color-mix(in srgb,var(--paper) 34%,transparent);
@@ -236,6 +241,11 @@ button:active{background:var(--edge)}
  border:1.5px solid color-mix(in srgb,var(--paper) 34%,transparent);
  -webkit-mask:radial-gradient(circle 13.5px at calc(100% - 8px) 6.5px,transparent 99%,#000 100%);
  mask:radial-gradient(circle 13.5px at calc(100% - 8px) 6.5px,transparent 99%,#000 100%)}
+/* 最後の段階（3/3）を開いている間は押しても何も起きないので、無効の色にする（6.4）。
+   ヒント行の .hbtn:disabled と同じ表現。disabled 属性は使わない ―― 箱を閉じた状態で
+   押すと 3 をもう一度出すので、押せなくなるわけではない（aria-disabled で伝える）*/
+#hint[aria-disabled="true"]{color:var(--slate);opacity:.5;cursor:not-allowed}
+#hint[aria-disabled="true"]:active{background:none}
 /* メニュー (三本線) は枠なしの線だけ */
 .plainbtn{width:var(--btnW);height:var(--btnW);padding:0;border:0;background:none;color:var(--paper);
  display:flex;align-items:center;justify-content:center;flex:0 0 auto;opacity:.9}
@@ -243,6 +253,14 @@ button:active{background:var(--edge)}
 .top .info{flex:1;text-align:right;font-size:12px;color:var(--slate);line-height:1.35}
 .top .info b{color:var(--paper);font-weight:700}
 .code{font-size:11px;color:var(--slate);letter-spacing:.09em}
+/* タップでコピーできる箇所（6.4）。点線の下線だけで示す（色は変えない）。
+   コピーできない環境では選択状態にして見せるので、ここだけ選択を許す */
+.copyable{text-decoration:underline dotted;text-underline-offset:3px;text-decoration-thickness:1px;
+  cursor:pointer;user-select:text;-webkit-user-select:text;position:relative}
+/* 文字だけだと当たりが 40×16px ほどしかないので、見えない ::after で上下 14px・左右 6px
+   広げる（約 52×44px）。position:absolute なので行の高さも .top の高さも変わらない。
+   左右 6px は #menu との隙間（.top の gap 9px）に収まる */
+.copyable::after{content:"";position:absolute;inset:-14px -6px}
 .rule{background:var(--panel);border:1px solid var(--edge);border-radius:13px;padding:10px 13px;
  font-size:14px;line-height:1.5;margin-bottom:11px;min-height:44px;display:flex;align-items:center}
 .rule b{color:var(--paper);font-weight:700}
@@ -439,6 +457,10 @@ button:active{background:var(--edge)}
  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap;
  box-shadow:0 8px 22px rgba(0,0,0,.4)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* .foot の中央（#clear と #hint の間）に出すとき（6.4。toast(msg,{at:"foot"})）。
+   left / top は toast() が #clear と #hint の実測から入れる。トレイに重ねないため */
+#toast.atfoot{bottom:auto;transform:translate(-50%,-50%) translateY(12px)}
+#toast.atfoot.show{transform:translate(-50%,-50%)}
 /* 広告 52px を引いても収まるよう、低い端末では各所を詰める */
 @media (max-height:700px){
   .rule{min-height:38px;padding:8px 12px;font-size:13px;margin-bottom:8px}
@@ -506,9 +528,17 @@ button:active{background:var(--edge)}
           <path d="M9.9 20v-5.1h4.2V20"/>
         </svg>
       </button>
-      <div class="info"><b id="pmode"></b><br><span class="code" id="pcode"></span></div>
+      <!-- #pcode の中は 3 つに分けてある（6.4）。コード（#pcodev）だけをタップでコピーにするため。
+           render() は各 span の文字だけを書き換える（要素を作り直さない）-->
+      <div class="info"><b id="pmode"></b><br><span class="code" id="pcode">コード <span id="pcodev"
+        class="copyable" role="button" tabindex="0" title="コードをコピー" aria-label="コードをコピー"></span>　<span
+        id="pdiff"></span>　正解 <span id="pcount"></span>通り</span></div>
       <!-- 中身は ICON_MENU を流し込む（#gear と同じ絵柄を 1 つの定義から出す）-->
       <button id="menu" class="plainbtn" title="メニュー" aria-label="メニュー"></button>
+      <!-- 共有（6.4）。三本線 #menu の真下に position:absolute で重ねる（式・トレイ・.foot は
+           動かない）。見た目は #menu と同じ枠なしの .plainbtn。位置と見た目は実機で比べて決めた
+           （GAME-SPEC 5-5）。中身は ICON_SHARE を流し込む -->
+      <button id="share" class="plainbtn" title="この問題を共有" aria-label="この問題を共有"></button>
     </div>
     <div class="rule" id="rule"></div>
     <div class="readout"><div class="eq idle" id="eq"></div><div class="sub" id="sub"></div></div>
@@ -643,6 +673,15 @@ button:active{background:var(--edge)}
       <div class="dv"><span>圧縮の下限（ZONE_MIN）</span><b id="dv-zoneMin-v"></b></div>
       <input type="range" id="dv-zoneMin" min="16" max="36" step="1">
       <button id="dv-reset" style="margin-top:10px">既定値に戻す</button>
+      <h3 class="sec" data-sec="vib"><span class="mk"></span>振動の長さ（設定の「振動」がオンのとき）</h3>
+      <div class="dv"><span>つまむ</span><b id="dv-vibPick-v"></b></div>
+      <input type="range" id="dv-vibPick" min="0" max="80" step="1">
+      <div class="dv"><span>枠の上に来る</span><b id="dv-vibHover-v"></b></div>
+      <input type="range" id="dv-vibHover" min="0" max="80" step="1">
+      <div class="dv"><span>置く</span><b id="dv-vibDrop-v"></b></div>
+      <input type="range" id="dv-vibDrop" min="0" max="80" step="1">
+      <div class="dv"><span>ボタンを押す</span><b id="dv-vibBtn-v"></b></div>
+      <input type="range" id="dv-vibBtn" min="0" max="80" step="1">
       <h3 class="sec" data-sec="meas"><span class="mk"></span>実測値（読み取り専用・今つまんでいる記号について）</h3>
       <div class="dv"><span>隙間の上限</span><b id="dv-zbase-v"></b></div>
       <div class="dv"><span>通常時の隙間幅（--zoneW・採用値）</span><b id="dv-zused-v"></b></div>
@@ -675,7 +714,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="6.3";
+const APP_VERSION="6.4";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -18663,6 +18702,17 @@ const HINT_START=100, HINT_K=1000;
 /* 挑戦モードの報酬（5.0）。この問題数をクリアするごとにヒントを 1 個配る。
    上限は無い。配るのはクリア時だけで、出題（chalShown）では配らない */
 const CHAL_REWARD_N=2;
+/* 難易度の 3 段階（6.4）。正解時の星（win() の tier）と問題画面の言葉（#pdiff）が
+   同じ区切りを使う。区切りを書くのはここ 1 箇所だけ ―― 片方だけ直してずれないように。
+   TIER_AT は [星 2 の下限, 星 3 の下限]（d>=9 / d>=14）。
+   FREE9（フリープレイの出題の重み）の 9 は別の用途なのでここには寄せない */
+const TIER_AT=[9,14];
+const tierOf=d=>d>=TIER_AT[1]?3:d>=TIER_AT[0]?2:1;
+const TIER_NAME=["","かんたん","ふつう","むずかしい"];
+/* 共有の文面に入れる公開ページ（6.4）。問題の 4 つの数字や制約は入れない
+   （受け取った人にアプリで解いてもらうため。GAME-SPEC 5-5）*/
+const SHARE_URL="https://ihudodo-k.github.io/make10/";
+const shareText=p=>`Make10 のこの問題、解ける？ コード ${codeOf(p)}`;
 
 /* ═══ 進捗（端末に保存） ═══ */
 const SAVE_KEY="make10.progress.v4";
@@ -18823,6 +18873,7 @@ function applyMetrics(){
   // ヒント行の寸法（4.8）。normal / compact で分けない ―― 幅 360px で最長の
   // 解答例が 1 行に収まる値を両モード共通で使う。CSS 変数へ流す経路はここ 1 本
   s.setProperty("--hintBtnW",HINT_ROW.btnW+"px");
+  s.setProperty("--shareGap",SHARE_BTN.gap+"px");
   s.setProperty("--hintBtnH",HINT_ROW.btnH+"px");
   s.setProperty("--hintGap",HINT_ROW.gap+"px");
   s.setProperty("--hintIcW",HINT_ROW.icW+"px");
@@ -18977,7 +19028,9 @@ addEventListener("resize",()=>{applyMetrics();fit()});
 
 function render(closing){
   const p=cur, c=conOf(p);
-  $("pcode").textContent="コード "+codeOf(p)+"　難易度 "+p.d+"　正解 "+p.n+"通り";
+  $("pcodev").textContent=codeOf(p);
+  $("pdiff").textContent=TIER_NAME[tierOf(p.d)];   // 数値ではなく 3 段階の言葉（6.4）
+  $("pcount").textContent=p.n;
   const r=$("rule");
   if(!c){r.className="rule none";r.textContent="使える演算子に制限はありません"}
   else{r.className="rule";r.innerHTML=`<b>${GLYPH[c.op]}</b> は使えません`}
@@ -19139,14 +19192,17 @@ function hideZones(){
 
 let DEV_CATCH=40;      // 枠に吸着する許容距離
 let DEV_SWAP=40;       // 差し替えに吸着する許容距離（枠とは別のキー）
-const buzz=ms=>{if(G.vib)navigator.vibrate?.(ms)};
+/* 振動（6.4）。長さは開発者パネルの devVars が持つ（vibPick / vibHover / vibDrop / vibBtn。
+   既定値は DEV_DEFAULT）。呼ぶ側はキーの名前で呼び、ミリ秒を直接書かない。
+   iPhone のブラウザには navigator.vibrate が無いので ?. で何もしない */
+const buzz=key=>{if(G.vib)navigator.vibrate?.((G.devVars||DEV_DEFAULT)[key])};
 let lastHot=null;
 
 /* ═══ ドラッグ ═══ */
 const ghost=document.createElement("div");ghost.id="ghost";ghost.style.display="none";
 document.body.appendChild(ghost);
 const gmove=e=>{ghost.style.left=e.clientX+"px";ghost.style.top=(e.clientY-32)+"px"};
-function startDrag(e,src){drag=src;lastHot=null;buzz(8);ghost.textContent=GLYPH[src.op];ghost.style.display="block";gmove(e);
+function startDrag(e,src){drag=src;lastHot=null;buzz("vibPick");ghost.textContent=GLYPH[src.op];ghost.style.display="block";gmove(e);
   if(src.el)src.el.classList.add("lift");showZones(src.op);
   document.addEventListener("pointermove",onMove,{passive:false});
   document.addEventListener("pointerup",onUp,{once:true});
@@ -19188,7 +19244,7 @@ function onMove(e){if(!drag)return;e.preventDefault();gmove(e);
   const t=tgt(e);const el=t&&(t.z||t.swap);
   // .snap は最初に hot になった瞬間に付けたら外さない（外れる時も --hotDur にするため）。
   // live が外れる（枠が閉じる）ときに showZones()/hideZones() 側で消す
-  if(el){el.classList.add("hot"); if(t.z)el.classList.add("snap"); if(el!==lastHot)buzz(5)}
+  if(el){el.classList.add("hot"); if(t.z)el.classList.add("snap"); if(el!==lastHot)buzz("vibHover")}
   lastHot=el||null;
   const r=$("field").getBoundingClientRect();
   const out=e.clientY<r.top||e.clientY>r.bottom||e.clientX<r.left||e.clientX>r.right;
@@ -19203,7 +19259,7 @@ function onUp(e){
       captureCloseSet(i=>afterInsert(ins)(afterRemove(was)(i)));
       dropTok(d.id);put(d.op,ins)}
     else{captureCloseSet(afterInsert(p));put(d.op,p)}
-    moves++;buzz(12);render(d.op);return}
+    moves++;buzz("vibDrop");render(d.op);return}
   if(t&&t.swap){const id=+t.swap.dataset.id;
     const moved=!!d.id&&d.id!==id;         // 置いてある記号を運んできた場合は式が変わる
     if(moved){const was=T().findIndex(x=>x.id===d.id);
@@ -19214,7 +19270,7 @@ function onUp(e){
     // waste = moves − トークン数 は空回りの量を測るもので、何も変えていない
     // 操作を空回りとして減点するのは筋が違う
     const changed=moved||T()[j].v!==d.op;
-    T()[j].v=d.op;if(changed)moves++;buzz(12);render(d.op);return}
+    T()[j].v=d.op;if(changed)moves++;buzz("vibDrop");render(d.op);return}
   const r=$("field").getBoundingClientRect();
   const out=e.clientY<r.top||e.clientY>r.bottom||e.clientX<r.left||e.clientX>r.right;
   if(d.id&&out){const was=T().findIndex(x=>x.id===d.id);
@@ -19266,12 +19322,16 @@ const totalScore=()=>Object.values(G.best).reduce((a,b)=>a+b,0);
 /* ═══ 正解演出 ═══ */
 function win(){
   if(!solved)return;              // 別の問題へ移った後に発火した予約は無効
+  // ヒントの箱を開いたまま正解したら閉じる（6.4）。数字が跳ね始めるのと同時に、× と同じく
+  // 瞬時に（箱はもともと動きを持たない）。正解カード（520ms 後）より先に消えるので重ならない。
+  // 閉じた段階は hintLast に入り、G.hints（到達）と hintMax（減点）には触らない
+  if(hintLv>0)hintSet(0);
   const code=codeOf(cur);
   // record() が G.best を書き換えるので、自己ベスト更新の判定は記録より先に取る
   const prev=G.best[code]||0;
   lastScore=calcScore();
   const secs=lastScore.sec;
-  const tier = cur.d>=14?3 : cur.d>=9?2 : 1;
+  const tier = tierOf(cur.d);
   const slow = secs>=60;                       // 苦戦ボーナスは控えめに
   const lv = Math.min(3,tier+(slow?1:0));
   lastWin={lv,secs,d:cur.d,hint:hintMax,sc:lastScore,beat:prev>0&&lastScore.pts>prev};
@@ -19304,7 +19364,9 @@ function win(){
   // 正解カードが出てから知らせる（520ms のカードと重ならないように後ろへ置く）。
   // トーストにしたのは、正解カードの詳細行 #wmeta が「点数を表示する」設定のときしか
   // 中身を出さないため ―― 既定（scoreOn=false）のプレイヤーに伝わらない
-  if(gained)setTimeout(()=>toast(`ヒントを 1 個もらいました（残り ${G.hintStock}）`),900);
+  // 位置は .foot の中央（トレイに重ねない。6.4）。表示時間は既定の 2.4 秒のまま。
+  // 文面は compact の .foot の中央（236px）に収まる長さ
+  if(gained)setTimeout(()=>toast(`ヒント +1（残り ${G.hintStock}）`,{at:"foot"}),900);
 }
 /* 挑戦を 1 問クリアしたときの計上。CHAL_REWARD_N 問ごとに 1 個配る。
    端数（G.chalRem）は保存するので、1 問クリアして終了→再開→1 問クリアでも配られる。
@@ -19358,7 +19420,7 @@ function loadPuzzle(p){
   if(MODE==="chal"&&!G.chalShown.includes(codeOf(p))){G.chalShown.push(codeOf(p));save()}
   $("pmode").textContent=pmodeText(MODE);   // 書き換えはここだけ（古い表記の残りを作らない）
   cur=p;uid=1;S={toks:p.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
-  held=null;t0=performance.now();moves=0;lastScore=null;hintLv=0;
+  held=null;t0=performance.now();moves=0;lastScore=null;hintLv=0;hintLast=0;
   solved=false;lastWin=null;
   hintMax=G.hints[codeOf(p)]||0;   // 見たヒントは端末に残る。解き直しても戻らない
   $("win").classList.add("hide");
@@ -19465,11 +19527,23 @@ function goBack(){
   exitArm=n; toast("もう一度タップでゲームを終了します");
 }
 let toastT=0;
-function toast(msg){
+/* トースト。opts.ms＝表示時間（既定 TOAST_MS）、opts.at="foot"＝問題画面の .foot の中央
+   （#clear と #hint の間）に出す（6.4）。問題画面でないときは .foot が無いので既定の位置
+   （画面下から 78px）に出す。位置は出すたびに #clear / #hint を実測して決める */
+const TOAST_MS=2400;
+const TOAST_QUICK={ms:1000,at:"foot"};   // コピーと共有の 3 種類（GAME-SPEC 5-5）
+function toast(msg,opts={}){
   let t=$("toast");
   if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t)}
-  t.textContent=msg; t.classList.add("show");
-  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2400);
+  t.textContent=msg;
+  const foot=opts.at==="foot"&&SCR==="play";
+  if(foot){
+    const c=$("clear").getBoundingClientRect(), h=$("hint").getBoundingClientRect();
+    t.style.left=(c.right+h.left)/2+"px"; t.style.top=(c.top+c.bottom)/2+"px";
+  }else{t.style.left="";t.style.top=""}
+  t.classList.toggle("atfoot",foot);
+  t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),opts.ms||TOAST_MS);
 }
 addEventListener("popstate",()=>{history.pushState(null,"");goBack()});
 history.pushState(null,"");
@@ -19493,6 +19567,9 @@ function start(mode){
    .thick は線の太さ 2 を持たせるためのもの（.ic の既定は 1.5）。
    戻る矢印は .chev（M9 6l6 6-6 6）を x=12 で左右反転しただけの形にして、
    画面遷移の記号を統一する */
+/* 共有（6.4）。3 つの点を線でつないだ形。点は x=7 / 17、y=5.5 / 12 / 18.5 で、
+   外形（x 4.5〜19.5・y 3〜21）が viewBox の中心 (12,12) に上下左右とも対称 */
+const ICON_SHARE =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="17" cy="5.5" r="2.5"/><circle cx="7" cy="12" r="2.5"/><circle cx="17" cy="18.5" r="2.5"/><path d="M9.2 10.8l5.6-4.1"/><path d="M9.2 13.2l5.6 4.1"/></svg>`;
 const ICON_MENU  =`<svg class="ic thick" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>`;
 /* 山形（‹ ›）のパス。設定画面の遷移矢印 .chev と同じ形で、viewBox の中心 (12,12) に
    上下対称に収まる（y 6〜18）。ICON_BACK とヒント行の ‹ › が同じ形なので
@@ -19569,7 +19646,9 @@ function renderSettings(){
 }
 $("t-score").onclick=()=>{G.scoreOn=!G.scoreOn;save();renderSettings()};
 $("t-easy").onclick=()=>{G.easy=!G.easy;save();renderSettings();playDirty=true};
-$("t-vib").onclick=()=>{G.vib=!G.vib;save();renderSettings();buzz(12)};
+// オンにした瞬間の手応えは、下の「ボタンの振動」が出す（切り替えた後の G.vib を見るので、
+// オンにしたときだけ振動し、オフにしたときは振動しない）
+$("t-vib").onclick=()=>{G.vib=!G.vib;save();renderSettings()};
 $("t-tap").onclick=()=>{G.tap=!G.tap;tapMode=G.tap;save();renderSettings();hideZones();
   playDirty=true};
 $("go-help").onclick=()=>go("help");
@@ -19581,14 +19660,19 @@ $("go-help").onclick=()=>go("help");
    load() のマージでそちらが優先されるので、新しい既定値を見るには
    開発者パネルの「初期値に戻す」を一度押す */
 const DEV_DEFAULT={dur:300,shrink:80,catch:40,swapCatch:40,hotDur:200,zoneMin:ZONE_MIN,delta:18,
+  // 振動の長さ（ms。6.4）。6.3 までの 8 / 5 / 12 は機種によって感じ取れなかったので倍にし、
+  // 実機で確かめてこの値に決めた。ボタンの振動（vibBtn）は 6.4 で新設。
+  // スライダーは今後の調整用に残す（開発者パネルの節「振動の長さ」）
+  vibPick:16,vibHover:10,vibDrop:24,vibBtn:15,
   devTop:0};         // 開発者パネルを上側に付けるか（0=下 / 1=上）。開き直しても維持する
+const VIB_KEYS=["vibPick","vibHover","vibDrop","vibBtn"];   // 開発者パネルの振動の節
 /* 開発者パネルの節の開閉（4.1）。devVars は「調整した値」だけを持たせたいので別のキーにする
    （#dv-copyline がそのまま値の受け渡しに使えなくなるため）。1=開 / 0=閉。
    既定は「調整するスライダー」と「その結果を読む実測値」を開き、受け渡し用だけ閉じる。
    スライダーを動かして実測値を読む、が 1 往復なので同時に開いているほうが速い。
    画面高 690px（clientHeight 275px）での実測は basic のみ 636px・basic+meas 964px で、
    どちらにしてもスクロールは要る ―― 片方を閉じても届く画面数が変わるだけなので開けておく */
-const DEV_SEC_DEFAULT={basic:1,meas:1,copy:0};
+const DEV_SEC_DEFAULT={basic:1,vib:1,meas:1,copy:0};
 
 function applyDevVars(){
   const dv=G.devVars||DEV_DEFAULT;
@@ -19630,6 +19714,7 @@ function renderDevPanel(){
   $("dv-hotDur").value=dv.hotDur; $("dv-hotDur-v").textContent=dv.hotDur+"ms";
   $("dv-delta").value=dv.delta; $("dv-delta-v").textContent=dv.delta+"px";
   $("dv-zoneMin").value=dv.zoneMin; $("dv-zoneMin-v").textContent=dv.zoneMin+"px";
+  for(const k of VIB_KEYS){$("dv-"+k).value=dv[k]; $("dv-"+k+"-v").textContent=dv[k]+"ms"}
   applySecs();
   renderDevMeasured();
 }
@@ -19750,6 +19835,7 @@ function devVarInput(key,suffix){
 devVarInput("dur","ms"); devVarInput("shrink","%"); devVarInput("catch","px");
 devVarInput("hotDur","ms"); devVarInput("delta","px"); devVarInput("zoneMin","px");
 devVarInput("swapCatch","px");
+for(const k of VIB_KEYS)devVarInput(k,"ms");
 $("dv-reset").onclick=()=>{G.devVars={...DEV_DEFAULT};applyDevVars();save();renderDevPanel()};
 /* 設定シートからの導線。開いたあとは元の画面（問題画面）へ戻し、パネルを重ねた
    状態にする。閉じるのはパネル内のボタン */
@@ -19768,6 +19854,48 @@ $("dv-copy").onclick=async()=>{
   try{await navigator.clipboard.writeText($("dv-copyline").value);toast("コピーしました")}
   catch(e){$("dv-copyline").select()}
 };
+/* 問題コードをタップでコピー（6.4）。navigator.clipboard が無い・拒まれた環境
+   （http や古いブラウザ）では、#dv-copy と同じくコードを選択状態にして手でコピーしてもらう */
+async function copyCode(){
+  const el=$("pcodev");
+  try{await navigator.clipboard.writeText(el.textContent);toast("コピーしました",TOAST_QUICK)}
+  catch(e){const r=document.createRange();r.selectNodeContents(el);
+    const sel=getSelection();sel.removeAllRanges();sel.addRange(r)}
+}
+$("pcodev").onclick=copyCode;
+$("pcodev").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();copyCode()}};
+/* 共有（6.4）。端末の共有メニューを開く。navigator.share が無い環境では
+   同じ文面（本文＋URL）をクリップボードへ。共有メニューを閉じただけ（AbortError）
+   のときは何もしない */
+$("share").onclick=async()=>{
+  if(!cur)return;
+  const text=shareText(cur);
+  if(navigator.share){
+    try{await navigator.share({title:"Make10",text,url:SHARE_URL});return}
+    catch(e){if(e&&e.name==="AbortError")return}
+  }
+  try{await navigator.clipboard.writeText(text+"\n"+SHARE_URL);toast("共有の文面をコピーしました",TOAST_QUICK)}
+  // .foot の中央（compact で 236px）に収まる長さにしてある。コードは出す（手で写せるように）
+  catch(e){toast("コピーできません　"+codeOf(cur),TOAST_QUICK)}
+};
+/* ボタンを押したときの振動（6.4）。ボタンごとに書かず、ここ 1 か所で拾う ――
+   ボタンを足しても漏れない。<button> と role="button"（#pcodev）が対象。
+   **泡立ちの段階**で拾うのは、各ボタンの onclick が先に走るようにするため。
+   「振動」のスイッチ自体を押したとき、切り替えた後の G.vib を見ることになる
+   （オンにしたら振動し、オフにしたら振動しない）。トレイの記号は <div> なので
+   対象外で、ドラッグの振動（vibPick など）と重ならない */
+/* 無効かどうかは**押した時点**で見る（捕捉の段階＝onclick より前に記録）。泡立ちの段階で
+   読むと、押したことで無効になったボタン（3 に届いた #hint）まで振動しなくなる。
+   aria-disabled（3 まで到達済みで開いているときの #hint）も押しても何も起きないので振動しない */
+const btnOf=e=>e.target.closest?.("button,[role=button]");
+let btnOff=false;
+document.addEventListener("click",e=>{
+  const b=btnOf(e);
+  btnOff=!b||b.disabled||b.getAttribute("aria-disabled")==="true";
+},true);
+document.addEventListener("click",e=>{
+  if(btnOf(e)&&!btnOff)buzz("vibBtn");
+});
 $("go-stats").onclick=()=>go("stats");
 $("gear").onclick=()=>go("settings");     // 右上は「設定を開く」だけ（5.1）
 $("navback").onclick=()=>goBack();        // 左上は「戻る」だけ
@@ -19857,6 +19985,11 @@ function factShow(on,persist=true){
 $("factbtn").onclick=()=>factShow(!G.fact);
 /* 段階ヒント: 1=使う記号 / 2=形（二項演算子を伏せる）/ 3=解答例 */
 let hintLv=0;
+/* 閉じる直前に表示していた段階（6.4）。箱が閉じているときに丸ボタンを押すと、
+   これを無料でもう一度出す。覚えるのは開いている問題の中だけで、保存しない ――
+   loadPuzzle()（問題の切り替え）と再起動で 0 に戻り、0 のときは到達済みの最大の段階を出す。
+   ‹ で戻ってから閉じたら戻った先が入る（到達済みの最大ではない）。GAME-SPEC 5-4 */
+let hintLast=0;
 const pretty=s=>s.replace(/\*/g,"×").replace(/\//g,"÷").replace(/-/g,"−");
 const OPSET=s=>{const u=[];for(const ch of s)if("+-*/^!".includes(ch)&&!u.includes(ch))u.push(ch);return u};
 /* 段階 1 で並べる記号。トレイと同じ並び（TRAY 順）に揃える ―― OPSET は
@@ -19875,6 +20008,8 @@ function hintSymbols(sol){
    1 行に収まるように決めた値なので、CSS へは変数で渡して数値は 1 箇所に持つ
    （CLAUDE.md 実装のルール）。根拠と幅ごとの表は DESIGN.md 3-1-4 */
 const HINT_ROW={btnW:32,btnH:48,gap:2,icW:20};
+/* 共有ボタンと .top の下端との間隔（6.4）。.top の gap 9px に近い値。CSS へは --shareGap で渡す */
+const SHARE_BTN={gap:8};
 /* ヒント行の操作は SVG（4.9）。文字の ‹ › × は書体の中で上下位置が揃わず、
    ‹ › が × より 1.13px 低く、3 つとも本文より約 5〜6px 高い位置に描かれていた。
    設定画面の .chev が「文字の › は書体で位置・太さが揃わないのでインライン SVG に」
@@ -19895,12 +20030,24 @@ const hintNextLv=()=>Math.min(3,Math.max(hintLv,hintReached())+1);
    段階と残数を言葉で持たせる（見える段階表示はボックスの中） */
 function renderHintStock(){
   $("hintstock").textContent=hintBadge(G.hintStock);
-  const nx=hintNextLv();
-  $("hintlabel").textContent = (hintLv>=3)
-    ? `ヒントは 3/3 まで開いています。残り ${G.hintStock}`
+  const nx=hintNextLv(), again=hintAgainLv();
+  // 3 まで到達済みで箱が開いている＝どの段階を表示していても押しても何も起きない
+  // （新しいヒントはもう無い。‹ で 1・2 に戻っていても同じ）。閉じれば元に戻る
+  const spent=hintSpent();
+  $("hint").setAttribute("aria-disabled",spent?"true":"false");
+  $("hintlabel").textContent = spent
+    ? `これ以上のヒントはありません。残り ${G.hintStock}`
+    : (hintLv===0&&again)
+    ? `ヒントは閉じています。押すと ${again}/3 をもう一度表示。残り ${G.hintStock}`
     : `ヒント ${hintLv}/3 を表示中。次は ${nx}/3。残り ${G.hintStock}`;
 }
-function hintSet(lv){hintLv=Math.max(0,Math.min(3,lv));showHint()}
+/* 丸ボタンが無効の状態（6.4）。3 まで到達済みで、箱が開いている */
+const hintSpent=()=>hintLv>0&&hintReached()>=3;
+/* 箱が閉じているときに丸ボタンで出す段階。見たことが無ければ 0（＝新しくもらう）*/
+const hintAgainLv=()=>hintReached()?(hintLast||hintReached()):0;
+function hintSet(lv){
+  if(lv<=0&&hintLv>0)hintLast=hintLv;   // 閉じる直前の段階を覚える（× でも正解時の自動でも）
+  hintLv=Math.max(0,Math.min(3,lv));showHint()}
 function showHint(){
   const b=$("hintbox"), p=cur;
   if(hintLv===0){b.classList.remove("show");b.innerHTML="";renderHintStock();return}
@@ -19929,8 +20076,14 @@ function showHint(){
   b.classList.add("show");
   renderHintStock();
 }
+/* 丸ボタン（6.4 で変更。友達からの報告: 1 つ見て閉じ、もう一度見ようと押したら 2 つ目が
+   開いて 1 消費された）。
+   - 箱が閉じていて、この問題で 1 つ以上見ている → 閉じる直前の段階を無料でもう一度出す
+   - 箱が開いている、または 1 つも見ていない → 未到達の段階へ進む（そこでだけ 1 消費）
+   - 開いていて 3 まで到達済み → 表示中の段階によらず何も起きない（無効の色。renderHintStock）*/
 $("hint").onclick=()=>{
-  if(hintLv>=3)return;                 // 3 を表示中は何も起きない。0 へは回らない
+  if(hintLv===0&&hintReached()){hintSet(hintAgainLv());return}   // 消費しない
+  if(hintSpent())return;               // 3 まで到達済みで開いている。1・2 を表示中でも何もしない
   const next=hintNextLv();             // 未到達へ進む（到達 2・表示 1 なら 3 へ）
   if(next>hintReached()){              // まだ到達していない段階＝ここでだけ 1 消費する
     if(G.hintStock<=0){
@@ -19956,6 +20109,7 @@ $("codego").onclick=()=>{
 load();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
 // 絵柄は 1 定義から流し込む（4.5）。役割が固定になったので差し替えは起きない（5.1）
 $("menu").innerHTML=ICON_MENU; $("gear").innerHTML=ICON_MENU;
+$("share").innerHTML=ICON_SHARE;
 $("navback").innerHTML=ICON_BACK;
 // 階乗表ボタン (#factbtn) は .trayrow ごと非表示。開いた状態の保存値があっても
 // 復元すると閉じる手段が無くなるので、非表示中は開かない（保存値は保持）

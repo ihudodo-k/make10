@@ -39,7 +39,7 @@ def run(ui):
     ui.check("2問目: 2 問ごとの報酬でヒントが 1 個増える", s["hint"], 11)
     ui.check("2問目: 端数は 0 に戻る", s["chalRem"], 0)
     ui.check("2問目: 知らせるトースト",
-             ui.ev("__TOASTS.filter(t=>t.indexOf('ヒントを 1 個')>=0).length"), 1)
+             ui.ev("__TOASTS.filter(t=>t==='ヒント +1（残り '+G.hintStock+'）').length"), 1)
     ui.ev("go('home')")
 
     # ── 「つぎへ」を押しても二重に数えない ────────────────
