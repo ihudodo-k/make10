@@ -45,6 +45,15 @@ def run(ui):
     ui.check("問題画面: ヘッダの #back が出る", ui.visible("back"), True)
     ui.check("問題画面: ヘッダの #menu が出る", ui.visible("menu"), True)
     ui.check("問題画面はスクロールしない", ui.scrolls(), False)
+    # 6.5: 何も置いていないときの案内文「演算子を式の中へ」は出さない（#eq も #sub も空）
+    ui.check("問題画面: 読み出し行は空（案内文を出さない）",
+             [ui.text("eq"), ui.text("sub")], ["", ""])
+    ui.check("問題画面: 「演算子を式の中へ」がどこにも見えない",
+             ui.ev("$('play').innerText.includes('演算子を式の中へ')"), False)
+    ui.check("トレイの見出しは今のまま", ui.text("trayhead"), "つまんで式の中へ")
+    ui.ev("G.easy=true; render()")
+    ui.check("途中の値を表示する設定でも #sub に案内文を出さない", ui.text("sub"), "")
+    ui.ev("G.easy=false; render()")
     # 設定へ出入りしても問題が保たれる（3.1 の回帰）
     code = ui.ev("codeOf(cur)")
     ui.click("menu")

@@ -118,6 +118,12 @@ class UI:
         time.sleep(wait)
         return r
 
+    def solved_text(self):
+        """今の問題を solve() で解いた直後に #eq|#sub に出るはずの文字（GAME-SPEC 8 章）。
+        すぐ解くので苦戦（60 秒）の加算は無く、難易度 14 以上が「お見事」、それ未満が「正解」。
+        区切りは仕様の値を直に書く（アプリの tierOf() は使わない）"""
+        return "10|" + ("お見事" if self.ev("cur.d") >= 14 else "正解")
+
     # ── 判定 ───────────────────────────────────────────────
     def check(self, name, got, want):
         ok = got == want

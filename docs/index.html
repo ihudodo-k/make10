@@ -33,7 +33,9 @@ body[data-theme="ai"]{   /* 藍。プレイヤー向けの唯一の配色 */
  --ink:#0B111B;--panel:#1D3150;--edge:#2B4670;--paper:#F5F2E9;
  --teal:#4FC3B0;--slate:#55688A;--coral:#E2705F;--gold:#E8B44A;--line:159,180,214;
  /* 読ませる副次テキスト用。--slate は「無効」専用（コントラスト不足のため分けた・3.0） */
- --dim:color-mix(in srgb,var(--paper) 70%,transparent)}
+ --dim:color-mix(in srgb,var(--paper) 70%,transparent);
+ /* 演算子の箱（トレイのパネル）の地。.tray と「つぎへ」#wnext が共有する（6.5） */
+ --trayBg:color-mix(in srgb,var(--panel) 60%,transparent)}
 /* 白は開発者パネルからのみ選べる。定義を残すのは DESIGN.md 1-3 の「新しい配色は
    paper でも確認する」を維持するため。明暗が反転したテーマが 1 つも無いと、
    rgba(255,255,255,…) のような片方向にしか効かない書き方を検出できなくなり、
@@ -41,7 +43,9 @@ body[data-theme="ai"]{   /* 藍。プレイヤー向けの唯一の配色 */
 body[data-theme="paper"]{ /* 白（開発用） */
  --ink:#E8E3D5;--panel:#FFFFFF;--edge:#DCD6C6;--paper:#1E2530;
  --teal:#1E8F7A;--slate:#8C8778;--coral:#C6503C;--gold:#B8862B;--line:60,70,90;
- --dim:color-mix(in srgb,var(--paper) 70%,transparent)}
+ --dim:color-mix(in srgb,var(--paper) 70%,transparent);
+ /* 演算子の箱（トレイのパネル）の地。.tray と「つぎへ」#wnext が共有する（6.5） */
+ --trayBg:color-mix(in srgb,var(--panel) 60%,transparent)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden}
 /* 背景はグラデーション（--ink を軸に --panel 側へ少し寄せるだけ。新しい色は増やさない）。
@@ -284,9 +288,15 @@ button:active{background:var(--edge)}
  transition:color .18s;text-align:center;word-break:break-word}
 .eq.idle{font-size:21px;font-weight:500;color:color-mix(in srgb,var(--paper) 55%,var(--slate))}
 /* 正解でも色は変えない。いちばん明るい白にするだけで、あとは既存の演出で伝える。
-   「10」だけは少し大きく見せる（52px → 60px）。.readout は flex:1 1 0 で伸縮する
-   ので、この程度の増分なら .field を押さずスクロールも出ない（要実機確認） */
-.eq.hit{color:var(--paper);font-size:60px}
+   「10」は大きく見せる（6.5）。倍率は devVars.tenScale（既定 1.8・実機で決めた値。
+   開発者パネル「正解の表示」のスライダーは調整用に残す）を applyDevVars() が --tenScale として流す。
+   6.4 までは font-size を 52px → 60px に変えていたが、それだと .eq の行の高さが変わり
+   下の .sub が押される。transform はレイアウトを起こさないので読み出し行の中身も
+   上下の要素も動かない。原点は下端の中央 ―― 下の .sub（正解／お見事）には近づかず、
+   上の .top に向かってだけ伸びる（上限は DESIGN.md 3-1-6）。
+   大きさに動きは付けない ―― 正解した瞬間から拡大後の大きさで出し、崩したときも
+   一瞬で戻す（transform の遷移は書かない。色の遷移は .eq の color .18s のまま）*/
+.eq.hit{color:var(--paper);transform:scale(var(--tenScale));transform-origin:50% 100%}
 .eq.miss{opacity:.5}
 .eq.part{font-size:34px;opacity:.75;letter-spacing:.01em}
 .sub{font-size:12.5px;color:var(--slate);min-height:18px;text-align:center}
@@ -377,7 +387,7 @@ button:active{background:var(--edge)}
  border-top:1px solid var(--edge)}
 /* トレイは 1 枚の角丸パネル。枠線はパネル側だけに付け、チップは記号だけを並べる */
 .tray{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--trayGap);
- background:color-mix(in srgb,var(--panel) 60%,transparent);
+ background:var(--trayBg);
  border:1px solid var(--edge);border-radius:20px;padding:var(--trayPad)}
 .chip{position:relative;height:54px;border-radius:9px;background:none;border:0;
  display:flex;align-items:center;justify-content:center;font-size:var(--chipF);font-weight:700;
@@ -436,21 +446,29 @@ button:active{background:var(--edge)}
 .hintrow .hbody>.hbin{flex:0 0 auto;white-space:nowrap}
 .hintrow .hbody::-webkit-scrollbar{display:none}
 
-/* ── 正解カード（.field の下に出る細いカード。画面は覆わない） ── */
-#win{flex:0 0 auto;display:flex;flex-direction:column;gap:9px;margin-bottom:13px;
+/* ── 正解したときの表示（6.5）。式・トレイ・.foot を 1px も動かさない ──
+   6.4 までは正解カードを .field と .bottom のあいだに流し込んでいたので、カードが出ると
+   .readout と .field が縮んで式が上へ動いていた（normal で 103px）。
+   「正解」「お見事」は読み出し行（#sub）の 1 か所だけに出し、ここには出さない。
+   「つぎへ」#wnext は .foot の中央（#clear と #hint の間）。点数表示のオン・オフで
+     場所が変わらない。.foot は justify-content:space-between で両端の丸ボタンが同じ幅
+     なので、真ん中の要素は中央に来る。高さは隣と同じ --btnW（.foot の高さは変わらない）、
+     幅は JS の NEXT_BTN.w を applyMetrics() が --nextW として流す（寸法の定数は JS に 1 か所）。
+   点数表示オンのときだけ、点数・星・詳細行のカード #win を .overlays の中（.foot の上）に
+     重ねて出す。カードに「つぎへ」は入れない */
+#win{display:flex;flex-direction:column;gap:2px;
  background:var(--panel);border:1px solid color-mix(in srgb,var(--paper) 30%,transparent);
- border-radius:15px;padding:12px 14px}
-#win .wrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
-#win .wleft{display:flex;flex-direction:column;gap:2px;min-width:0}
-#win .big{font-size:19px;font-weight:700;color:var(--paper)}
-/* お見事 (難易度が高いとき) は色ではなく大きさで差をつける */
-#win .big.t3{font-size:22px;letter-spacing:.03em}
-#win .meta{font-size:11.5px;color:var(--slate)}
-#win .pts{font-size:14px;font-weight:700;letter-spacing:.02em;white-space:nowrap;flex:0 0 auto}
+ border-radius:15px;padding:8px 14px}
+#win .meta{font-size:11.5px;color:var(--slate);line-height:1.35}
+#win .pts{font-size:14px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
 #win .pts .st{color:color-mix(in srgb,var(--paper) 75%,transparent);margin-left:6px}
-#win button{padding:11px;font-size:14px;font-weight:700;
- border-color:color-mix(in srgb,var(--paper) 45%,transparent);color:var(--paper);
- background:color-mix(in srgb,var(--paper) 10%,transparent)}
+/* 「つぎへ」の色は演算子の箱と同じ（6.5）。地と枠はトレイのパネル .tray（--trayBg /
+   1px --edge）、文字は記号 .chip（--paper）、押したときは .chip:active と同じく地を変えず
+   薄くするだけ（button:active の --edge の地を打ち消す）。値は書かず変数だけを使う */
+#wnext{flex:0 0 auto;width:var(--nextW);height:var(--btnW);padding:0;
+ font-size:15px;font-weight:700;letter-spacing:.04em;
+ border:1px solid var(--edge);color:var(--paper);background:var(--trayBg)}
+#wnext:active{background:var(--trayBg);opacity:.5}
 #toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%) translateY(12px);
  background:var(--panel);border:1px solid var(--edge);color:var(--paper);
  padding:11px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:80;
@@ -458,7 +476,10 @@ button:active{background:var(--edge)}
  box-shadow:0 8px 22px rgba(0,0,0,.4)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 /* .foot の中央（#clear と #hint の間）に出すとき（6.4。toast(msg,{at:"foot"})）。
-   left / top は toast() が #clear と #hint の実測から入れる。トレイに重ねないため */
+   left / top は toast() が #clear と #hint の実測から入れる。トレイに重ねないため。
+   「つぎへ」が .foot の中央に出ているあいだは、その上（.foot の上端から TOAST_FOOT_GAP 上）に
+   出す。点数のカードも出ているとき（点数表示オン）は、読み出し行と式のあいだの空きの中央に
+   出す（6.5。top は toast() が入れる）*/
 #toast.atfoot{bottom:auto;transform:translate(-50%,-50%) translateY(12px)}
 #toast.atfoot.show{transform:translate(-50%,-50%)}
 /* 広告 52px を引いても収まるよう、低い端末では各所を詰める */
@@ -467,7 +488,6 @@ button:active{background:var(--edge)}
   .readout{min-height:62px;gap:4px;padding:0}
   .eq{font-size:36px}
   .eq.idle{font-size:17px}
-  .eq.hit{font-size:42px}
   .eq.part{font-size:25px}
   /* トークンとトレイの幅・高さ・文字サイズ・gap・padding、.iconbtn / #gear は
      JS の TOKEN_METRICS.compact が CSS 変数として流し込む。
@@ -546,20 +566,16 @@ button:active{background:var(--edge)}
       <div class="exprwrap" id="exprwrap"><div class="expr" id="expr"></div></div>
       <div class="trashmsg">ここで離すと外れます</div>
     </div>
-    <div id="win" class="hide">
-      <div class="wrow">
-        <div class="wleft">
-          <div class="big" id="wbig">正解</div>
-          <div class="meta" id="wmeta"></div>
-        </div>
-        <div class="pts" id="wpts"></div>
-      </div>
-      <button id="wnext">つぎへ</button>
-    </div>
     <div class="bottom">
       <div class="overlays">
         <div class="facttable" id="facttable"></div>
         <div class="hintbox" id="hintbox"></div>
+        <!-- 正解カード（6.5。点数表示オンのときだけ出す。式を動かさないため浮かせ表示）。
+             「つぎへ」は入れない（.foot の中央の #wnext） -->
+        <div id="win" class="hide">
+          <div class="pts" id="wpts"></div>
+          <div class="meta" id="wmeta"></div>
+        </div>
       </div>
       <div class="trayrow">
         <span id="trayhead">つまんで式の中へ</span>
@@ -572,6 +588,8 @@ button:active{background:var(--edge)}
             <path d="M18.4 2.2v4.2h-4.2"/>
           </svg>
         </button>
+        <!-- 正解したら出る「つぎへ」（6.5）。.foot の中央。点数表示のオン・オフで場所は変わらない -->
+        <button id="wnext" class="hide">つぎへ</button>
         <button id="alt" class="hide">スキップ</button>
         <button id="hint" class="iconbtn" title="ヒント" aria-label="ヒント">
           <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
@@ -682,6 +700,9 @@ button:active{background:var(--edge)}
       <input type="range" id="dv-vibDrop" min="0" max="80" step="1">
       <div class="dv"><span>ボタンを押す</span><b id="dv-vibBtn-v"></b></div>
       <input type="range" id="dv-vibBtn" min="0" max="80" step="1">
+      <h3 class="sec" data-sec="ten"><span class="mk"></span>正解の表示</h3>
+      <div class="dv"><span>正解したときの 10 の倍率（決定 1.8）</span><b id="dv-tenScale-v"></b></div>
+      <input type="range" id="dv-tenScale" min="1" max="3" step="0.05">
       <h3 class="sec" data-sec="meas"><span class="mk"></span>実測値（読み取り専用・今つまんでいる記号について）</h3>
       <div class="dv"><span>隙間の上限</span><b id="dv-zbase-v"></b></div>
       <div class="dv"><span>通常時の隙間幅（--zoneW・採用値）</span><b id="dv-zused-v"></b></div>
@@ -714,7 +735,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="6.4";
+const APP_VERSION="6.5";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -18702,13 +18723,13 @@ const HINT_START=100, HINT_K=1000;
 /* 挑戦モードの報酬（5.0）。この問題数をクリアするごとにヒントを 1 個配る。
    上限は無い。配るのはクリア時だけで、出題（chalShown）では配らない */
 const CHAL_REWARD_N=2;
-/* 難易度の 3 段階（6.4）。正解時の星（win() の tier）と問題画面の言葉（#pdiff）が
+/* 難易度の 3 段階（6.4）。正解時の段階（winLevel()。読み出し行の「お見事」と光り方）と問題画面の言葉（#pdiff）が
    同じ区切りを使う。区切りを書くのはここ 1 箇所だけ ―― 片方だけ直してずれないように。
    TIER_AT は [星 2 の下限, 星 3 の下限]（d>=9 / d>=14）。
    FREE9（フリープレイの出題の重み）の 9 は別の用途なのでここには寄せない */
 const TIER_AT=[9,14];
 const tierOf=d=>d>=TIER_AT[1]?3:d>=TIER_AT[0]?2:1;
-const TIER_NAME=["","かんたん","ふつう","むずかしい"];
+const TIER_NAME=["","EASY","NORMAL","HARD"];   // 6.5 で英語に（6.4 は かんたん／ふつう／むずかしい）
 /* 共有の文面に入れる公開ページ（6.4）。問題の 4 つの数字や制約は入れない
    （受け取った人にアプリで解いてもらうため。GAME-SPEC 5-5）*/
 const SHARE_URL="https://ihudodo-k.github.io/make10/";
@@ -18804,8 +18825,16 @@ let MODE="course", cur=null, t0=0, moves=0, hintMax=0, lastScore=null;
 /* solved = この問題の記録が確定済みか。正解した瞬間に立て、loadPuzzle() で降ろす。
    立っている間は win() を予約し直さないので、崩して組み直しても記録は動かない。
    lastWin = 正解カードに出す内容。画面を離れて戻ったときはこれを出し直すだけで
-   スコアを計算し直さない（GAME-SPEC 3・8）*/
-let solved=false, lastWin=null;
+   スコアを計算し直さない（GAME-SPEC 3・8）。
+   hitLv = 正解した瞬間に決めた演出の段階（1〜3）。読み出し行の「正解／お見事」（6.5）と
+   win() の光り方の両方がこれを読む。win() は 260ms 後に走るので、そこで測り直すと
+   苦戦の加算（60 秒）の境目で 2 つが食い違いうる ―― 1 度だけ決めて共有する */
+let solved=false, lastWin=null, hitLv=0;
+/* 演出の段階。難易度の 3 段階（tierOf）に、60 秒以上かかったら 1 段足す（3 で頭打ち）*/
+function winLevel(){
+  const secs=Math.max(1,Math.round((performance.now()-t0)/1000));
+  return Math.min(3,tierOf(cur.d)+(secs>=60?1:0));
+}
 
 /* ═══ 有理数 ═══ */
 const gd=(a,b)=>{a=a<0n?-a:a;b=b<0n?-b:b;while(b){[a,b]=[b,a%b]}return a||1n};
@@ -18874,6 +18903,7 @@ function applyMetrics(){
   // 解答例が 1 行に収まる値を両モード共通で使う。CSS 変数へ流す経路はここ 1 本
   s.setProperty("--hintBtnW",HINT_ROW.btnW+"px");
   s.setProperty("--shareGap",SHARE_BTN.gap+"px");
+  s.setProperty("--nextW",NEXT_BTN.w+"px");
   s.setProperty("--hintBtnH",HINT_ROW.btnH+"px");
   s.setProperty("--hintGap",HINT_ROW.gap+"px");
   s.setProperty("--hintIcW",HINT_ROW.icW+"px");
@@ -19073,8 +19103,10 @@ function render(closing){
   if(ops<3){
     if(G.easy){const p=segValues();
       eq.className="eq part";eq.textContent=p.join("  ·  ");
-      su.className="sub";su.textContent="演算子を式の中へ"}
-    else{eq.className="eq idle";eq.textContent="演算子を式の中へ";su.className="sub";su.textContent=""}}
+      su.className="sub";su.textContent=""}
+    // 何も置いていないときの案内文「演算子を式の中へ」は 6.5 で廃止（トレイの見出しが同じことを
+    // 言っている）。空にしても .readout の高さは flex で決まるので式・トレイは動かない
+    else{eq.className="eq idle";eq.textContent="";su.className="sub";su.textContent=""}}
   else if(!bal){eq.className="eq idle";eq.textContent="括弧が対応していません";
     su.className="sub warn";su.textContent="赤い括弧が余っています"}
   else{
@@ -19086,9 +19118,11 @@ function render(closing){
       const ten=isInt(v)&&v.n===10n;
       const used=c?(c.op==="!"?cnt("fac"):T().filter(x=>x.t==="op"&&x.v===c.op).length):0;
       const okC=!c||used===0;                 // 制約は使用禁止のみ。使っていたら不正解
-      if(ten&&okC){eq.classList.add("hit");su.className="sub ok";su.textContent="正解";
+      if(ten&&okC){eq.classList.add("hit");
         // 記録は最初の 1 回だけ。崩して組み直しても win() を予約し直さない
-        if(!solved){solved=true;setTimeout(()=>win(),260)}}
+        if(!solved){solved=true;hitLv=winLevel();setTimeout(()=>win(),260)}
+        // 「正解」「お見事」を出すのはここだけ（6.5。正解カードには出さない）
+        su.className="sub ok";su.textContent=hitLv>=3?"お見事":"正解"}
       else if(ten){eq.classList.add("miss");su.className="sub warn";
         su.textContent=`${GLYPH[c.op]} は使えません`}
       else{eq.classList.add("miss");su.className="sub";
@@ -19331,9 +19365,7 @@ function win(){
   const prev=G.best[code]||0;
   lastScore=calcScore();
   const secs=lastScore.sec;
-  const tier = tierOf(cur.d);
-  const slow = secs>=60;                       // 苦戦ボーナスは控えめに
-  const lv = Math.min(3,tier+(slow?1:0));
+  const lv = hitLv;                // 正解した瞬間に winLevel() で決めた段階（読み出し行と共有）
   lastWin={lv,secs,d:cur.d,hint:hintMax,sc:lastScore,beat:prev>0&&lastScore.pts>prev};
   // 挑戦の報酬（5.0）。数えるのはここ ―― record() と同じ「クリアが確定する 1 点」で、
   // solved のガードにより 1 回の正解につき 1 度しか通らない。advance()（つぎへ）では
@@ -19385,23 +19417,25 @@ function chalReward(){
 function showWinCard(){
   if(!solved||!lastWin)return;
   const w=lastWin;
-  $("wbig").className="big"+(w.lv>=3?" t3":"");
-  $("wbig").textContent=w.lv>=3?"お見事":"正解";
+  // 「正解」「お見事」はカードに出さない（読み出し行の #sub だけ。6.5）。
+  // 「つぎへ」は .foot の中央に必ず出す。点数と星・詳細行のカードは点数表示オンのときだけ
+  $("wnext").classList.remove("hide");
+  $("win").classList.toggle("hide",!G.scoreOn);
   if(G.scoreOn){
-    $("wpts").classList.remove("hide");
     $("wpts").innerHTML=`${w.sc.pts} 点<span class="st">${stars(w.sc.stars)}</span>`;
     $("wmeta").textContent=`難易度 ${w.d}　${w.secs}秒`
       + (w.hint?`　ヒント${w.hint}`:"") + (w.beat?"　自己ベスト更新":"");
   }else{
-    $("wpts").classList.add("hide");
-    $("wmeta").textContent=`難易度 ${w.d}　${w.secs}秒`;
+    $("wpts").textContent="";
+    $("wmeta").textContent="";
   }
-  $("win").classList.remove("hide");
 }
+/* 正解の表示（カードと「つぎへ」）を隠す。出すのは showWinCard() だけ */
+function hideWin(){$("win").classList.add("hide");$("wnext").classList.add("hide")}
 $("wnext").onclick=()=>{
   if(!solved)return;              // 2 回目以降は無視する（進行を二重に進めない）
   solved=false;
-  $("win").classList.add("hide");
+  hideWin();
   if(MODE==="share"){go("home");return}
   advance()};
 
@@ -19421,9 +19455,9 @@ function loadPuzzle(p){
   $("pmode").textContent=pmodeText(MODE);   // 書き換えはここだけ（古い表記の残りを作らない）
   cur=p;uid=1;S={toks:p.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
   held=null;t0=performance.now();moves=0;lastScore=null;hintLv=0;hintLast=0;
-  solved=false;lastWin=null;
+  solved=false;lastWin=null;hitLv=0;
   hintMax=G.hints[codeOf(p)]||0;   // 見たヒントは端末に残る。解き直しても戻らない
-  $("win").classList.add("hide");
+  hideWin();
   showHint();render()}
 /* 「全部消す」。次の問題を読む loadPuzzle() とは別物にする。
    時間 t0・手数 moves・ヒント hintMax は引き継ぐ（GAME-SPEC 4-3）。
@@ -19435,7 +19469,7 @@ function clearAll(){
   held=null;
   // 正解カードは記録と同じで盤面から独立している。正解済みなら出したままにする
   // （隠すと「つぎへ」が無くなり先へ進めなくなる）
-  if(!solved)$("win").classList.add("hide");
+  if(!solved)hideWin();
   render();
 }
 const rnd=a=>a[Math.floor(Math.random()*a.length)];
@@ -19487,7 +19521,7 @@ function go(s){
   if(s==="settings"&&(SCR==="home"||SCR==="play"))retScr=SCR;
   SCR=s;
   for(const k of SCREENS){const el=$(k); if(el)el.classList.toggle("hide",k!==s)}
-  if(s!=="play")$("win").classList.add("hide");   // 画面を離れたら正解カードは必ず隠す
+  if(s!=="play")hideWin();   // 画面を離れたら正解カードは必ず隠す
   /* 左上＝戻る、右上＝設定。役割は固定で、出すか出さないかだけを切り替える（5.1）。
      - ホーム    : 左なし（戻る先が無い）／右に三本線
      - 問題画面  : .top の中の #back と #menu が担うので、どちらも出さない
@@ -19532,6 +19566,7 @@ let toastT=0;
    （画面下から 78px）に出す。位置は出すたびに #clear / #hint を実測して決める */
 const TOAST_MS=2400;
 const TOAST_QUICK={ms:1000,at:"foot"};   // コピーと共有の 3 種類（GAME-SPEC 5-5）
+const TOAST_FOOT_GAP=8;   // 「つぎへ」が出ているときのトーストと .foot の上端の間（6.5）
 function toast(msg,opts={}){
   let t=$("toast");
   if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t)}
@@ -19539,7 +19574,16 @@ function toast(msg,opts={}){
   const foot=opts.at==="foot"&&SCR==="play";
   if(foot){
     const c=$("clear").getBoundingClientRect(), h=$("hint").getBoundingClientRect();
-    t.style.left=(c.right+h.left)/2+"px"; t.style.top=(c.top+c.bottom)/2+"px";
+    t.style.left=(c.right+h.left)/2+"px";
+    // 「つぎへ」が .foot の中央に出ているあいだは、その上に出す（6.5）。
+    // 中心を .foot の上端から TOAST_FOOT_GAP＋トーストの高さの半分だけ上へ。
+    // 点数のカード #win も出ている（点数表示オン）ときは、その位置がカードと重なるので、
+    // 読み出し行（#sub の下端）と式（#exprwrap の上端）のあいだの空きの中央に出す
+    const above=!$("wnext").classList.contains("hide");
+    const card=above&&!$("win").classList.contains("hide");
+    if(card){const sb=$("sub").getBoundingClientRect(), ew=$("exprwrap").getBoundingClientRect();
+      t.style.top=(sb.bottom+ew.top)/2+"px"}
+    else t.style.top=(above?c.top-TOAST_FOOT_GAP-t.offsetHeight/2:(c.top+c.bottom)/2)+"px";
   }else{t.style.left="";t.style.top=""}
   t.classList.toggle("atfoot",foot);
   t.classList.add("show");
@@ -19664,6 +19708,10 @@ const DEV_DEFAULT={dur:300,shrink:80,catch:40,swapCatch:40,hotDur:200,zoneMin:ZO
   // 実機で確かめてこの値に決めた。ボタンの振動（vibBtn）は 6.4 で新設。
   // スライダーは今後の調整用に残す（開発者パネルの節「振動の長さ」）
   vibPick:16,vibHover:10,vibDrop:24,vibBtn:15,
+  // 正解したときの「10」の倍率（6.5。実機で 1.8 に決めた。1.6 で試した後に変更）。
+  // .eq の文字（normal 52px / compact 36px）に transform:scale で掛ける。
+  // 上限は .top に届かない範囲（DESIGN.md 3-1-6）
+  tenScale:1.8,
   devTop:0};         // 開発者パネルを上側に付けるか（0=下 / 1=上）。開き直しても維持する
 const VIB_KEYS=["vibPick","vibHover","vibDrop","vibBtn"];   // 開発者パネルの振動の節
 /* 開発者パネルの節の開閉（4.1）。devVars は「調整した値」だけを持たせたいので別のキーにする
@@ -19672,7 +19720,7 @@ const VIB_KEYS=["vibPick","vibHover","vibDrop","vibBtn"];   // 開発者パネ�
    スライダーを動かして実測値を読む、が 1 往復なので同時に開いているほうが速い。
    画面高 690px（clientHeight 275px）での実測は basic のみ 636px・basic+meas 964px で、
    どちらにしてもスクロールは要る ―― 片方を閉じても届く画面数が変わるだけなので開けておく */
-const DEV_SEC_DEFAULT={basic:1,vib:1,meas:1,copy:0};
+const DEV_SEC_DEFAULT={basic:1,vib:1,ten:1,meas:1,copy:0};
 
 function applyDevVars(){
   const dv=G.devVars||DEV_DEFAULT;
@@ -19681,6 +19729,7 @@ function applyDevVars(){
   // shrink / delta / zoneMin は CSS では使わない。layoutZones() が使う
   DEV_CATCH=dv.catch;
   DEV_SWAP=dv.swapCatch;
+  document.documentElement.style.setProperty("--tenScale",dv.tenScale);
   applyDevPos();
 }
 /* パネルを上側／下側のどちらに付けるか。式を見たいときは下、トレイを見たいときは上 */
@@ -19715,6 +19764,7 @@ function renderDevPanel(){
   $("dv-delta").value=dv.delta; $("dv-delta-v").textContent=dv.delta+"px";
   $("dv-zoneMin").value=dv.zoneMin; $("dv-zoneMin-v").textContent=dv.zoneMin+"px";
   for(const k of VIB_KEYS){$("dv-"+k).value=dv[k]; $("dv-"+k+"-v").textContent=dv[k]+"ms"}
+  $("dv-tenScale").value=dv.tenScale; $("dv-tenScale-v").textContent=dv.tenScale+"倍";
   applySecs();
   renderDevMeasured();
 }
@@ -19803,8 +19853,10 @@ function renderDevMeasured(){
       +`ZONE_MIN=${z.zoneMin}px は${z.zoneMin<=z.noShrinkMax+.01?"これ以下＝圧縮なし":"これを超過＝圧縮中"}`;
   $("dv-scale-v").textContent=
     curExprScale>=1?"100%（縮小なし）":Math.round(curExprScale*100)+"%";
-  const eqPx=matchMedia("(max-height:700px)").matches?42:60;
-  $("dv-eqsize-v").textContent=eqPx.toFixed(1)+"px";
+  // .eq の文字（normal 52px / compact 36px。CSS の値）× 倍率（6.5）
+  const eqBase=matchMedia("(max-height:700px)").matches?36:52;
+  const tenS=(G.devVars||DEV_DEFAULT).tenScale;
+  $("dv-eqsize-v").textContent=`${(eqBase*tenS).toFixed(1)}px（${eqBase}px × ${tenS}）`;
   // 数字の描画幅（両モード）と箱幅との差。Canvas 計測なので画面の表示状態に依らない。
   // TOKEN_METRICS を触ったときにこの片側余白がマイナスになっていないか見張る用
   const mN=TOKEN_METRICS.normal, mC=TOKEN_METRICS.compact;
@@ -19836,6 +19888,7 @@ devVarInput("dur","ms"); devVarInput("shrink","%"); devVarInput("catch","px");
 devVarInput("hotDur","ms"); devVarInput("delta","px"); devVarInput("zoneMin","px");
 devVarInput("swapCatch","px");
 for(const k of VIB_KEYS)devVarInput(k,"ms");
+devVarInput("tenScale","倍");
 $("dv-reset").onclick=()=>{G.devVars={...DEV_DEFAULT};applyDevVars();save();renderDevPanel()};
 /* 設定シートからの導線。開いたあとは元の画面（問題画面）へ戻し、パネルを重ねた
    状態にする。閉じるのはパネル内のボタン */
@@ -20010,6 +20063,11 @@ function hintSymbols(sol){
 const HINT_ROW={btnW:32,btnH:48,gap:2,icW:20};
 /* 共有ボタンと .top の下端との間隔（6.4）。.top の gap 9px に近い値。CSS へは --shareGap で渡す */
 const SHARE_BTN={gap:8};
+/* 「つぎへ」#wnext の幅（6.5）。.foot の中央の隙間（normal 290 / compact 236px）に置く。
+   両側に normal 65 / compact 38px の余白が残り、当たりが #clear / #hint と重ならない。
+   高さは隣の丸ボタンと同じ --btnW（normal 52 / compact 44px）。6.5 の途中で開発者パネルの
+   スライダー（devVars.nextW）で試したが、置き場所を .foot に移したので固定値にした */
+const NEXT_BTN={w:160};
 /* ヒント行の操作は SVG（4.9）。文字の ‹ › × は書体の中で上下位置が揃わず、
    ‹ › が × より 1.13px 低く、3 つとも本文より約 5〜6px 高い位置に描かれていた。
    設定画面の .chev が「文字の › は書体で位置・太さが揃わないのでインライン SVG に」
