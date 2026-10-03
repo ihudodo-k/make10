@@ -260,6 +260,9 @@ def run(ui):
              [ui.visible("win"), ui.visible("wnext")], [True, True])
     ui.check("オン・報酬: 読み出し行と式のあいだに出て、カード・「つぎへ」・式・読み出し行に重ならない",
              toast_in_gap(ui), [True, True, True])
+    ui.check("オン・報酬: カードは星の無い点数・詳細行の 2 行（6.6）",
+             ui.ev(r"[/^\d+ 点$/.test($('wpts').innerText.trim()),/[★☆]/.test($('win').innerText)]"),
+             [True, False])
     time.sleep(max(0, 4.1 - (time.time() - t0)))
     stub(ui, "ok")
     ui.click("pcodev")
@@ -272,7 +275,7 @@ def run(ui):
     time.sleep(0.4)
     ui.check("オン: 次の問題へ進むと .foot の中央に戻る",
              [ui.visible("win"), toast_at_foot(ui)], [False, True])
-    # ── 難易度の言葉（区切りは星と同じ）─────────────────────
+    # ── 難易度の言葉（区切りは演出の段階と同じ）─────────────────────
     # 6.5 で英語に（6.4 は かんたん／ふつう／むずかしい）。区切り TIER_AT は変えていない
     for d, word in [(3, "EASY"), (8, "EASY"), (9, "NORMAL"), (13, "NORMAL"),
                     (14, "HARD"), (16, "HARD")]:
@@ -282,20 +285,20 @@ def run(ui):
                  ui.ev("/難易度/.test($('pcode').textContent)"), False)
     ui.ev("go('home'); start('chal')")
     ui.check("挑戦は「HARD」", ui.text("pdiff"), "HARD")
-    # 正解の段階と同じ区切り。d=13 は「正解」、d=14 は「お見事」（すぐ解くので苦戦の加算なし）。
-    # 6.5 から「正解」「お見事」は読み出し行（#sub）だけに出る
+    # 正解の段階（光り方と振動）と同じ区切り（すぐ解くので苦戦の加算なし）。
+    # 読み出し行（#sub）は 6.6 から段階によらず「正解」（6.5 では d=14 が「お見事」）
     for d, word, big in [(8, "EASY", "正解"), (13, "NORMAL", "正解"),
-                         (14, "HARD", "お見事")]:
+                         (14, "HARD", "正解")]:
         ui.ev("go('home'); start('free'); loadPuzzle(ALL().find(p=>p.d===%d))" % d)
         ui.solve()
         ui.check("難易度 %d の読み出し行" % d, ui.text("sub"), big)
-        ui.check("難易度 %d の星の段階は言葉の段階と同じ" % d,
+        ui.check("難易度 %d の演出の段階は言葉の段階と同じ" % d,
                  ui.ev("lastWin.lv"), {"EASY": 1, "NORMAL": 2, "HARD": 3}[word])
-    # 区切りを 1 か所で持っていること: TIER_AT を動かすと言葉と星が一緒に動く
+    # 区切りを 1 か所で持っていること: TIER_AT を動かすと言葉と演出の段階が一緒に動く
     ui.ev("TIER_AT[0]=10; go('home'); start('free'); loadPuzzle(ALL().find(p=>p.d===9))")
     ui.check("区切りを 10 にずらすと d=9 は「EASY」", ui.text("pdiff"), "EASY")
     ui.solve()
-    ui.check("同じく星の段階も 1 に下がる", ui.ev("lastWin.lv"), 1)
+    ui.check("同じく演出の段階も 1 に下がる", ui.ev("lastWin.lv"), 1)
     ui.ev("TIER_AT[0]=9")
     # ── #pcode が 1 行に収まる（6.5。各段階でいちばん幅を取る組み合わせを全問から探す）──
     ui.ev("go('home'); start('chal')")

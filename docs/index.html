@@ -292,7 +292,7 @@ button:active{background:var(--edge)}
    開発者パネル「正解の表示」のスライダーは調整用に残す）を applyDevVars() が --tenScale として流す。
    6.4 までは font-size を 52px → 60px に変えていたが、それだと .eq の行の高さが変わり
    下の .sub が押される。transform はレイアウトを起こさないので読み出し行の中身も
-   上下の要素も動かない。原点は下端の中央 ―― 下の .sub（正解／お見事）には近づかず、
+   上下の要素も動かない。原点は下端の中央 ―― 下の .sub（正解）には近づかず、
    上の .top に向かってだけ伸びる（上限は DESIGN.md 3-1-6）。
    大きさに動きは付けない ―― 正解した瞬間から拡大後の大きさで出し、崩したときも
    一瞬で戻す（transform の遷移は書かない。色の遷移は .eq の color .18s のまま）*/
@@ -449,19 +449,18 @@ button:active{background:var(--edge)}
 /* ── 正解したときの表示（6.5）。式・トレイ・.foot を 1px も動かさない ──
    6.4 までは正解カードを .field と .bottom のあいだに流し込んでいたので、カードが出ると
    .readout と .field が縮んで式が上へ動いていた（normal で 103px）。
-   「正解」「お見事」は読み出し行（#sub）の 1 か所だけに出し、ここには出さない。
+   「正解」は読み出し行（#sub）の 1 か所だけに出し、ここには出さない（6.6 で「お見事」は廃止）。
    「つぎへ」#wnext は .foot の中央（#clear と #hint の間）。点数表示のオン・オフで
      場所が変わらない。.foot は justify-content:space-between で両端の丸ボタンが同じ幅
      なので、真ん中の要素は中央に来る。高さは隣と同じ --btnW（.foot の高さは変わらない）、
      幅は JS の NEXT_BTN.w を applyMetrics() が --nextW として流す（寸法の定数は JS に 1 か所）。
-   点数表示オンのときだけ、点数・星・詳細行のカード #win を .overlays の中（.foot の上）に
+   点数表示オンのときだけ、点数・詳細行のカード #win（星は 6.6 で廃止）を .overlays の中（.foot の上）に
      重ねて出す。カードに「つぎへ」は入れない */
 #win{display:flex;flex-direction:column;gap:2px;
  background:var(--panel);border:1px solid color-mix(in srgb,var(--paper) 30%,transparent);
  border-radius:15px;padding:8px 14px}
 #win .meta{font-size:11.5px;color:var(--slate);line-height:1.35}
 #win .pts{font-size:14px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
-#win .pts .st{color:color-mix(in srgb,var(--paper) 75%,transparent);margin-left:6px}
 /* 「つぎへ」の色は演算子の箱と同じ（6.5）。地と枠はトレイのパネル .tray（--trayBg /
    1px --edge）、文字は記号 .chip（--paper）、押したときは .chip:active と同じく地を変えず
    薄くするだけ（button:active の --edge の地を打ち消す）。値は書かず変数だけを使う */
@@ -735,7 +734,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="6.5";
+const APP_VERSION="6.6";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -18723,9 +18722,9 @@ const HINT_START=100, HINT_K=1000;
 /* 挑戦モードの報酬（5.0）。この問題数をクリアするごとにヒントを 1 個配る。
    上限は無い。配るのはクリア時だけで、出題（chalShown）では配らない */
 const CHAL_REWARD_N=2;
-/* 難易度の 3 段階（6.4）。正解時の段階（winLevel()。読み出し行の「お見事」と光り方）と問題画面の言葉（#pdiff）が
+/* 難易度の 3 段階（6.4）。正解時の段階（winLevel()。光り方と振動の強さ）と問題画面の言葉（#pdiff）が
    同じ区切りを使う。区切りを書くのはここ 1 箇所だけ ―― 片方だけ直してずれないように。
-   TIER_AT は [星 2 の下限, 星 3 の下限]（d>=9 / d>=14）。
+   TIER_AT は [段階 2 の下限, 段階 3 の下限]（d>=9 / d>=14）。
    FREE9（フリープレイの出題の重み）の 9 は別の用途なのでここには寄せない */
 const TIER_AT=[9,14];
 const tierOf=d=>d>=TIER_AT[1]?3:d>=TIER_AT[0]?2:1;
@@ -18826,8 +18825,9 @@ let MODE="course", cur=null, t0=0, moves=0, hintMax=0, lastScore=null;
    立っている間は win() を予約し直さないので、崩して組み直しても記録は動かない。
    lastWin = 正解カードに出す内容。画面を離れて戻ったときはこれを出し直すだけで
    スコアを計算し直さない（GAME-SPEC 3・8）。
-   hitLv = 正解した瞬間に決めた演出の段階（1〜3）。読み出し行の「正解／お見事」（6.5）と
-   win() の光り方の両方がこれを読む。win() は 260ms 後に走るので、そこで測り直すと
+   hitLv = 正解した瞬間に決めた演出の段階（1〜3）。win() の光り方と振動の強さがこれを読む
+   （6.5 では読み出し行の「正解／お見事」も読んでいたが、6.6 で常に「正解」にした）。
+   win() は 260ms 後に走るので、そこで測り直すと
    苦戦の加算（60 秒）の境目で 2 つが食い違いうる ―― 1 度だけ決めて共有する */
 let solved=false, lastWin=null, hitLv=0;
 /* 演出の段階。難易度の 3 段階（tierOf）に、60 秒以上かかったら 1 段足す（3 で頭打ち）*/
@@ -19121,8 +19121,10 @@ function render(closing){
       if(ten&&okC){eq.classList.add("hit");
         // 記録は最初の 1 回だけ。崩して組み直しても win() を予約し直さない
         if(!solved){solved=true;hitLv=winLevel();setTimeout(()=>win(),260)}
-        // 「正解」「お見事」を出すのはここだけ（6.5。正解カードには出さない）
-        su.className="sub ok";su.textContent=hitLv>=3?"お見事":"正解"}
+        // 「正解」を出すのはここだけ（6.5。正解カードには出さない）。6.6 で
+        // 「お見事」をやめ、段階によらず「正解」の 1 語にした（表示を減らすため）。
+        // 段階 hitLv 自体は win() の光り方と振動の強さが使うので残す
+        su.className="sub ok";su.textContent="正解"}
       else if(ten){eq.classList.add("miss");su.className="sub warn";
         su.textContent=`${GLYPH[c.op]} は使えません`}
       else{eq.classList.add("miss");su.className="sub";
@@ -19350,6 +19352,8 @@ function calcScore(){
   const k=(1+fast+neat)*SC.hint[Math.min(hintMax,3)];
   return {sec,waste,k,pts:Math.round(cur.d*SC.base*k),stars:k>=1.5?3:k>=1.15?2:1};
 }
+/* 星の文字列。6.6 で正解カード・統計の履歴とも星を出さなくなり、今は呼ぶ所が無い。
+   記録（G.hist の st）は残しているので、表示を戻すときのために関数も残す */
 const stars=n=>"★".repeat(n)+"☆".repeat(3-n);
 const totalScore=()=>Object.values(G.best).reduce((a,b)=>a+b,0);
 
@@ -19417,12 +19421,13 @@ function chalReward(){
 function showWinCard(){
   if(!solved||!lastWin)return;
   const w=lastWin;
-  // 「正解」「お見事」はカードに出さない（読み出し行の #sub だけ。6.5）。
-  // 「つぎへ」は .foot の中央に必ず出す。点数と星・詳細行のカードは点数表示オンのときだけ
+  // 「正解」はカードに出さない（読み出し行の #sub だけ。6.5）。
+  // 「つぎへ」は .foot の中央に必ず出す。点数・詳細行のカードは点数表示オンのときだけ。
+  // 星（sc.stars）はカードに出さない（6.6。表示を減らすため）。記録 G.hist の st は残す
   $("wnext").classList.remove("hide");
   $("win").classList.toggle("hide",!G.scoreOn);
   if(G.scoreOn){
-    $("wpts").innerHTML=`${w.sc.pts} 点<span class="st">${stars(w.sc.stars)}</span>`;
+    $("wpts").textContent=`${w.sc.pts} 点`;
     $("wmeta").textContent=`難易度 ${w.d}　${w.secs}秒`
       + (w.hint?`　ヒント${w.hint}`:"") + (w.beat?"　自己ベスト更新":"");
   }else{
@@ -19631,10 +19636,9 @@ function renderHome(){
   $("cpct").textContent=pct.toFixed(1);
   $("cbar").style.width=Math.max(pct,.6)+"%";
   $("cnum").textContent=`${doneC} / ${COURSE.length} 問`;
-  // スコア表示がオフ（既定）のときはホームにも点数を出さない（正解カード等と揃える）
-  $("ctot").textContent=G.scoreOn
-    ? `累計 ${G.cleared} 問 ・ ${totalScore().toLocaleString()} 点`
-    : `累計 ${G.cleared} 問`;
+  // 累計点数はホームに出さない（6.6。表示を減らすため）。点数の記録 G.best と
+  // totalScore() はそのまま残すので、表示を戻すときはここに足すだけでよい
+  $("ctot").textContent=`累計 ${G.cleared} 問`;
   const lk=G.cleared<CHAL_AT;
   $("m-chal").classList.toggle("lock",lk);
   const chalLeft=CHAL.length-G.chalDone.length;
@@ -19956,7 +19960,8 @@ $("menu").onclick=()=>go("settings");   // プレイ画面の三本線。既存�
 function renderStats(){
   const st=G.stats, avg=st.n?Math.round(st.sec/st.n):0;
   const rows=[
-    ...(G.scoreOn?[["累計スコア",totalScore().toLocaleString()+" 点"]]:[]),
+    // 累計スコアは出さない（6.6。正解カード・ホームと揃えて表示を減らす）。
+    // 記録 G.best と totalScore() は残すので、表示を戻すときはここに 1 行足すだけでよい
     ["解いた問題（ユニーク）",G.seen.length+" 問"],
     ["本編の進み",`${Math.min(G.ci,COURSE.length)} / ${COURSE.length} 問`],
     ["平均でかかった時間",avg?avg+" 秒":"—"],["いちばん速かった",st.best?st.best+" 秒":"—"],
@@ -19973,8 +19978,9 @@ function renderStats(){
     const b=document.createElement("button");
     b.className="toggle";   // 行の間隔は .group の区切り線が持つ（margin は付けない）
     const cs=p&&p.rc!=="N"?` ${GLYPH[OPOF[p.rc[0]]]}禁止`:"";
-    b.innerHTML=`<span>${p?p.id:"????"}${cs}　<span style="opacity:.6">難易度 ${it.d}・${it.s}秒</span></span>`
-      +(G.scoreOn?`<span style="font-weight:700">${it.p!==undefined?it.p+" 点":""}<span style="color:var(--paper);margin-left:6px">${it.st?stars(it.st):""}</span></span>`:"");
+    // 右端の点数と星は出さない（6.6。点数を出すのは点数表示オンの正解カードだけ）。
+    // 記録 it.p / it.st は残すので、表示を戻すときはここに足し直すだけでよい
+    b.innerHTML=`<span>${p?p.id:"????"}${cs}　<span style="opacity:.6">難易度 ${it.d}・${it.s}秒</span></span>`;
     b.onclick=()=>{const q=byCode(it.c); if(!q)return;
       MODE="share";loadPuzzle(q);go("play")};
     hh.appendChild(b);

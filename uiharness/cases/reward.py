@@ -5,9 +5,11 @@
 移した。「正解して『つぎへ』を押さずホームへ戻る」でも、記録・報酬・クリア数が
 そろって確定することを見る。二重計上しないことも同じだけ大事。
 
-6.5 からは正解したときの表示もここで見る（win_display）―― 「正解」「お見事」は
-読み出し行の 1 か所だけ、正解カードは点数表示オフで「つぎへ」だけ・オンで点数と星、
+6.5 からは正解したときの表示もここで見る（win_display）―― 「正解」は
+読み出し行の 1 か所だけ、正解カードは点数表示オフで「つぎへ」だけ・オンで点数と詳細行、
 カードが出ても式・トレイ・.foot が動かないこと、正解の 10 の倍率。
+6.6 で星と「お見事」の表示をやめた。読み出し行は段階によらず「正解」、カードに星は
+無い。段階（winLevel()）は光り方と振動の強さに残っているので、その違いもここで見る（win_levels）。
 """
 
 import time
@@ -24,7 +26,7 @@ def run(ui):
 
     # ── 挑戦: 正解 → 「つぎへ」を押さずホーム ───────────────
     ui.ev("start('chal')")
-    ui.check("挑戦の 1 問目を解く（挑戦は全部 d>=17 なので「お見事」）", ui.solve(), "10|お見事")
+    ui.check("挑戦の 1 問目を解く（d>=17 でも「正解」。6.6）", ui.solve(), "10|正解")
     s = ui.ev(SNAP)
     ui.check("1問目: クリア数が増える", s["chalDone"], 1)
     ui.check("1問目: seen が増える", s["seen"], 1)
@@ -39,7 +41,7 @@ def run(ui):
              "1 / %d" % ui.ev("CHAL.length"))
 
     ui.ev("start('chal')")
-    ui.check("挑戦の 2 問目を解く", ui.solve(1.4), "10|お見事")
+    ui.check("挑戦の 2 問目を解く", ui.solve(1.4), "10|正解")
     s = ui.ev(SNAP)
     ui.check("2問目: クリア数 2", s["chalDone"], 2)
     ui.check("2問目: 2 問ごとの報酬でヒントが 1 個増える", s["hint"], 11)
@@ -50,7 +52,7 @@ def run(ui):
 
     # ── 「つぎへ」を押しても二重に数えない ────────────────
     ui.ev("start('chal')")
-    ui.check("挑戦の 3 問目を解く", ui.solve(), "10|お見事")
+    ui.check("挑戦の 3 問目を解く", ui.solve(), "10|正解")
     before = ui.ev(SNAP)
     ui.check("3問目: 正解した時点でクリア数 3", before["chalDone"], 3)
     ui.click("wnext")
@@ -105,7 +107,7 @@ def run(ui):
     ui.ev("$('codein').value=%r" % code)
     ui.click("codego")
     ui.check("共有コードで開く", ui.ev("SCR"), "play")
-    ui.check("共有の問題を解く", ui.solve(), "10|お見事")   # CHAL[7] は d>=17
+    ui.check("共有の問題を解く", ui.solve(), "10|正解")   # CHAL[7] は d>=17
     s = ui.ev(SNAP)
     ui.check("共有: クリアとして数える（5.4 の変更）", s["cleared"], 1)
     ui.check("共有: 挑戦のクリア数には入らない", s["chalDone"], 0)
@@ -138,6 +140,9 @@ WORDS = ("(()=>{const w=document.createTreeWalker($('play'),NodeFilter.SHOW_TEXT
          "while(n=w.nextNode()){const p=n.parentElement;if(p.closest('#pcode')||!p.getClientRects().length)"
          "continue;a+=(n.data.match(/正解/g)||[]).length;b+=(n.data.match(/お見事/g)||[]).length}"
          "return [a,b]})()")
+# 点数表示オンの正解カードの高さ（点数 1 行・詳細行 1 行・枠と余白）。6.6 で
+# 星を消す前後で実測して同じだった値（normal / compact とも同じ）
+CARD_H = 55.5
 # 見えている正解カードの中の要素（display:none でなく大きさがあるもの）の id
 CARD_VISIBLE = ("[...$('win').querySelectorAll('[id]')].filter(e=>e.offsetHeight>0).map(e=>e.id)")
 
@@ -273,7 +278,7 @@ def win_display(ui):
     ui.check("崩すと「正解」も消える", ui.ev(WORDS), [0, 0])
     ui.check("崩しても「つぎへ」は出たまま（記録は確定済み）", ui.visible("wnext"), True)
 
-    # ── 点数表示オン: 点数・星・詳細行と「つぎへ」。「正解」はカードに出さない ──
+    # ── 点数表示オン: 点数・詳細行と「つぎへ」（星は 6.6 で廃止）。「正解」はカードに出さない ──
     ui.open({"ci": 0, "cleared": 0, "hintStock": 10, "scoreOn": True})
     ui.ev("start('course')")
     before = ui.ev(RECTS)
@@ -287,11 +292,16 @@ def win_display(ui):
     ui.check("オン: 「つぎへ」はオフと同じ .foot の中央",
              ui.ev(NEXT_IN_FOOT), [True, True, True, 160, True, True])
     ui.check("オン: 当たりが #clear / #hint と重ならない", ui.ev(NEXT_HITS), [True, True, True, True, True])
-    ui.check("オン: 点数と星", ui.ev(r"/^\d+ 点[★☆]{3}$/.test($('wpts').innerText.trim())"), True)
+    ui.check("オン: 点数だけ（星は出さない）", ui.ev(r"/^\d+ 点$/.test($('wpts').innerText.trim())"), True)
+    ui.check("オン: カードのどこにも星（★☆）が無い", ui.ev("/[★☆]/.test($('win').innerText)"), False)
+    ui.check("オン: 星を消しても記録の星の段階（G.hist の st）は残る",
+             ui.ev("[1,2,3].includes(G.hist[0].st)"), True)
     ui.check("オン: 詳細行", ui.ev(r"/^難易度 3　\d+秒$/.test($('wmeta').innerText)"), True)
     ui.check("オン: カードに「正解」「お見事」は無い",
              ui.ev("/正解|お見事/.test($('win').innerText)"), False)
     ui.check("オン: カードには枠がある", ui.ev("getComputedStyle($('win')).borderTopWidth"), "1px")
+    ui.check("オン: カードの高さ（点数・詳細行の 2 行。星を消しても同じ）",
+             ui.ev("Math.round($('win').getBoundingClientRect().height*10)/10"), CARD_H)
     ui.check("オン: 式・トレイ・.foot・読み出し行が解く前と同じ位置", ui.ev(RECTS), before)
     ui.check("オン: カードは式（#exprwrap）より下・.foot より上",
              ui.ev("(()=>{const w=$('win').getBoundingClientRect(),"
@@ -310,16 +320,41 @@ def win_display(ui):
     ui.check("切り替えても「つぎへ」の場所は同じ", ui.ev(NEXT_IN_FOOT), [True, True, True, 160, True, True])
     ui.check("戻っても「正解」は 1 つだけ", ui.ev(WORDS), [1, 0])
 
-    # ── 「お見事」も読み出し行の 1 か所だけ ─────────────────
+    win_levels(ui)
+
+
+# 正解した瞬間の段階ごとの演出（GAME-SPEC 8 章）。win() が終わったあとに読む:
+# [段階 lastWin.lv, 光った演算子・階乗の数 == 演算子・階乗の数, 背景のフラッシュ, 振動の型]
+LEVEL_FX = ("(()=>{const t=document.querySelectorAll('#expr .tok.op,#expr .tok.fac').length,"
+            "s=document.querySelectorAll('#expr .tok.shine').length;"
+            "return [lastWin.lv,t>0&&s===t,s,$('bg').classList.contains('flash'),__VIB.slice()]})()")
+
+
+def win_levels(ui):
+    """段階（winLevel()）は表示から外したが、光り方と振動の強さには残っている（6.6）。
+    読み出し行はどの段階でも「正解」。段階の区切りは仕様の値（d>=9 / d>=14、60 秒で 1 段）を直に書く"""
     ui.open({"ci": 0, "cleared": 0, "hintStock": 10, "scoreOn": True})
-    ui.ev("start('free'); loadPuzzle(ALL().find(p=>p.d===14))")
-    ui.check("d=14 を解くと「お見事」", ui.solve(), "10|お見事")
-    ui.check("「お見事」は画面に 1 つだけ・「正解」は無い", ui.ev(WORDS), [0, 1])
-    ui.check("カードに「正解」「お見事」は無い（点数表示オン）",
-             ui.ev("/正解|お見事/.test($('win').innerText)"), False)
-    ui.ev("go('home'); start('free'); loadPuzzle(ALL().find(p=>p.d===13))")
-    ui.check("d=13 は「正解」", ui.solve(), "10|正解")
-    # 苦戦（60 秒以上）で 1 段上がると「お見事」。読み出し行と光り方（lastWin.lv）が同じ段階
-    ui.ev("go('home'); start('free'); loadPuzzle(ALL().find(p=>p.d===13)); t0-=61000")
-    ui.check("d=13 でも 60 秒かかると「お見事」", ui.solve(), "10|お見事")
-    ui.check("そのとき光り方の段階も 3", ui.ev("lastWin.lv"), 3)
+    ui.ev("window.__VIB=[];Object.defineProperty(navigator,'vibrate',"
+          "{value:x=>{__VIB.push(x);return true},configurable:true})")
+    # 記号を置く・ボタンの振動は数えない（解いた直後に空にし、win() の 1 回だけを見る）
+    cases = [
+        ("d=8（段階 1）", "loadPuzzle(ALL().find(p=>p.d===8))", 1, False, False, [16]),
+        ("d=13（段階 2）", "loadPuzzle(ALL().find(p=>p.d===13))", 2, True, False, [[16, 36, 18]]),
+        ("d=14（段階 3）", "loadPuzzle(ALL().find(p=>p.d===14))", 3, True, True, [[18, 40, 26]]),
+        ("d=13 で 60 秒（段階 3）", "loadPuzzle(ALL().find(p=>p.d===13)); t0-=61000",
+         3, True, True, [[18, 40, 26]]),
+    ]
+    for label, load, lv, shine, flash, vib in cases:
+        ui.ev("go('home'); start('free'); " + load)
+        got = ui.ev("(()=>{const r=__solve();__VIB.length=0;return r})()")
+        ui.check(label + ": 読み出し行は「正解」", got, "10|正解")
+        time.sleep(1.0)
+        ui.check(label + ": 「正解」は画面に 1 つだけ・「お見事」は無い", ui.ev(WORDS), [1, 0])
+        ui.check(label + ": カードに星も「正解」「お見事」も無い",
+                 ui.ev("/[★☆]|正解|お見事/.test($('win').innerText)"), False)
+        fx = ui.ev(LEVEL_FX)
+        ui.check(label + ": 段階", fx[0], lv)
+        ui.check(label + ": 演算子・階乗が光る（段階 2 以上）",
+                 fx[1] if shine else fx[2], True if shine else 0)
+        ui.check(label + ": 背景のフラッシュ（段階 3）", fx[3], flash)
+        ui.check(label + ": 振動の型", fx[4], vib)
