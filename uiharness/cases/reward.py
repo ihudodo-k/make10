@@ -134,10 +134,11 @@ def run(ui):
 # 式・トレイ・.foot・読み出し行の位置と大きさ（6.5: 正解カードが出ても動かない）
 RECTS = ("['.readout','#exprwrap','.foot','#tray'].map(q=>{const b=document.querySelector(q)"
          ".getBoundingClientRect();return [b.left,b.top,b.width,b.height].join()}).join('|')")
-# 問題画面（#play）に見えている「正解」「お見事」の数。#pcode の「正解 N通り」は正解数の
-# 表示なので除く。見えている文字ノードだけを数える（display:none の親を持つものは除く）
+# 問題画面（#play）に見えている「正解」「お見事」の数。6.7 までは #pcode の「正解 N通り」を
+# 除いていたが、6.8 でその表示をやめたので除かずに数える（戻れば数が増えて赤になる）。
+# 見えている文字ノードだけを数える（display:none の親を持つものは除く）
 WORDS = ("(()=>{const w=document.createTreeWalker($('play'),NodeFilter.SHOW_TEXT);let a=0,b=0,n;"
-         "while(n=w.nextNode()){const p=n.parentElement;if(p.closest('#pcode')||!p.getClientRects().length)"
+         "while(n=w.nextNode()){const p=n.parentElement;if(!p.getClientRects().length)"
          "continue;a+=(n.data.match(/正解/g)||[]).length;b+=(n.data.match(/お見事/g)||[]).length}"
          "return [a,b]})()")
 # 点数表示オンの正解カードの高さ（点数 1 行・詳細行 1 行・枠と余白）。6.6 で

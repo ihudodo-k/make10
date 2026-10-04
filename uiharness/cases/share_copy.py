@@ -65,6 +65,10 @@ def toast_in_gap(ui):
                  "!['#eq','#sub','#expr','#win','#wnext'].some(q=>ov(r(q)))]})()")
 
 
+# 見えている文字（innerText）に「正解 N 通り」の形が無い（6.8 で表示をやめた）
+NO_COUNT = "!/通り/.test(document.body.innerText)"
+
+
 def stub(ui, mode):
     ui.ev(STUB % ('"%s"' % mode))
 
@@ -78,7 +82,19 @@ def run(ui):
     ui.check("コードが #pcodev に出る", ui.text("pcodev"), code)
     ui.check("コード欄の並び",
              ui.text("pcode"),
-             "コード %s　%s　正解 %d通り" % (code, ui.text("pdiff"), ui.ev("cur.n")))
+             "コード %s　%s" % (code, ui.text("pdiff")))
+    # 「正解 N 通り」は 6.8 で表示をやめた（データの n は残す。GAME-SPEC 5-3）
+    ui.check("#pcount（正解 N 通り）は DOM に無い", ui.ev("!!document.getElementById('pcount')"), False)
+    ui.check("通り数のデータ（cur.n）は残っている", ui.ev("Number.isInteger(cur.n)&&cur.n>0"), True)
+    ui.check("「正解 N 通り」が問題画面のどこにも出ない", ui.ev(NO_COUNT), True)
+    # #pcode が短くなっても .top・式・トレイ・.foot は動かない: 6.7 までの最長の
+    # 「　正解 104通り」を一時的に足した状態と、今の状態で位置と大きさが同じ
+    ui.check("#pcode に旧表示（正解 N 通り）を足しても外しても .top・式・トレイ・.foot が同じ",
+             ui.ev("(()=>{const m=()=>['#play .top','#exprwrap','#tray','.foot']"
+                   ".map(q=>{const b=document.querySelector(q).getBoundingClientRect();"
+                   "return [b.left,b.top,b.width,b.height].join()}).join('|');"
+                   "const a=m(),s=document.createElement('span');s.textContent='　正解 104通り';"
+                   "$('pcode').appendChild(s);const b=m();s.remove();return a===b&&m()===a})()"), True)
     ui.check("コードに点線の下線（タップできる印）",
              ui.ev("getComputedStyle($('pcodev')).textDecorationStyle"), "dotted")
     ui.check("コードの当たりは文字より上下に広い（上 10px を押してもコード）",
@@ -118,10 +134,13 @@ def run(ui):
              ui.ev("(()=>{const b=$('share').getBoundingClientRect();"
                    "const e=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2);"
                    "return !!e&&e.closest('#share')!==null})()"), True)
-    # 文字は .info がいちばん長い場合（挑戦 N/N で N＝CHAL.length・HARD）でも見る
+    # 文字は .info がいちばん長い場合（挑戦 N/N で N＝CHAL.length・HARD・#pcode の幅が最大の
+    # コード）でも見る。6.7 までは「正解 N 通り」の N が最大の問題で代用していた
     for label, js in [("本編 1 問目", ""),
                       ("いちばん長い .info",
-                       "loadPuzzle(CHAL.reduce((a,b)=>b.n>a.n?b:a));"
+                       "loadPuzzle(CHAL.map(p=>{$('pcodev').textContent=codeOf(p);"
+                       "const r=document.createRange();r.selectNodeContents($('pcode'));"
+                       "return [r.getBoundingClientRect().width,p]}).reduce((a,b)=>b[0]>a[0]?b:a)[1]);"
                        "$('pmode').textContent='挑戦 '+CHAL.length+'/'+CHAL.length;")]:
         if js:
             ui.ev(js)
@@ -300,13 +319,21 @@ def run(ui):
     ui.solve()
     ui.check("同じく演出の段階も 1 に下がる", ui.ev("lastWin.lv"), 1)
     ui.ev("TIER_AT[0]=9")
+    # 「正解 N 通り」は正解したあとも、ほかの画面にも出ない（6.8）
+    ui.ev("go('home'); start('free')")
+    ui.solve()
+    ui.check("正解したあとも「正解 N 通り」が出ない", ui.ev(NO_COUNT), True)
+    for scr in ["home", "settings", "help", "stats"]:
+        ui.ev("go(%r)" % scr)
+        ui.check("%s の画面にも「正解 N 通り」が出ない" % scr,
+                 [ui.ev("SCR"), ui.ev(NO_COUNT)], [scr, True])
     # ── #pcode が 1 行に収まる（6.5。各段階でいちばん幅を取る組み合わせを全問から探す）──
     ui.ev("go('home'); start('chal')")
     top_h = ui.ev("document.querySelector('#play .top').getBoundingClientRect().height")
     longest = ui.ev(
         "(()=>{const pc=$('pcode');pc.style.whiteSpace='nowrap';const best={};"
         "for(const p of ALL()){const k=TIER_NAME[tierOf(p.d)];"
-        "$('pcodev').textContent=codeOf(p);$('pdiff').textContent=k;$('pcount').textContent=p.n;"
+        "$('pcodev').textContent=codeOf(p);$('pdiff').textContent=k;"
         "const r=document.createRange();r.selectNodeContents(pc);const w=r.getBoundingClientRect().width;"
         "if(!best[k]||w>best[k].w)best[k]={w,code:codeOf(p)}}"
         "pc.style.whiteSpace='';return Object.entries(best).map(([k,v])=>[k,v.code])})()")

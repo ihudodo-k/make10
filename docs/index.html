@@ -547,11 +547,12 @@ button:active{background:var(--edge)}
           <path d="M9.9 20v-5.1h4.2V20"/>
         </svg>
       </button>
-      <!-- #pcode の中は 3 つに分けてある（6.4）。コード（#pcodev）だけをタップでコピーにするため。
+      <!-- #pcode の中は 2 つに分けてある（6.4 で 3 つ、6.8 で「正解 N 通り」#pcount を外して 2 つ）。
+           コード（#pcodev）だけをタップでコピーにするため。
            render() は各 span の文字だけを書き換える（要素を作り直さない）-->
       <div class="info"><b id="pmode"></b><br><span class="code" id="pcode">コード <span id="pcodev"
         class="copyable" role="button" tabindex="0" title="コードをコピー" aria-label="コードをコピー"></span>　<span
-        id="pdiff"></span>　正解 <span id="pcount"></span>通り</span></div>
+        id="pdiff"></span></span></div>
       <!-- 中身は ICON_MENU を流し込む（#gear と同じ絵柄を 1 つの定義から出す）-->
       <button id="menu" class="plainbtn" title="メニュー" aria-label="メニュー"></button>
       <!-- 共有（6.4）。三本線 #menu の真下に position:absolute で重ねる（式・トレイ・.foot は
@@ -734,7 +735,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="6.7";
+const APP_VERSION="6.8";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -19074,7 +19075,9 @@ function render(closing){
   const p=cur, c=conOf(p);
   $("pcodev").textContent=codeOf(p);
   $("pdiff").textContent=TIER_NAME[tierOf(p.d)];   // 数値ではなく 3 段階の言葉（6.4）
-  $("pcount").textContent=p.n;
+  /* 「正解 N 通り」は 6.8 で表示をやめた（数字を潰す式も数えていて 6.7 で大きく膨らんだため）。
+     通り数 p.n（BLOB の n＝survivor_count）はデータに残しているので、表示を戻すときは
+     #pcode に span を足してここで p.n を書くだけ。p.n を読んでいたのはここだけだった */
   const r=$("rule");
   if(!c){r.className="rule none";r.textContent="使える演算子に制限はありません"}
   else{r.className="rule";r.innerHTML=`<b>${GLYPH[c.op]}</b> は使えません`}

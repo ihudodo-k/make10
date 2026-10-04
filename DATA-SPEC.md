@@ -1436,7 +1436,9 @@ BLOB（8-B）と `(id, 制約)` の集合・`difficulty`・`solution`・`solutio
 - `rc` … 制約。`N` は制約なし。`A0` `S0` `M0` `D0` `P0` `F0` は
   それぞれ `+` `-` `*` `/` `^` `!` の使用禁止（記号の対応は index.html の `OPOF`）
 - `d` … 難易度（`puzzles.min_score`）
-- `n` … その制約下で正解となる式の総数（**`puzzles.survivor_count`**）
+- `n` … その制約下で正解となる式の総数（**`puzzles.survivor_count`**）。6.7 までは問題画面の
+  「正解 N 通り」に出していたが、6.8 で表示をやめた（GAME-SPEC 5-3）。**列は残す**
+  （BLOB の形を変えない・表示を戻せるように）。今のゲームはこの値を読んでいない
 - `nf` / `np` … 階乗／累乗を使わないと解けない問題か（0 か 1。第6-D章）
 - `sol` … 解答例（`example_solution_id` の `display`）
 
