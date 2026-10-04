@@ -56,6 +56,12 @@ class ParserInvalidCases(unittest.TestCase):
         with self.assertRaises(m.VerifyError):
             m.parse_eval("2 ^ 5!")          # 指数 120 > MAX_EXPONENT_ABS
 
+    def test_exponent_out_of_range_other_bases(self):
+        # 6.7 で上限を外したのは底が -1 / 0 / 1 のときだけ。底 -2 も 24 まで
+        with self.assertRaises(m.VerifyError):
+            m.parse_eval("( 0 - 2 ) ^ 5!")
+        self.assertEqual(m.parse_eval("2 ^ 4!"), Fraction(2 ** 24))   # 24 は有効
+
     def test_factorial_arg_out_of_range(self):
         with self.assertRaises(m.VerifyError):
             m.parse_eval("( 6 + 7 )!")      # 13 > MAX_FACTORIAL_ARG
@@ -70,6 +76,106 @@ class ParserInvalidCases(unittest.TestCase):
     def test_parenthesised_repeated_factorial_ok(self):
         # 括弧で挟めば階乗の 2 回適用は有効。( 3! )! = 6! = 720
         self.assertEqual(m.parse_eval("( 3! )!"), Fraction(720))
+
+
+class UnitBasePow(unittest.TestCase):
+    """6.7: 底が -1 / 0 / 1 の累乗には指数の上限 (24) を掛けない。
+
+    値は -1 / 0 / 1 にしかならないので安全装置が要らない。8959 は
+    `( 8 - 9 ) ^ 5! + 9` = (-1)^120 + 9 でしか解けず、今まで封じられていた。
+    生成側 (_apply_bin / _pow) と検証側 (_plain_eval) の両方で確かめる。
+    """
+
+    def ap(self, a, b):
+        return m._apply_bin("^", Fraction(a), Fraction(b))
+
+    def test_minus_one_even_and_odd(self):
+        self.assertEqual(self.ap(-1, 120), (Fraction(1), 120))
+        self.assertEqual(self.ap(-1, 5041), (Fraction(-1), 5041))
+        self.assertEqual(self.ap(-1, 24), (Fraction(1), 24))      # 上限内も同じ値
+        self.assertEqual(m.parse_eval("( 8 - 9 ) ^ 5! + 9"), Fraction(10))
+        self.assertEqual(m.parse_eval("( 1 - 2 ) ^ ( 5! + 1 )"), Fraction(-1))
+
+    def test_minus_one_negative_exponent(self):
+        self.assertEqual(self.ap(-1, -121)[0], Fraction(-1))
+        self.assertEqual(self.ap(-1, -120)[0], Fraction(1))
+        self.assertEqual(m.parse_eval("( 1 - 2 ) ^ ( 0 - 5! )"), Fraction(1))
+
+    def test_one_any_integer_exponent(self):
+        self.assertEqual(self.ap(1, 479001600)[0], Fraction(1))
+        self.assertEqual(self.ap(1, -720)[0], Fraction(1))
+        self.assertEqual(m.parse_eval("1 ^ ( 0 - ( 3! )! )"), Fraction(1))
+
+    def test_zero_positive_and_negative_exponent(self):
+        self.assertEqual(self.ap(0, 720)[0], Fraction(0))
+        self.assertEqual(self.ap(0, 0)[0], Fraction(1))           # 0 ^ 0 = 1 は不変
+        self.assertIs(self.ap(0, -720)[0], m.INVALID)             # 0 の負冪は無効
+        self.assertIs(self.ap(0, -1)[0], m.INVALID)
+        with self.assertRaises(m.VerifyError):
+            m.parse_eval("0 ^ ( 0 - 5! )")
+
+    def test_non_integer_exponent_still_invalid(self):
+        self.assertIs(self.ap(1, Fraction(1, 2))[0], m.INVALID)
+        self.assertIs(self.ap(-1, Fraction(1, 2))[0], m.INVALID)
+        with self.assertRaises(m.VerifyError):
+            m.parse_eval("1 ^ ( 1 / 2 )")
+
+    def test_other_bases_keep_the_limit(self):
+        self.assertIs(self.ap(2, 25)[0], m.INVALID)
+        self.assertIs(self.ap(-2, 25)[0], m.INVALID)
+        self.assertIs(self.ap(Fraction(1, 2), 25)[0], m.INVALID)  # 分数の底も
+        self.assertEqual(self.ap(2, 24), (Fraction(2 ** 24), 24))
+        self.assertEqual(self.ap(2, -24)[0], Fraction(1, 2 ** 24))
+
+    def test_huge_exponent_is_instant_and_capped(self):
+        # `9 + 0! ^ 9! ^ 4!` の指数は 9!^24 (134 桁)。偶奇だけで決まるので一瞬で終わり、
+        # max_exp_abs は SQLite の INTEGER に入るよう頭打ちになる
+        import time
+        t = time.perf_counter()
+        tree = m.parse_tree("9 + 0! ^ 9! ^ 4!")
+        val, _mfa, mea, _uf = m.build_evaluator([9, 0, 9, 4])(tree)
+        self.assertEqual(val, Fraction(10))
+        self.assertEqual(mea, m.MAX_EXP_ABS_STORED)
+        self.assertEqual(m.MAX_EXP_ABS_STORED, 1 << 62)
+        self.assertEqual(self.ap(-1, 10 ** 133)[1], 1 << 62)
+        self.assertEqual(m.parse_eval("9 + 0! ^ 9! ^ 4!"), Fraction(10))
+        self.assertLess(time.perf_counter() - t, 1.0)
+
+    def test_plain_eval_agrees(self):
+        # 検証 6 / 15 / 16 の独立実装も同じ規則で、範囲外は例外にする
+        for s, digits, want in (
+                ("( 8 - 9 ) ^ 5! + 9", [8, 9, 5, 9], Fraction(10)),
+                ("( 0 - 0! ) ^ 7! + 9", [0, 0, 7, 9], Fraction(10)),
+                ("9 + 1 ^ ( 6 / 1 )!", [9, 1, 6, 1], Fraction(10)),
+                ("( 0 ^ 6! )! * ( 8 + 2 )", [0, 6, 8, 2], Fraction(10)),
+                ("9 + 0! ^ 9! ^ 4!", [9, 0, 9, 4], Fraction(10))):
+            self.assertEqual(m._plain_eval(m.parse_tree(s), digits), want, s)
+        with self.assertRaises(ValueError):
+            m._plain_eval(m.parse_tree("2 ^ 5! + 1"), [2, 5, 1])
+        with self.assertRaises(ValueError):
+            m._plain_eval(m.parse_tree("0 ^ ( 0 - 5! )"), [0, 0, 5])
+
+    def test_generate_finds_8959(self):
+        # 8959 の解はこれ 1 本だけで、6.6 までは 0 本だった。点数は 15
+        # (- 1 + ^ 5 + ! 4 + + 1 + 括弧 1 + 負の底・偶数乗 3)
+        fd, db = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        os.unlink(db)
+        try:
+            m.generate_into(db, 8959, 8959)
+            m.run_annotate(db)
+            import sqlite3
+            conn = sqlite3.connect(db)
+            rows = conn.execute("SELECT display, score, max_exp_abs FROM solutions "
+                                "WHERE problem_id='8959'").fetchall()
+            conn.close()
+            self.assertEqual(rows, [("( 8 - 9 ) ^ 5! + 9", 15, 120)])
+        finally:
+            for suffix in ("", "-wal", "-shm"):
+                try:
+                    os.unlink(db + suffix)
+                except OSError:
+                    pass
 
 
 class RenderRules(unittest.TestCase):
@@ -278,6 +384,36 @@ class GenerateThenVerify(unittest.TestCase):
         # 実運用の generate 実行時にログで確認する (このテストは速度優先で小範囲)。
         stats = m.generate_into(self.db, 0, 19)
         self.assertEqual(stats["duplicate_display_hits"], 0)
+
+    def test_parallel_matches_single_including_ids(self):
+        # 6.7: --jobs で列挙を並列にしても、solutions は id まで 1 本と同じ。
+        # 既存の行がある DB (id が途中から振られる) で、分割を細かくして確かめる
+        import sqlite3
+        fd, other = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        os.unlink(other)
+        saved = m.GENERATE_CHUNK
+        try:
+            for db in (self.db, other):
+                m.generate_into(db, 0, 9)           # 先に入っている行
+            m.generate_into(self.db, 3, 12)
+            m.GENERATE_CHUNK = 3                    # 4 つに分かれる
+            m.generate_into(other, 3, 12, jobs=2)
+            q = "SELECT * FROM solutions ORDER BY id"
+            a = sqlite3.connect(self.db)
+            b = sqlite3.connect(other)
+            ra, rb = a.execute(q).fetchall(), b.execute(q).fetchall()
+            a.close()
+            b.close()
+            self.assertGreater(len(ra), 0)
+            self.assertEqual(ra, rb)
+        finally:
+            m.GENERATE_CHUNK = saved
+            for suffix in ("", "-wal", "-shm"):
+                try:
+                    os.unlink(other + suffix)
+                except OSError:
+                    pass
 
     def test_known_solution_present(self):
         m.generate_into(self.db, 4, 4)
@@ -1236,7 +1372,7 @@ class Curate64OnlySolution(unittest.TestCase):
     (`x * 1` / `x + 0` など) に掛かって全滅していたが、**5.2 で 6-2 を廃止した**ので
     6 解が生き残り、救済が起きなくなった (test_0050_no_longer_needs_rescue)。
     救済の経路は、今の 6-1 で実際に全滅する 0075 (数字 0,0,7,5) で確かめる。
-    0075 の 6 解はどれも `0 * 7` で 7 を潰すので全部 6-1 に掛かる。
+    0075 の 6 解（6.7 から 8 解）はどれも 7 を潰すので全部 6-1 に掛かる。
     """
 
     def setUp(self):
@@ -1256,8 +1392,11 @@ class Curate64OnlySolution(unittest.TestCase):
         import sqlite3
         m.run_annotate(self.db)
         s = m.run_curate(self.db)
-        self.assertEqual(s["total"], 6)
-        self.assertEqual(s["n_6_1"], 5)        # 6 解のうち救済した 1 解以外
+        # 6.7 で 6 → 8 解。底が 0 / 1 の累乗に指数の上限を掛けなくなり、
+        # `( 0! + 0! ^ 7! ) * 5`（1^5040）と `( 0! + ( 0 ^ 7! )! ) * 5`（0^5040）が
+        # 増えた。どちらも 7 を潰すので 6-1。救済される 1 解は変わらない
+        self.assertEqual(s["total"], 8)
+        self.assertEqual(s["n_6_1"], 7)        # 8 解のうち救済した 1 解以外
         self.assertEqual(s["n_6_4"], 1)
         self.assertEqual(s["kept"], 1)
 

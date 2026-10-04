@@ -4,6 +4,7 @@
 現時点で実装済みのサブコマンド:
 
     python make10.py generate   # 全探索して solutions に投入
+                                # (--jobs N で列挙を並列に。結果は 1 本と同じ。6.7)
     python make10.py annotate   # shape から特徴量と score (第7章) を再計算して埋める
     python make10.py curate     # 冗長解にフラグを立て、代表解を選出 (第6章)
     python make10.py constrain  # 演算子の使用回数による制約付き問題を生成 (第6-B章)
@@ -44,7 +45,11 @@ EXPORT_RULES = {"pow_assoc": "right", "zero_pow_zero": 1,
                 "double_factorial": False}
 
 MAX_FACTORIAL_ARG = 12      # 階乗の引数の上限
-MAX_EXPONENT_ABS = 24       # 指数の絶対値の上限
+MAX_EXPONENT_ABS = 24       # 指数の絶対値の上限 (底が -1 / 0 / 1 のときは掛けない。6.7)
+# solutions.max_exp_abs に入れる値の頭打ち (6.7)。底が -1 / 0 / 1 の累乗は指数が
+# 134 桁にもなり (`9 + 0! ^ 9! ^ 4!`)、SQLite の INTEGER (8 バイト) に入らない。
+# この列はどこからも読まれていない (DATA-SPEC 4 章)
+MAX_EXP_ABS_STORED = 1 << 62
 MAX_FAC_CHAIN = 2           # 1 つのノードに積み重ねてよい "!" の最大数
 
 # スコアの重み (第7章・暫定版)。ここだけ変えて annotate を流し直せば反映される。
@@ -137,7 +142,12 @@ def gen_structures(lo: int = 0, hi: int = 4):
 # 評価 (generate 側)。必ず Fraction。無効なら INVALID を返す
 # ---------------------------------------------------------------------------
 def _apply_bin(op, a, b):
-    """二項演算を適用し (値, 使った指数の絶対値) を返す。無効なら (INVALID, 0)。"""
+    """二項演算を適用し (値, 使った指数の絶対値) を返す。無効なら (INVALID, 0)。
+
+    指数の絶対値は MAX_EXP_ABS_STORED (2^62) で頭打ちにして返す (6.7。
+    solutions.max_exp_abs に入れるため。DATA-SPEC 4 章)。
+    累乗の上限 MAX_EXPONENT_ABS は底が -1 / 0 / 1 以外にだけ掛ける (6.7。DATA-SPEC 2 章)。
+    """
     if op == "+":
         return a + b, 0
     if op == "-":
@@ -153,14 +163,21 @@ def _apply_bin(op, a, b):
         return INVALID, 0
     e = b.numerator
     ae = -e if e < 0 else e
-    if ae > MAX_EXPONENT_ABS:
-        return INVALID, 0
+    # 底が -1 / 0 / 1 なら値は -1 / 0 / 1 にしかならないので、指数の上限を掛けない
+    # (6.7)。値は偶奇だけで決める ―― 指数は 134 桁にもなる (`0! ^ 9! ^ 4!`)
+    stored = ae if ae < MAX_EXP_ABS_STORED else MAX_EXP_ABS_STORED
+    if a == 1:
+        return Fraction(1), stored
+    if a == -1:
+        return (Fraction(1) if e % 2 == 0 else Fraction(-1)), stored
     if a == 0:
         if e == 0:
             return Fraction(1), 0     # 0 ^ 0 = 1
         if e < 0:
             return INVALID, 0         # 0 の負冪は無効
-        return Fraction(0), ae
+        return Fraction(0), stored
+    if ae > MAX_EXPONENT_ABS:         # 安全装置は残りの底にだけ掛ける
+        return INVALID, 0
     return a ** e, ae
 
 
@@ -740,62 +757,107 @@ def ensure_schema(conn):
     conn.commit()
 
 
-def generate_into(db_path, min_id=0, max_id=9999, progress=None):
+def _generate_problem(pid, structures):
+    """1 問ぶんの solutions の行を作る。(rows, duplicate_display_hits) を返す。
+
+    DB には触らない ―― 並列の generate (_generate_chunk) と 1 本の generate の
+    両方がこれを呼び、書き込みは generate_into の 1 か所だけが行う。
+    """
+    digits = [int(ch) for ch in pid]
+    ev = build_evaluator(digits)
+
+    seen_shapes = set()
+    seen_displays = set()
+    rows = []
+    dup = 0
+    for st in structures:
+        val, mfa, mea, uf = ev(st)
+        if val is INVALID or val != TARGET:
+            continue
+        shape = render_shape(st)
+        if shape in seen_shapes:      # 同一 ProblemID 内で shape 重複は 1 件
+            continue
+        seen_shapes.add(shape)
+
+        disp = render_display(st, digits)
+        # _render は忠実出力 (同順位の右の子には必ず括弧を付ける。^ の
+        # 右だけ右結合なので例外) なので、異なる木が同じ display 文字列に
+        # なることは原理的に無いはず。ここでヒットしたら _render の
+        # 不備を疑う。安全網として残し、件数だけ数えて報告する。
+        if disp in seen_displays:
+            dup += 1
+            continue
+        seen_displays.add(disp)
+
+        c = count_ops(st)
+        rows.append((
+            pid, shape, disp,
+            c["+"], c["-"], c["*"], c["/"], c["^"], c["fac"],
+            disp.count("("), mfa, mea, 1 if uf else 0,
+        ))
+    return rows, dup
+
+
+def _generate_chunk(lo, hi):
+    """並列の generate のワーカー。lo..hi の各問題の (pid, rows, dup) を順に返す。
+
+    別プロセスで動くので gen_structures はプロセスごとに 1 回作る (_struct_cache)。
+    """
+    structures = gen_structures(0, 4)
+    return [("%04d" % i,) + _generate_problem("%04d" % i, structures)
+            for i in range(lo, hi + 1)]
+
+
+GENERATE_CHUNK = 125    # 並列の generate で 1 つのワーカーに渡す問題の数
+
+
+def generate_into(db_path, min_id=0, max_id=9999, progress=None, jobs=1):
     """0000..9999 の各問題について式の木を全列挙し、10 になるものを保存する。
 
     冪等: 対象 problem_id の既存行を削除してから挿入する。
     冗長解もこの段階では全部保存する (curate で後から除外する)。
+
+    jobs > 1 なら問題の範囲を GENERATE_CHUNK 問ずつに分けて別プロセスで列挙し、
+    **書き込みはこのプロセスが 1 本で、problem_id の昇順に** 行う (6.7)。
+    1 問ごとに「DELETE → INSERT → commit」を 1 本のときと同じ順で行うので、
+    SQLite が振る id (max(rowid) + 1) も 1 本のときと同じになる ―― id は 6-3 の
+    理由文や解答例の選び方 (_example_key の最後の鍵) に効くため、ずれてはいけない。
+    一致の確かめ方は DATA-SPEC 5 章。
 
     戻り値: {"rows": 挿入した行数の合計, "duplicate_display_hits": 異常件数}
     """
     conn = _connect(db_path)
     try:
         ensure_schema(conn)
-        structures = gen_structures(0, 4)
-
         total_rows = 0
         duplicate_display_hits = 0
 
-        for pid_int in range(min_id, max_id + 1):
-            pid = "%04d" % pid_int
-            digits = [int(ch) for ch in pid]
-            ev = build_evaluator(digits)
-
-            seen_shapes = set()
-            seen_displays = set()
-            rows = []
-            for st in structures:
-                val, mfa, mea, uf = ev(st)
-                if val is INVALID or val != TARGET:
-                    continue
-                shape = render_shape(st)
-                if shape in seen_shapes:      # 同一 ProblemID 内で shape 重複は 1 件
-                    continue
-                seen_shapes.add(shape)
-
-                disp = render_display(st, digits)
-                # _render は忠実出力 (同順位の右の子には必ず括弧を付ける。^ の
-                # 右だけ右結合なので例外) なので、異なる木が同じ display 文字列に
-                # なることは原理的に無いはず。ここでヒットしたら _render の
-                # 不備を疑う。安全網として残し、件数だけ数えて報告する。
-                if disp in seen_displays:
-                    duplicate_display_hits += 1
-                    continue
-                seen_displays.add(disp)
-
-                c = count_ops(st)
-                rows.append((
-                    pid, shape, disp,
-                    c["+"], c["-"], c["*"], c["/"], c["^"], c["fac"],
-                    disp.count("("), mfa, mea, 1 if uf else 0,
-                ))
-
+        def write(pid, rows):
             conn.execute("DELETE FROM solutions WHERE problem_id = ?", (pid,))
             conn.executemany(_INSERT, rows)
             conn.commit()
-            total_rows += len(rows)
             if progress:
                 progress(pid, len(rows))
+
+        if jobs <= 1:
+            structures = gen_structures(0, 4)
+            for pid_int in range(min_id, max_id + 1):
+                pid = "%04d" % pid_int
+                rows, dup = _generate_problem(pid, structures)
+                write(pid, rows)
+                total_rows += len(rows)
+                duplicate_display_hits += dup
+        else:
+            from concurrent.futures import ProcessPoolExecutor
+            chunks = [(lo, min(lo + GENERATE_CHUNK - 1, max_id))
+                      for lo in range(min_id, max_id + 1, GENERATE_CHUNK)]
+            with ProcessPoolExecutor(max_workers=jobs) as ex:
+                # map は投入順に結果を返すので、書き込みは problem_id の昇順になる
+                for chunk in ex.map(_generate_chunk, *zip(*chunks)):
+                    for pid, rows, dup in chunk:
+                        write(pid, rows)
+                        total_rows += len(rows)
+                        duplicate_display_hits += dup
 
         return {"rows": total_rows, "duplicate_display_hits": duplicate_display_hits}
     finally:
@@ -855,14 +917,19 @@ def _pow(a, b):
     if b.denominator != 1:
         raise VerifyError("non-integer exponent")
     e = b.numerator
-    if abs(e) > MAX_EXPONENT_ABS:
-        raise VerifyError("exponent out of range")
+    # 6.7: 底が -1 / 0 / 1 には指数の上限を掛けない。値は偶奇で決める
+    if a == 1:
+        return Fraction(1)
+    if a == -1:
+        return Fraction(1) if e % 2 == 0 else Fraction(-1)
     if a == 0:
         if e == 0:
             return Fraction(1)
         if e < 0:
             raise VerifyError("zero to a negative power")
         return Fraction(0)
+    if abs(e) > MAX_EXPONENT_ABS:
+        raise VerifyError("exponent out of range")
     return a ** e
 
 
@@ -2400,6 +2467,17 @@ def _plain_eval(node, digits):
         raise ValueError("指数が整数でない: %s" % b)
     if a == 0 and b == 0:
         return Fraction(1)
+    # 6.7: 底が整数で絶対値 1 以下なら値は偶奇 (と 0) だけで決まる。_apply_bin
+    # とは書き方を変え、絶対値と符号で分ける (1/2 のような分数の底は対象外)
+    if a.denominator == 1 and abs(a) <= 1:
+        if a == 0:
+            if b < 0:
+                raise ValueError("0 の負の冪")
+            return Fraction(0)
+        odd = b.numerator % 2 == 1
+        return Fraction(-1) if (a < 0 and odd) else Fraction(1)
+    if abs(b.numerator) > MAX_EXPONENT_ABS:
+        raise ValueError("指数が上限を超える: %s" % b)
     return a ** b.numerator
 
 
@@ -2997,9 +3075,12 @@ def run_blob(db_path, html_path, write=True, progress=None):
 def _cmd_generate(args):
     if not (0 <= args.min_id <= args.max_id <= 9999):
         raise SystemExit("invalid --min-id / --max-id range")
+    if args.jobs < 1:
+        raise SystemExit("--jobs must be >= 1")
     stats = generate_into(
         args.db, args.min_id, args.max_id,
-        progress=lambda pid, n: print("%s: %d solution(s)" % (pid, n)),
+        progress=lambda pid, n: print("%s: %d solution(s)" % (pid, n), flush=True),
+        jobs=args.jobs,
     )
     print("generate: %d row(s) total" % stats["rows"])
     print("  duplicate display hits (anomaly, should be 0): %d"
@@ -3088,6 +3169,8 @@ def main(argv=None):
     g.add_argument("--db", default=DB_DEFAULT)
     g.add_argument("--min-id", type=int, default=0, help="0..9999")
     g.add_argument("--max-id", type=int, default=9999, help="0..9999")
+    g.add_argument("--jobs", type=int, default=1,
+                   help="並列に列挙するプロセス数 (書き込みは 1 本。結果は 1 本と同じ)")
     g.set_defaults(func=_cmd_generate)
 
     a = sub.add_parser("annotate", help="recompute feature columns from shape")

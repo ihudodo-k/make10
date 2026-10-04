@@ -3,8 +3,8 @@
 solutions.display を「GAME-SPEC 2-2 の標準文法」で読み直し、
 そこから uses_fraction / score を再計算して DB の値と突き合わせる。
 生成側のコードは一切参照しない。10a/a（5.6）・階乗の比の 3 規則（5.7）・
-負の累乗（5.8）・`0!` の扱い（5.9・6.0）・式の階乗（6.1）もここで独立に
-書き直してある
+負の累乗（5.8）・`0!` の扱い（5.9・6.0）・式の階乗（6.1）・底が -1 / 0 / 1 の
+累乗に指数の上限を掛けないこと（6.7）もここで独立に書き直してある
 （DATA-SPEC 7 章）。
 """
 import sqlite3
@@ -20,7 +20,7 @@ BONUS = {"paren": 1, "fraction": 5, "zero_factorial": 3, "nested_factorial": 8,
 DIGIT_LEAF = tuple(("num", d) for d in range(10))
 POW_BONUS = {"A": "neg_exp", "B": "neg_base_even", "C": "neg_base_odd"}
 MAX_FAC = 12
-MAX_EXP = 24
+MAX_EXP = 24   # 底が -1 / 0 / 1 以外の指数の絶対値の上限（6.7）
 
 
 class Bad(Exception):
@@ -151,14 +151,21 @@ def ev(n, seen):
             return INVALID
         r = a / b
     else:  # ^
-        if b.denominator != 1 or abs(b.numerator) > MAX_EXP:
+        if b.denominator != 1:
             return INVALID
-        if a == 0 and b.numerator < 0:
+        e = b.numerator
+        if a == 0 and e < 0:
             return INVALID
-        if a == 0 and b.numerator == 0:
+        if a == 0 and e == 0:
             r = Fraction(1)
+        elif a in (-1, 0, 1):
+            # 6.7: 値は -1 / 0 / 1 にしかならないので指数の上限は掛けない。
+            # 偶奇で決める（指数は 134 桁にもなる）
+            r = a if e % 2 == 1 else abs(a)
+        elif abs(e) > MAX_EXP:
+            return INVALID
         else:
-            r = a ** b.numerator
+            r = a ** e
     seen.append(r)
     return r
 

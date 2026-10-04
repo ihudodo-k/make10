@@ -118,7 +118,7 @@ def run(ui):
              ui.ev("(()=>{const b=$('share').getBoundingClientRect();"
                    "const e=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2);"
                    "return !!e&&e.closest('#share')!==null})()"), True)
-    # 文字は .info がいちばん長い場合（挑戦 1474/1474・HARD）でも見る
+    # 文字は .info がいちばん長い場合（挑戦 N/N で N＝CHAL.length・HARD）でも見る
     for label, js in [("本編 1 問目", ""),
                       ("いちばん長い .info",
                        "loadPuzzle(CHAL.reduce((a,b)=>b.n>a.n?b:a));"
