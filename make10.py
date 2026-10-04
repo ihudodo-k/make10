@@ -2441,6 +2441,155 @@ def _blob_text(sections):
     return "\n".join(out)
 
 
+# --- 全解答の区分 §SHAPE / §SOLS (6.9。DATA-SPEC 8-B) --------------------------
+# ヒント 3 で送る「解答の一覧」を、ゲームが BLOB だけから組めるように持たせる。
+#   一覧 = puzzle ごとに、制約を満たす is_redundant = 0 の解を 6-3 のキー
+#          (curate() の groups のキー) で分け、各グループから _example_key 最小の
+#          1 本を取り、_example_key の昇順に並べたもの。1 本目は必ず解答例 (sol)
+#   §SHAPE = 形の表。1 行 1 形。番号は行の位置 (0 始まり)
+#   §SOLS  = 4 桁ごとに 1 行。`4桁,番号,番号,…`。その 4 桁のどれかの puzzle で
+#            一覧に入る解の和集合を _example_key の昇順に並べたもの。番号は 36 進
+# ゲーム側は 4 桁の行を「制約で絞る → 同じグループは先頭だけ残す」で一覧にする。
+# _example_key は解だけで決まる (puzzle に依らない) ので、和集合を 1 本の順に
+# 並べておけば、どの puzzle の一覧もその部分列として取り出せる。
+BLOB_SOL_SECTIONS = ("SHAPE", "SOLS")
+_B36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+
+def _b36(n):
+    out = ""
+    while True:
+        out = _B36[n % 36] + out
+        n //= 36
+        if n == 0:
+            return out
+
+
+def _shape_compact(shape):
+    """`n0 ! n1 ! + n2 ! + ! n3 +` -> `0!1!+2!+!3+`。スロットは 0〜3 の 1 文字、
+    演算子も 1 文字なので、空白と n を抜いても元に戻せる。"""
+    return "".join(t[1:] if t[0] == "n" else t for t in shape.split())
+
+
+def _blob_sols(conn):
+    """全解答の区分を組む。{"shapes": [詰めた形…], "rows": [(4 桁, [番号…])…]}。"""
+    puz = collections.defaultdict(list)
+    for pid, rules in conn.execute(
+            "SELECT problem_id, rules FROM puzzles ORDER BY problem_id, rules, id"):
+        puz[pid].append(rules)
+    by_pid = collections.defaultdict(list)
+    for r in conn.execute(_CONSTRAIN_SOL_COLS):
+        if r[1] in puz and not r[_IDX_REDUNDANT]:
+            by_pid[r[1]].append(r)
+    union = {}
+    for pid in sorted(puz):
+        cand = by_pid[pid]
+        decor = {r[0]: _decorations_of(r) for r in cand}
+        key = {r[0]: _example_key(r, decor) for r in cand}
+        picked = {}
+        for rules in puz[pid]:
+            col = None
+            if rules:
+                op = rules[0]                    # rules[0] が演算子記号
+                cmp, n = _parse_kind(rules[1:])
+                if " | " in rules or cmp != "=" or n != 0:
+                    raise ValueError("blob: 未対応の制約: %r" % (rules,))
+                col = _OP_COL[op]
+            best = {}
+            for r in cand:
+                if col is not None and r[col] != 0:
+                    continue
+                g = (r[8] + r[5], r[9] + r[6], r[10], r[11],
+                     _paren_structure(r[14]))          # curate() と同じキー
+                if g not in best or key[r[0]] < key[best[g][0]]:
+                    best[g] = r
+            if not best:
+                raise RuntimeError("blob: 一覧が空の puzzle (%s %r)" % (pid, rules))
+            for r in best.values():
+                picked[r[0]] = r
+        union[pid] = sorted(picked.values(), key=lambda r: key[r[0]])
+    freq = collections.Counter(
+        _shape_compact(r[14]) for rows in union.values() for r in rows)
+    shapes = [cs for cs, _n in sorted(freq.items(), key=lambda t: (-t[1], t[0]))]
+    num = {cs: i for i, cs in enumerate(shapes)}
+    rows = [(pid, [num[_shape_compact(r[14])] for r in union[pid]])
+            for pid in sorted(union)]
+    return {"shapes": shapes, "rows": rows}
+
+
+def _blob_sols_text(sols):
+    out = ["§SHAPE"]
+    out.extend(sols["shapes"])
+    out.append("§SOLS")
+    out.extend("%s,%s" % (pid, ",".join(_b36(n) for n in nums))
+               for pid, nums in sols["rows"])
+    return "\n".join(out)
+
+
+def _blob_full_text(sections, sols):
+    """BLOB の本文。今の 3 区分 (1 文字も変えない) の後ろに全解答の区分を足す。"""
+    return _blob_text(sections) + "\n" + _blob_sols_text(sols)
+
+
+# --- 検証 17〜21 用の独立実装 (生成側の _render / _example_key /
+#     _paren_structure / _shape_compact / _b36 は呼ばない) ------------------------
+def _plain_shape_display(cs, pid):
+    """詰めた形と 4 桁から表示文字列を組む。_render とは別の書き方 (木を作らず、
+    (文字列, 結合の強さ) を積んでいく)。強さ: + - = 1 / * / = 2 / ^ = 3 / ! = 4 / 数字 = 5"""
+    st = []
+    for ch in cs:
+        if ch in "0123":
+            st.append((pid[int(ch)], 5))
+        elif ch == "!":
+            t, lv = st.pop()
+            st.append(((t if lv == 5 else "( " + t + " )") + "!", 4))
+        else:
+            rt, rl = st.pop()
+            lt, ll = st.pop()
+            lv = {"+": 1, "-": 1, "*": 2, "/": 2, "^": 3}[ch]
+            if ll < lv or (ch == "^" and ll == lv):
+                lt = "( " + lt + " )"
+            if rl < lv or (ch != "^" and rl == lv):
+                rt = "( " + rt + " )"
+            st.append((lt + " " + ch + " " + rt, lv))
+    if len(st) != 1:
+        raise ValueError("形が壊れている: %r" % (cs,))
+    return st[0][0]
+
+
+def _plain_sols_read(text):
+    """BLOB の本文から (3 区分の行 [(区分, id, rc, sol)], 形の表, {4 桁: [番号]}) を読む。"""
+    puz, shapes, sols, cur = [], [], {}, None
+    for ln in text.split("\n"):
+        if ln.startswith("§"):
+            cur = ln[1:]
+        elif cur == "SHAPE":
+            shapes.append(ln)
+        elif cur == "SOLS":
+            f = ln.split(",")
+            sols[f[0]] = [int(x, 36) for x in f[1:]]
+        else:
+            f = ln.split(",")
+            puz.append((cur, f[0], f[1], ",".join(f[6:])))
+    return puz, shapes, sols
+
+
+def _plain_sols_list(cs_list, ban):
+    """ゲーム側の手順: 制約で絞り、同じグループは先頭だけ残す。キーは詰めた形の
+    文字だけから出す (加減の数・乗除の数・^ の数・! の数・二項演算子を伏せた並び)。"""
+    seen, out = set(), []
+    for cs in cs_list:
+        if ban and ban in cs:
+            continue
+        g = (len(re.findall(r"[+-]", cs)), len(re.findall(r"[*/]", cs)),
+             cs.count("^"), cs.count("!"), re.sub(r"[-+*/^]", "@", cs))
+        if g in seen:
+            continue
+        seen.add(g)
+        out.append(cs)
+    return out
+
+
 def _plain_eval(node, digits):
     """検証用の素朴な評価器。build_evaluator とは別実装にしてある
     (同じ前提を共有した検証は検証にならない ―― CLAUDE.md)。"""
@@ -2726,7 +2875,10 @@ def _plain_score(tree, digits, cnt_paren):
 
 
 def _blob_verify(conn, sections, widen, text, rebuild=None):
-    """生成と同じ実行で回す 16 項目。[(項目名, 合否, 詳細)] を返す。
+    """生成と同じ実行で回す 21 項目。[(項目名, 合否, 詳細)] を返す。
+
+    text … BLOB の本文の全体 (3 区分 + 全解答の区分 §SHAPE / §SOLS)。
+    17〜21 (6.9) は text だけを読み直して見る。
 
     rebuild … 同じ DB からもう一度 BLOB を組んで本文を返す関数。
     検証 12 (再現性) だけが使う。省略すると 12 を「未実施」として落とす。
@@ -2854,13 +3006,15 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
                 % ([r["fmax"] for r in f], fnum, [r["peff"] for r in p])))
 
     # 8. テンプレートリテラルの安全性 (index.html の ` ` の中に入れるため)
-    lines = [ln for ln in text.split("\n") if not ln.startswith("§")]
+    # 7 フィールドなのは 3 区分の行だけ (全解答の区分は形式が違う。検証 20 が見る)
+    text3 = text.split("\n§" + BLOB_SOL_SECTIONS[0] + "\n")[0]
+    lines = [ln for ln in text3.split("\n") if not ln.startswith("§")]
     bad_fields = [ln for ln in lines if len(ln.split(",")) != 7]
     bad_chars = [ch for ch in ("`", "${", "\r", "\\") if ch in text]
     res.append(("8. 埋め込みの安全性", not bad_fields and not bad_chars,
                 "7 フィールドでない行 %d、危険な文字 %s、見出し %d 本"
                 % (len(bad_fields), bad_chars or "なし",
-                   len(text.split("\n")) - len(lines))))
+                   len(text3.split("\n")) - len(lines))))
 
     # 9. COURSE の難易度カーブ (100 問ブロックの平均が単調非減少)
     blocks = [course[k:k + COURSE_BLOCK]
@@ -3009,6 +3163,148 @@ def _blob_verify(conn, sections, widen, text, rebuild=None):
                 % (COURSE_FORM_UNTIL, COURSE_FORM_WINDOW, len(bad16),
                    "" if not bad16 else " 例 %s" % (bad16[:4],))))
 
+    # ---- 17〜21: 全解答の区分 (6.9。DATA-SPEC 8-B) --------------------------
+    # **生成と独立に**書く ―― _blob_sols / _example_key / _paren_structure /
+    # _render / count_decorations は呼ばない。BLOB の本文 (text) を読み直し、
+    # DB とは SQL で突き合わせる。
+    puz_t, shapes_t, sols_t = _plain_sols_read(text)
+    db_sol = collections.defaultdict(dict)       # pid -> {shape: 行}
+    for r in conn.execute(
+            "SELECT problem_id, shape, display, is_redundant, score, "
+            "uses_fraction, cnt_paren, cnt_div, cnt_sub, id, cnt_add, cnt_mul, "
+            "cnt_pow, cnt_fac FROM solutions"):
+        db_sol[r[0]][r[1]] = r
+
+    def _expand(cs):                              # 詰めた形 -> DB の shape の書き方
+        return " ".join("n" + ch if ch in "0123" else ch for ch in cs)
+
+    # 17. 形から組み立てた display が DB の display と文字列で一致する
+    n17, bad17, built = 0, [], {}
+    for pid, nums in sols_t.items():
+        for n in nums:
+            n17 += 1
+            try:
+                cs = shapes_t[n]
+                disp = _plain_shape_display(cs, pid)
+                row = db_sol[pid].get(_expand(cs))
+            except Exception:
+                disp, row = None, None
+            built[(pid, n)] = disp
+            if row is None or row[2] != disp:
+                bad17.append((pid, n))
+    res.append(("17. 形から式を組む", not bad17,
+                "全解答の区分の %d 解で、形と 4 桁から組んだ式と DB の display の"
+                "不一致 %d%s" % (n17, len(bad17),
+                                 ("  例 %s" % bad17[:3]) if bad17 else "")))
+
+    # 18. BLOB だけから組んだ一覧が、DB から組んだ一覧と本数・順とも一致する
+    #     DB 側: 制約を満たす is_redundant = 0 の解をグループに分け、各グループで
+    #     (score, 飾り, 分数, 括弧, 割り算, 引き算, 表示長, id) が最小の解を取って
+    #     その順に並べる。飾りは独立実装の _plain_decorations で数える
+    _RULE_COL = {"": None, "A0": 10, "S0": 8, "M0": 11, "D0": 7, "P0": 12, "F0": 13}
+    _RULE_OP = {"A0": "+", "S0": "-", "M0": "*", "D0": "/", "P0": "^", "F0": "!"}
+    order_cache = {}
+
+    def _db_rows(pid):
+        if pid not in order_cache:
+            digits = [int(ch) for ch in pid]
+            rows = []
+            for r in db_sol[pid].values():
+                if r[3]:
+                    continue
+                dec = _plain_decorations(parse_tree(r[2]), digits)
+                rows.append(((r[4], dec, r[5], r[6], r[7], r[8], len(r[2]), r[9]),
+                             (r[10] + r[8], r[11] + r[7], r[12], r[13],
+                              re.sub(r"[-+*/^]", "@", r[1])), r))
+            rows.sort(key=lambda t: t[0])
+            order_cache[pid] = rows
+        return order_cache[pid]
+
+    bad18, first18, n18, one18, max18 = [], [], 0, 0, 0
+    for _sec, pid, rc, sol in puz_t:
+        ban = _RULE_OP.get(rc)
+        try:
+            got = [_plain_shape_display(cs, pid) for cs in _plain_sols_list(
+                [shapes_t[n] for n in sols_t.get(pid, [])], ban)]
+        except Exception:
+            got = None
+        col = _RULE_COL["" if rc == "N" else rc]
+        seen, want = set(), []
+        for _k, grp, r in _db_rows(pid):         # 順に見て、グループの先頭だけ
+            if col is not None and r[col] != 0:
+                continue
+            if grp in seen:
+                continue
+            seen.add(grp)
+            want.append(r[2])
+        if got != want:
+            bad18.append((pid, rc))
+        if not got or got[0] != sol:
+            first18.append((pid, rc))
+        n18 += len(want)
+        one18 += 1 if len(want) == 1 else 0
+        max18 = max(max18, len(want))
+    res.append(("18. 一覧が DB と一致", not bad18 and not first18,
+                "%d puzzle の一覧 (計 %d 本・最大 %d 本・1 本だけ %d puzzle) で、"
+                "本数か順の不一致 %d、1 本目が sol でない %d%s"
+                % (len(puz_t), n18, max18, one18, len(bad18), len(first18),
+                   ("  例 %s" % (bad18 + first18)[:3]) if bad18 or first18 else "")))
+
+    # 19. 全解答の区分の解が、どれも 10 になり、その 4 桁の is_redundant = 0 の解である
+    bad19 = []
+    for (pid, n), disp in built.items():
+        try:
+            digits = [int(ch) for ch in pid]
+            row = db_sol[pid].get(_expand(shapes_t[n]))
+            ok = (disp is not None and row is not None and not row[3]
+                  and _plain_eval(parse_tree(disp), digits) == 10
+                  and [ch for ch in disp if ch.isdigit()] == list(pid))
+        except Exception:
+            ok = False
+        if not ok:
+            bad19.append((pid, n))
+    res.append(("19. 全解答が 10 になる", not bad19,
+                "%d 解を独立実装で再評価。10 でない・冗長・4 桁の並びが違う %d%s"
+                % (len(built), len(bad19),
+                   ("  例 %s" % bad19[:3]) if bad19 else "")))
+
+    # 20. 全解答の区分の形式
+    mark20 = "\n§" + BLOB_SOL_SECTIONS[0] + "\n"
+    sol_txt = text[text.index(mark20) + 1:] if mark20 in text else ""
+    sol_lines = sol_txt.split("\n")
+    heads = [ln for ln in sol_lines if ln.startswith("§")]
+    i_sols = sol_lines.index("§SOLS") if "§SOLS" in sol_lines else len(sol_lines)
+    shp_lines, row_lines = sol_lines[1:i_sols], sol_lines[i_sols + 1:]
+    bad_shape = [ln for ln in shp_lines if not re.fullmatch(r"[0-3+\-*/^!]+", ln)
+                 or sorted(ch for ch in ln if ch in "0123") != list("0123")]
+    bad_row = [ln for ln in row_lines
+               if not re.fullmatch(r"[0-9]{4}(,[0-9a-z]+)+", ln)]
+    used = {n for nums in sols_t.values() for n in nums}
+    ids_rows = [ln[:4] for ln in row_lines]
+    ids_puz = sorted({pid for _s, pid, _rc, _sol in puz_t})
+    dup_in_row = sum(1 for nums in sols_t.values() if len(set(nums)) != len(nums))
+    ok20 = (heads == ["§" + h for h in BLOB_SOL_SECTIONS] and not bad_shape
+            and not bad_row and len(set(shp_lines)) == len(shp_lines)
+            and used == set(range(len(shp_lines))) and ids_rows == ids_puz
+            and not dup_in_row)
+    res.append(("20. 全解答の区分の形式", ok20,
+                "見出し %s、形 %d 行 (壊れた行 %d・重複 %d・使われない形 %d・"
+                "範囲外の番号 %d)、4 桁 %d 行 (壊れた行 %d・行の中の重複 %d・"
+                "3 区分の 4 桁 %d 個と%s)、%d 文字"
+                % (heads, len(shp_lines), len(bad_shape),
+                   len(shp_lines) - len(set(shp_lines)),
+                   len(set(range(len(shp_lines))) - used),
+                   len(used - set(range(len(shp_lines)))), len(row_lines),
+                   len(bad_row), dup_in_row, len(ids_puz),
+                   "一致" if ids_rows == ids_puz else "**不一致**", len(sol_txt) + 1)))
+
+    # 21. 今の 3 区分は、全解答の区分を足さずに組んだものと 1 文字も違わない
+    alone = _blob_text(sections)
+    ok21 = (text.startswith(alone + mark20) and text3 == alone)
+    res.append(("21. 3 区分は変わらない", ok21,
+                "全解答の区分を足さずに組んだ 3 区分 (%d 文字) と、本文の先頭 %d 文字が%s"
+                % (len(alone), len(text3), "一致" if ok21 else "**不一致**")))
+
     return res
 
 
@@ -3032,14 +3328,17 @@ def _blob_build(conn):
 def run_blob(db_path, html_path, write=True, progress=None):
     """3 区分の BLOB を組み、index.html の const BLOB=`...` を差し替える。
 
-    検証 16 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
+    検証 21 項目は**同じ実行の中で**回し、1 つでも落ちたら書き込まない。
+    6.9 から、3 区分の後ろに全解答の区分 (§SHAPE / §SOLS) を足す。
     """
     conn = _connect(db_path)
     try:
         sections, widen = _blob_build(conn)
-        text = _blob_text(sections)
-        checks = _blob_verify(conn, sections, widen, text,
-                              lambda: _blob_text(_blob_build(conn)[0]))
+        sols = _blob_sols(conn)
+        text = _blob_full_text(sections, sols)
+        checks = _blob_verify(
+            conn, sections, widen, text,
+            lambda: _blob_full_text(_blob_build(conn)[0], _blob_sols(conn)))
     finally:
         conn.close()
 
@@ -3063,6 +3362,9 @@ def run_blob(db_path, html_path, write=True, progress=None):
         "chars": len(text), "checks": checks, "failed": len(failed),
         "wrote": wrote, "html": html_path, "old_chars": len(old) if old else None,
         "widen": dict(widen),
+        "sols": {"shapes": len(sols["shapes"]), "rows": len(sols["rows"]),
+                 "solutions": sum(len(n) for _p, n in sols["rows"]),
+                 "chars": len(_blob_sols_text(sols)) + 1},
     }
     if progress:
         progress(stats)
@@ -3138,6 +3440,9 @@ def _cmd_blob(args):
           % (c["COURSE"], c["FREE"], c["CHAL"],
              c["COURSE"] + c["FREE"] + c["CHAL"], stats["chars"]))
     print("  難易度の許容幅を広げた回数: %s" % stats["widen"])
+    so = stats["sols"]
+    print("  全解答の区分: 形 %d 種類 / 4 桁 %d 行 / 解 %d 本 (%d 文字)"
+          % (so["shapes"], so["rows"], so["solutions"], so["chars"]))
     for name, ok, detail in stats["checks"]:
         print("  [%s] %-20s %s" % ("OK" if ok else "NG", name, detail))
     if stats["failed"]:

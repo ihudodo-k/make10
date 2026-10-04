@@ -1750,5 +1750,86 @@ class Export(unittest.TestCase):
             self.assertEqual(f.read(), first)
 
 
+class BlobSols(unittest.TestCase):
+    """全解答の区分 §SHAPE / §SOLS (6.9。DATA-SPEC 8-B)。DISPLAYS の式は make10.db に実在する。"""
+
+    DISPLAYS = [
+        "8 + 8 - ( 4 + 2 )",
+        "8 + ( 8 - 4 ) / 2",
+        "( ( 8! - 8! )! + 4 ) * 2",
+        "5 / ( ( 3! )! / ( ( 3! )! + ( 3! )! ) )",
+        "( 8 - 9 ) ^ 5! + 9",
+        "( 0! + 0! + 0! )! + 4",
+    ]
+
+    def test_shape_compact(self):
+        self.assertEqual(m._shape_compact("n0 ! n1 ! + n2 ! + ! n3 +"), "0!1!+2!+!3+")
+        self.assertEqual(m._shape_compact("n0 n1 + n2 - n3 -"), "01+2-3-")
+
+    def test_b36(self):
+        self.assertEqual([m._b36(n) for n in (0, 9, 10, 35, 36, 12558)],
+                         ["0", "9", "a", "z", "10", "9ou"])
+        self.assertEqual(int("9ou", 36), 12558)
+
+    def test_display_is_rebuilt_from_shape(self):
+        # 表示 -> 木 -> 形 -> 詰めた形 -> (独立実装で) 表示 が元の文字列に戻る
+        for disp in self.DISPLAYS:
+            pid = "".join(ch for ch in disp if ch.isdigit())
+            cs = m._shape_compact(m.render_shape(m.parse_tree(disp)))
+            self.assertEqual(m._plain_shape_display(cs, pid), disp)
+            self.assertEqual(m.parse_eval(disp), Fraction(10))
+
+    def test_list_keeps_first_of_each_group_and_filters_constraint(self):
+        # ここは形だけを見る単体テスト (値が 10 になる式とは限らない)。
+        # a と b は同じグループ (加減 3 回・同じ結合) なので先頭だけ残る
+        a, b, c = "01+2-3-", "01+2+3+", "01-!2+3*"
+        self.assertEqual(m._plain_sols_list([a, b, c], None), [a, c])
+        self.assertEqual(m._plain_sols_list([b, a, c], None), [b, c])
+        # `-` 禁止なら a と c が消え、b がグループの先頭になる
+        self.assertEqual(m._plain_sols_list([a, b, c], "-"), [b])
+        # 結合の仕方が違えば別のグループ (8 + 8 - ( 4 + 2 ))
+        self.assertEqual(m._plain_sols_list([a, "01+23+-"], None), [a, "01+23+-"])
+
+    def test_sols_of_generated_db(self):
+        import sqlite3
+        fd, db = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        os.unlink(db)
+        try:
+            m.generate_into(db, 8842, 8842)
+            m.generate_into(db, 6988, 6988)
+            m.run_annotate(db)
+            m.run_curate(db)
+            m.run_constrain(db)
+            conn = sqlite3.connect(db)
+            sols = m._blob_sols(conn)
+            rows = dict(sols["rows"])
+            puz = conn.execute(
+                "SELECT p.problem_id, p.rules, s.display FROM puzzles p "
+                "JOIN solutions s ON s.id = p.example_solution_id").fetchall()
+            conn.close()
+            self.assertTrue(puz)
+            self.assertEqual(sorted(rows), sorted({p[0] for p in puz}))
+            self.assertEqual(len(set(sols["shapes"])), len(sols["shapes"]))
+            for pid, rules, example in puz:
+                ban = rules[0] if rules else None
+                got = [m._plain_shape_display(cs, pid) for cs in m._plain_sols_list(
+                    [sols["shapes"][n] for n in rows[pid]], ban)]
+                self.assertEqual(got[0], example)            # 1 本目は解答例
+                for disp in got:
+                    self.assertEqual(m.parse_eval(disp), Fraction(10))
+                    if ban:
+                        self.assertNotIn(ban, disp)
+                if pid == "8842" and not rules:
+                    self.assertEqual(len(got), 12)           # make10.db と同じ本数
+                    self.assertEqual(got[1], "8 + 8 - ( 4 + 2 )")
+        finally:
+            for suffix in ("", "-wal", "-shm"):
+                try:
+                    os.unlink(db + suffix)
+                except OSError:
+                    pass
+
+
 if __name__ == "__main__":
     unittest.main()
