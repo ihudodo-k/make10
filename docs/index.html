@@ -95,7 +95,7 @@ body{background:linear-gradient(180deg,
 .group .toggle:not(:last-child)::after,
 .group .kv:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;
  bottom:0;height:1px;background:var(--edge)}
-.sheet .kv{position:relative;display:flex;justify-content:space-between;align-items:center;
+.sheet .kv,.solpanel .kv{position:relative;display:flex;justify-content:space-between;align-items:center;
  font-size:13px;padding:14px;min-height:48px}
 .sheet .kv b{font-weight:700;font-variant-numeric:tabular-nums}
 /* 開発者パネル。画面（SCREENS）の 1 つではなく、どの画面にも重なる道具なので
@@ -445,17 +445,42 @@ button:active{background:var(--edge)}
  overflow-x:auto;scrollbar-width:none}
 .hintrow .hbody>.hbin{flex:0 0 auto;white-space:nowrap}
 .hintrow .hbody::-webkit-scrollbar{display:none}
-/* 段階 3 の解答の番号「k/N」（6.9。解答が 2 本以上の puzzle・開発者パネルの表示ア）。
-   段階の「1 / 3」と見分けるため、空白を入れず、k だけ本文と同じ明るさ・太さにする
-   （/N は .hlv の --dim のまま。色は増やさない）。
-   k の箱は N の桁数ぶんの固定幅（--cntN 桁 × --hintCntW）で右寄せ ―― k が 9 → 10 に
-   なっても .hlv の幅が変わらず、タップで本文が左右に動かない */
-.hintrow .hlv.cnt{white-space:nowrap}
-.hintrow .hlv.cnt b{display:inline-block;width:calc(var(--cntN)*var(--hintCntW));
- text-align:right;color:var(--paper);font-weight:700}
-/* 解答が 2 本以上のときは本文がタップできる（次の解答へ）。当たりは行の高さいっぱい */
-.hintrow .hbody.tap{align-self:stretch;align-items:center;cursor:pointer;
- -webkit-tap-highlight-color:transparent}
+/* 段階 3 の全解答（7.0。GAME-SPEC 5-4）。解答が 2 本以上のときは本文がタップできる。
+   当たりは行の高さいっぱい（.hbody を 48px に伸ばす）。見せ方は 2 通り（devVars.hintSolView）*/
+.hintrow .hbody.tap{align-self:stretch;align-items:center;cursor:pointer}
+/* シート（既定）: 行は 6.8 と同じ「3 / 3 解答例：式」。押せる印は式の点線の下線 1 本
+   ―― 幅を使わない（この行は 360px で余裕が約 8px しか無い）。#pcodev（.copyable）と同じ線 */
+.hintrow .hbody.tap.tolist code{text-decoration:underline dotted;text-underline-offset:3px;
+ text-decoration-thickness:1px}
+/* 2 段: 式の下に小さく「解答例 2 / 9」。式は行の中央のまま動かさず（‹ 3 / 3 式 › × は
+   6.8 と同じ位置）、下の段は行の中（48px）の下端に重ねる。箱の高さ 58px は変わらない。
+   k の箱は N の桁数ぶんの固定幅で右寄せ ―― k が 9 → 10 になっても文字が左右に動かない */
+.hintrow .hbody.two{position:relative;align-self:stretch;align-items:center}
+.hintrow .hsub{position:absolute;left:0;right:0;bottom:1px;text-align:center;
+ font-size:11.5px;line-height:1.1;color:var(--dim);white-space:nowrap;pointer-events:none}
+.hintrow .hsub b{display:inline-block;width:calc(var(--subN)*var(--hintDigitW));
+ text-align:right;font-weight:inherit}
+/* ── 解答の一覧のシート（7.0）。問題画面の上に重ねる。#app 直下・SCREENS には入れない ──
+   様式はリスト画面のルール（DESIGN.md 6 章）: 見出し 17px/700、面 .group、行 .kv（48px・
+   padding 14px・インセットの区切り線）。問題画面はスクロールさせず、シートの中だけ縦に動く。
+   下は広告バナーのぶん空ける（バナーは #app の外で前面にある）*/
+#solsheet{position:absolute;inset:0;z-index:55;display:flex;flex-direction:column;
+ justify-content:flex-end;padding-bottom:var(--bannerH);
+ background:color-mix(in srgb,var(--ink) 62%,transparent)}
+.solpanel{display:flex;flex-direction:column;max-height:72%;background:var(--ink);
+ border-top:1px solid var(--edge);border-radius:15px 15px 0 0;padding:0 12px;
+ box-shadow:0 -8px 24px rgba(0,0,0,.38)}
+.solhead{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+ min-height:var(--btnW);padding-left:2px}
+.solhead h2{font-size:17px;font-weight:700;margin:0}
+.solhead h2 .small{margin-left:10px;font-weight:500}
+.solbody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+ -webkit-overflow-scrolling:touch;padding-bottom:12px}
+.solbody .group{margin-bottom:0}
+.solpanel .kv .sl{display:flex;align-items:baseline;gap:10px;min-width:0;white-space:nowrap}
+.solpanel .kv .sn{flex:0 0 auto;width:calc(var(--snN)*var(--hintDigitW));text-align:right;
+ font-size:11.5px;color:var(--dim)}
+.solpanel code{font-family:inherit;font-weight:700}
 
 /* ── 正解したときの表示（6.5）。式・トレイ・.foot を 1px も動かさない ──
    6.4 までは正解カードを .field と .bottom のあいだに流し込んでいたので、カードが出ると
@@ -676,6 +701,16 @@ button:active{background:var(--edge)}
     <div class="group" id="stathist"></div>
   </div>
 
+<!-- 解答の一覧のシート（7.0）。ヒント 3 で式をタップすると開く。#app 直下に置き、
+     SCREENS には入れない（問題画面に重ねる。閉じてもヒントの箱はそのまま）-->
+<div id="solsheet" class="hide">
+  <div class="solpanel" role="dialog" aria-modal="true" aria-labelledby="soltitle">
+    <div class="solhead"><h2 id="soltitle"></h2>
+      <button id="solclose" class="plainbtn" title="閉じる" aria-label="閉じる"></button></div>
+    <div class="solbody" id="solbody"><div class="group" id="sollist"></div></div>
+  </div>
+</div>
+
 <!-- 開発者パネル。#settings の中ではなく #app の直下（画面と同じ階層）に置く。
      SCREENS には入れない ―― go() が切り替える「画面」ではなく、どの画面にも
      重なる道具だから。表示は G.dev のときだけ（devPanelShow）-->
@@ -714,8 +749,8 @@ button:active{background:var(--edge)}
       <h3 class="sec" data-sec="ten"><span class="mk"></span>正解の表示</h3>
       <div class="dv"><span>正解したときの 10 の倍率（決定 1.8）</span><b id="dv-tenScale-v"></b></div>
       <input type="range" id="dv-tenScale" min="1" max="3" step="0.05">
-      <h3 class="sec" data-sec="hint3"><span class="mk"></span>ヒント 3 の表示（仮・実機で決める）</h3>
-      <div class="dv"><span>解答が 2 本以上のとき</span><button id="dv-hintSolMode"></button></div>
+      <h3 class="sec" data-sec="hint3"><span class="mk"></span>ヒント 3 の全解答（仮・実機で決める）</h3>
+      <div class="dv"><span>全解答の見せ方</span><button id="dv-hintSolView"></button></div>
       <h3 class="sec" data-sec="meas"><span class="mk"></span>実測値（読み取り専用・今つまんでいる記号について）</h3>
       <div class="dv"><span>隙間の上限</span><b id="dv-zbase-v"></b></div>
       <div class="dv"><span>通常時の隙間幅（--zoneW・採用値）</span><b id="dv-zused-v"></b></div>
@@ -748,7 +783,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="6.9";
+const APP_VERSION="7.0";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -39745,7 +39780,7 @@ function applyMetrics(){
   s.setProperty("--hintBtnH",HINT_ROW.btnH+"px");
   s.setProperty("--hintGap",HINT_ROW.gap+"px");
   s.setProperty("--hintIcW",HINT_ROW.icW+"px");
-  s.setProperty("--hintCntW",HINT_ROW.cntW+"px");
+  s.setProperty("--hintDigitW",HINT_ROW.digitW+"px");
   return MET;
 }
 /* 式に並ぶトークンの幅の合計（枠は含まない）。DOM は読まない */
@@ -40302,6 +40337,7 @@ function loadPuzzle(p){
   cur=p;uid=1;S={toks:p.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
   held=null;t0=performance.now();moves=0;lastScore=null;hintLv=0;hintLast=0;
   hintSols=null;hintSolAt=0;        // 段階 3 の解答の位置は問題ごとに 1 本目から（6.9）
+  solSheetHide();                   // 一覧のシートは問題を切り替えたら閉じる（7.0）
   solved=false;lastWin=null;hitLv=0;
   hintMax=G.hints[codeOf(p)]||0;   // 見たヒントは端末に残る。解き直しても戻らない
   hideWin();
@@ -40369,6 +40405,7 @@ function go(s){
   SCR=s;
   for(const k of SCREENS){const el=$(k); if(el)el.classList.toggle("hide",k!==s)}
   if(s!=="play")hideWin();   // 画面を離れたら正解カードは必ず隠す
+  solSheetHide();            // 解答の一覧のシートも、画面を切り替えたら閉じる（7.0）
   /* 左上＝戻る、右上＝設定。役割は固定で、出すか出さないかだけを切り替える（5.1）。
      - ホーム    : 左なし（戻る先が無い）／右に三本線
      - 問題画面  : .top の中の #back と #menu が担うので、どちらも出さない
@@ -40395,6 +40432,7 @@ function enterPlay(){
   if(solved)showWinCard();                  // 正解カードを出し直す（GAME-SPEC 8）
 }
 function goBack(){
+  if(solOpen){solSheetHide();return}       // シートが開いていれば、まずそれを閉じる（7.0）
   if(SCR==="play"){go("home");return}
   if(SCR==="settings"){go(retScr);return}
   if(SCR==="help"||SCR==="stats"){go("settings");return}
@@ -40558,11 +40596,12 @@ const DEV_DEFAULT={dur:300,shrink:80,catch:40,swapCatch:40,hotDur:200,zoneMin:ZO
   // .eq の文字（normal 52px / compact 36px）に transform:scale で掛ける。
   // 上限は .top に届かない範囲（DESIGN.md 3-1-6）
   tenScale:1.8,
-  // 段階 3 の見せ方（6.9。解答が 2 本以上の puzzle だけ。**実機で決める仮のキー**）。
-  // 0 = ア「k/N 式」（段階の 3 / 3 と「解答例：」を出さず、何本目かを出す）
-  // 1 = イ「3 / 3 式」（本数は出さない。「解答例：」も出さない）
-  // 1 本だけの puzzle はどちらでも 6.8 と同じ「3 / 3 解答例：式」。GAME-SPEC 5-4
-  hintSolMode:0,
+  // 段階 3 の全解答の見せ方（7.0。**実機で決める仮のキー**。GAME-SPEC 5-4）。
+  // 0 = シート（行は 6.8 と同じ「3 / 3 解答例：式」。式をタップすると一覧のシートが開く）
+  // 1 = 2 段（「3 / 3 式」の下に小さく「解答例 2 / 9」。式をタップすると次の解答へ）
+  // 6.9 のア・イ（hintSolMode）は 7.0 でやめた。古い保存データに残っていても、
+  // load() が DEV_DEFAULT に無いキーを捨てるので読まれない
+  hintSolView:0,
   devTop:0};         // 開発者パネルを上側に付けるか（0=下 / 1=上）。開き直しても維持する
 const VIB_KEYS=["vibPick","vibHover","vibDrop","vibBtn"];   // 開発者パネルの振動の節
 /* 開発者パネルの節の開閉（4.1）。devVars は「調整した値」だけを持たせたいので別のキーにする
@@ -40616,7 +40655,7 @@ function renderDevPanel(){
   $("dv-zoneMin").value=dv.zoneMin; $("dv-zoneMin-v").textContent=dv.zoneMin+"px";
   for(const k of VIB_KEYS){$("dv-"+k).value=dv[k]; $("dv-"+k+"-v").textContent=dv[k]+"ms"}
   $("dv-tenScale").value=dv.tenScale; $("dv-tenScale-v").textContent=dv.tenScale+"倍";
-  $("dv-hintSolMode").textContent=dv.hintSolMode?"イ：3 / 3 式":"ア：k/N 式";
+  $("dv-hintSolView").textContent=dv.hintSolView?"2 段":"シート";
   applySecs();
   renderDevMeasured();
 }
@@ -40742,12 +40781,13 @@ devVarInput("swapCatch","px");
 for(const k of VIB_KEYS)devVarInput(k,"ms");
 devVarInput("tenScale","倍");
 $("dv-reset").onclick=()=>{G.devVars={...DEV_DEFAULT};applyDevVars();save();renderDevPanel();
-  if(cur)showHint()};                 // 段階 3 の見せ方（hintSolMode）も既定に戻るので描き直す
-/* 段階 3 の見せ方の切り替え（6.9）。開いているヒントをその場で描き直す */
-$("dv-hintSolMode").onclick=()=>{
+  solSheetHide();if(cur)showHint()};  // 全解答の見せ方（hintSolView）も既定に戻るので描き直す
+/* 全解答の見せ方の切り替え（7.0）。開いているヒントをその場で描き直し、シートは閉じる */
+$("dv-hintSolView").onclick=()=>{
   G.devVars={...DEV_DEFAULT,...(G.devVars||{})};
-  G.devVars.hintSolMode=G.devVars.hintSolMode?0:1;
+  G.devVars.hintSolView=G.devVars.hintSolView?0:1;
   save(); renderDevPanel();
+  solSheetHide();
   if(cur)showHint();
 };
 /* 設定シートからの導線。開いたあとは元の画面（問題画面）へ戻し、パネルを重ねた
@@ -40905,12 +40945,38 @@ let hintLv=0;
    loadPuzzle()（問題の切り替え）と再起動で 0 に戻り、0 のときは到達済みの最大の段階を出す。
    ‹ で戻ってから閉じたら戻った先が入る（到達済みの最大ではない）。GAME-SPEC 5-4 */
 let hintLast=0;
-/* 段階 3 で送る解答の一覧と、いま見ている位置（6.9）。hintLast と同じ扱い ――
+/* 段階 3 で見せる解答の一覧と、いま見ている位置（6.9）。位置を使うのは見せ方が
+   「2 段」のときだけ（シートは一覧をまとめて出す）。hintLast と同じ扱い ――
    開いている問題の中だけ覚えて保存しない。loadPuzzle()（問題の切り替え）と再起動で
    1 本目に戻る。‹ で 2 に戻ってから › で 3 に来ても、閉じて開き直しても、見ていた解答のまま。
-   2 本目以降を見ても消費も減点も無い（G.hints・hintMax・保存データに触らない）*/
+   全解答を見ても消費も減点も無い（G.hintStock・G.hints・hintMax・保存データに触らない）*/
 let hintSols=null, hintSolAt=0;
 const curSols=()=>hintSols||(hintSols=solsOf(cur));
+/* 解答の一覧のシート（7.0。見せ方がシートのとき）。開くたびに一覧を組む（最大 158 行）。
+   閉じ方は ×・シートの外側のタップ・Esc・戻る。閉じてもヒントの箱はそのまま */
+let solOpen=false;
+function solSheetShow(){
+  const sols=curSols(), n=sols.length;
+  $("soltitle").innerHTML=`解答<span class="small">${n} 本</span>`;
+  // 番号の列は N の桁数ぶんの固定幅（--snN）。1 本目が解答例であることを右端に書く
+  $("sollist").innerHTML=sols.map((s,i)=>
+    `<div class="kv"><span class="sl"><span class="sn">${i+1}</span><code>${pretty(s)}</code></span>`+
+    (i===0?`<span class="small">解答例</span>`:"")+`</div>`).join("");
+  $("sollist").style.setProperty("--snN",String(n).length);
+  $("solsheet").classList.remove("hide");
+  $("solbody").scrollTop=0;
+  solOpen=true;
+}
+function solSheetHide(){
+  if(!solOpen)return;
+  solOpen=false;
+  $("solsheet").classList.add("hide");
+  $("sollist").innerHTML="";
+}
+$("solclose").onclick=solSheetHide;
+// 外側（暗くした部分）のタップで閉じる。パネルの中のタップは閉じない
+$("solsheet").addEventListener("click",e=>{if(e.target===e.currentTarget)solSheetHide()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&solOpen)solSheetHide()});
 const pretty=s=>s.replace(/\*/g,"×").replace(/\//g,"÷").replace(/-/g,"−");
 const OPSET=s=>{const u=[];for(const ch of s)if("+-*/^!".includes(ch)&&!u.includes(ch))u.push(ch);return u};
 /* 段階 1 で並べる記号。トレイと同じ並び（TRAY 順）に揃える ―― OPSET は
@@ -40925,12 +40991,14 @@ function hintSymbols(sol){
   }
   return out;
 }
-/* ヒント行の寸法。幅 360px で最長の解答例（全 21,238 問の実測で 195.2px）が
+/* ヒント行の寸法。幅 360px で最長の解答例（7.0 の全 17,907 問の実測で 194.3px。
+   本文に使える幅 202.2px に対し余裕 7.9px。4.8 で決めたときは全 21,238 問で 195.2px）が
    1 行に収まるように決めた値なので、CSS へは変数で渡して数値は 1 箇所に持つ
    （CLAUDE.md 実装のルール）。根拠と幅ごとの表は DESIGN.md 3-1-4 */
-/* cntW = 解答の番号 k/N の k の 1 桁ぶんの幅（6.9）。.hlv の 11.5px で数字 1 文字は
-   太さ 500 で最大 5.86px・700 で最大 5.84px（実測。数字ごとに幅が違う）。k の箱を「N の桁数 × cntW」に固定する */
-const HINT_ROW={btnW:32,btnH:48,gap:2,icW:20,cntW:6.25};
+/* digitW = 数字 1 桁ぶんの箱の幅（7.0）。11.5px の数字 1 文字は太さ 500 で最大 5.86px
+   （実測。この書体は数字ごとに幅が違う）。2 段の「解答例 k / N」の k と、一覧のシートの
+   番号の列を「N の桁数 × digitW」の固定幅にして、k が変わっても文字が左右に動かないようにする */
+const HINT_ROW={btnW:32,btnH:48,gap:2,icW:20,digitW:6.25};
 /* 共有ボタンと .top の下端との間隔（6.4）。.top の gap 9px に近い値。CSS へは --shareGap で渡す */
 const SHARE_BTN={gap:8};
 /* 「つぎへ」#wnext の幅（6.5）。.foot の中央の隙間（normal 290 / compact 236px）に置く。
@@ -40946,6 +41014,7 @@ const NEXT_BTN={w:160};
 const ICON_HPREV =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${CHEV_L}"/></svg>`;
 const ICON_HNEXT =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${CHEV_R}"/></svg>`;
 const ICON_HCLOSE=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10"/><path d="M17 7l-10 10"/></svg>`;
+$("solclose").innerHTML=ICON_HCLOSE;   // 一覧のシートの × も同じ絵柄（7.0）
 /* 残数の表示。1000 以上は 1k（1500 も 1k。刻まない）。統計は丸めず実数を出す */
 const hintBadge=n=>n>=HINT_K?Math.floor(n/HINT_K)+"k":""+n;
 /* この問題で到達済みの最大段階。ここまでは何度でも無料で見返せる（端末に残る） */
@@ -40980,25 +41049,30 @@ function showHint(){
   const b=$("hintbox"), p=cur;
   if(hintLv===0){b.classList.remove("show");b.innerHTML="";renderHintStock();return}
   // 段階 1・2 は 1 本目（解答例 p.sol）から作る。段階 3 だけが解答の一覧を送る（6.9）
-  let body, lv=`<span class="hlv">${hintLv} / 3</span>`, tap=0;
+  let body, sub="", tap=0, cls="hbody", aria="";
   if(hintLv===1){
     body=`使う記号：<code>${hintSymbols(p.sol).join(" ")}</code>`;
   }else if(hintLv===2){
     body=`形：<code>${pretty(p.sol).replace(/ [−+×÷^] /g," ? ")}</code>`;
   }else{
+    // 全解答（7.0）。解答が 2 本以上のときだけ本文がタップできる（1 本だけなら何も起きない）
     const sols=curSols(), n=sols.length;
     if(hintSolAt>=n)hintSolAt=0;
-    if(n===1){
-      // 1 本だけの puzzle は 6.8 と同じ。送る先が無いので押しても何も起きない
-      body=`解答例：<code>${pretty(sols[0])}</code>`;
-    }else{
-      // 2 本以上。「解答例：」は出さない（幅 360px に収めるため）。
-      // ア（既定）= 段階の 3 / 3 の代わりに何本目かを出す ／ イ = 3 / 3 のまま本数は出さない
-      tap=n;
+    tap=n>1?n:0;
+    if((G.devVars||DEV_DEFAULT).hintSolView){
+      // 2 段: 「3 / 3 式」の下に小さく「解答例 2 / 9」（1 本だけなら「解答例」）。タップで次へ
+      cls+=" two";
       body=`<code>${pretty(sols[hintSolAt])}</code>`;
-      if(!(G.devVars||DEV_DEFAULT).hintSolMode)
-        lv=`<span class="hlv cnt" style="--cntN:${String(n).length}"><b>${hintSolAt+1}</b>/${n}</span>`;
+      sub=`<span class="hsub">`+(tap
+        ?`解答例 <b style="--subN:${String(n).length}">${hintSolAt+1}</b> / ${n}`:`解答例`)+`</span>`;
+      aria=`次の解答を見る（${hintSolAt+1}/${n} を表示中）`;
+    }else{
+      // シート: 行は 6.8 と同じ「3 / 3 解答例：式」（1 本目）。タップで一覧のシートを開く
+      if(tap)cls+=" tolist";   // .sheet にしない ―― リスト画面の .sheet{padding-bottom:12px} に当たって式が上へずれる
+      body=`解答例：<code>${pretty(sols[0])}</code>`;
+      aria=`解答を全部見る（${n} 本）`;
     }
+    if(tap)cls+=" tap";
   }
   // ‹ 段階 本文 › × を横 1 行に。‹ は前の段階へ、
   // › は到達済みの範囲を進む（未到達へは行かない。そちらは丸ボタン）
@@ -41006,23 +41080,26 @@ function showHint(){
   b.innerHTML=
     `<div class="hintrow">`+
     `<button class="hbtn" id="hint-prev" aria-label="前の段階"${canPrev?"":" disabled"}>${ICON_HPREV}</button>`+
-    lv+
+    `<span class="hlv">${hintLv} / 3</span>`+
     // 中央寄せは .hbody 側の justify-content:safe center。本文は 1 つの箱に包む。
-    // 解答が 2 本以上のときは本文をタップで次の解答へ（role="button" なので、
-    // ボタンの振動 vibBtn もここ 1 か所の決まりで鳴る。1 本だけのときは付けない）
-    (tap?`<span class="hbody tap" id="hint-sol" role="button" tabindex="0" aria-label="次の解答を見る（${hintSolAt+1}/${tap} を表示中）">`
-        :`<span class="hbody">`)+
-    `<span class="hbin">${body}</span></span>`+
+    // 解答が 2 本以上のときは本文がタップできる（role="button" なので、ボタンの振動
+    // vibBtn もここ 1 か所の決まりで鳴る。1 本だけのときは付けないので振動もしない）
+    `<span class="${cls}"`+(tap?` id="hint-sol" role="button" tabindex="0" aria-label="${aria}"`:"")+`>`+
+    `<span class="hbin">${body}</span>${sub}</span>`+
     `<button class="hbtn" id="hint-next" aria-label="次の段階"${canNext?"":" disabled"}>${ICON_HNEXT}</button>`+
     `<button class="hbtn" id="hint-close" aria-label="閉じる">${ICON_HCLOSE}</button></div>`;
   $("hint-prev").onclick=()=>hintSet(hintLv-1);   // 1 のときは disabled で押せない
   $("hint-next").onclick=()=>hintSet(hintLv+1);   // 到達済みの範囲なので消費しない
   $("hint-close").onclick=()=>hintSet(0);         // hintMax は下げない（減点は据え置き）
   if(tap){
-    // 次の解答へ。最後の次は 1 本目。消費も減点も無い（残数・G.hints・hintMax に触らない）
-    const next=byKey=>{hintSolAt=(hintSolAt+1)%tap;showHint();if(byKey)$("hint-sol").focus()};
-    $("hint-sol").onclick=()=>next(false);
-    $("hint-sol").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();next(true)}};
+    // シート＝一覧を開く ／ 2 段＝次の解答へ（最後の次は 1 本目）。
+    // どちらも消費も減点も無い（残数・G.hints・hintMax に触らない）
+    const two=!!(G.devVars||DEV_DEFAULT).hintSolView;
+    const act=byKey=>{
+      if(!two){solSheetShow();return}
+      hintSolAt=(hintSolAt+1)%tap;showHint();if(byKey)$("hint-sol").focus()};
+    $("hint-sol").onclick=()=>act(false);
+    $("hint-sol").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();act(true)}};
   }
   b.classList.add("show");
   renderHintStock();

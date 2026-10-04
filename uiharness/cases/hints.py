@@ -24,19 +24,9 @@ def seen(ui):
 NAME = "ヒントの消費規則"
 
 
-def stage3(ui):
-    """段階 3 を開いたときに見える段階表示（6.9）。解答が 2 本以上の問題は、既定の表示アで
-    「1/N」（1 本目を表示中）。1 本だけの問題は 6.8 と同じ「3 / 3」。
-    N はゲームに聞かず、BLOB から独立に組んだ一覧（uiharness/sols.py）で数える"""
-    pid, rc = ui.ev("[cur.id,cur.rc]")
-    n = len(sols.load()["lists"][(pid, rc)])
-    return "3 / 3" if n == 1 else "1/%d" % n
-
-
 def run(ui):
     ui.open({"ci": 0, "cleared": 120, "hintStock": 3})
     ui.ev("start('course')")
-    L3 = stage3(ui)          # 本編 1 問目で段階 3 を開いたときに見える段階表示
     ui.check("はじめは閉じている", ui.ev("hintLv"), 0)
     ui.check("残数のバッジ", ui.text("hintstock"), "3")
 
@@ -55,11 +45,11 @@ def run(ui):
     ui.check("残 1", ui.ev("G.hintStock"), 1)
     ui.click("hint")
     ui.check("3 段階目", ui.ev("hintLv"), 3)
-    ui.check("3 段階目は解答（1 本目は解答例の式）",
+    # 7.0: 既定の見せ方（シート）では、段階 3 の行は 6.8 と同じ「3 / 3 解答例：式」
+    ui.check("3 段階目は「解答例：」＋解答例の式",
              ui.ev("$('hintbox').querySelector('.hbin').textContent"),
-             ("解答例：" if L3 == "3 / 3" else "") + sols.pretty(ui.ev("cur.sol")))
-    ui.check("3 段階目の段階表示（解答が 2 本以上なら 1/N。6.9）",
-             ui.ev("$('hintbox').querySelector('.hlv').textContent"), L3)
+             "解答例：" + sols.pretty(ui.ev("cur.sol")))
+    ui.check("3 段階目の段階表示", ui.ev("$('hintbox').querySelector('.hlv').textContent"), "3 / 3")
     ui.check("残 0", ui.ev("G.hintStock"), 0)
     ui.click("hint")
     ui.check("3 を表示中に押しても何も起きない", ui.ev("hintLv"), 3)
@@ -118,7 +108,7 @@ def run(ui):
           "{value:x=>{__VIB.push(x);return true},configurable:true})")
     ui.click("hint")
     ui.check("手前を見ていて押すと未到達の 3 へ進んで 1 減る（丸ボタンは新しいヒント）",
-             seen(ui), [L3, "2"])
+             seen(ui), ["3 / 3", "2"])
     ui.check("押して 3 に届いたときは振動する（押した時点では無効でない）",
              ui.ev("__VIB.splice(0)"), [ui.ev("DEV_DEFAULT.vibBtn")])
     # 最後まで見て開いている間は無効の色
@@ -129,7 +119,7 @@ def run(ui):
     ui.check("読み上げ用のラベル", ui.text("hintlabel").startswith("これ以上のヒントはありません"), True)
     ui.ev("__VIB.length=0")
     ui.click("hint")
-    ui.check("無効のときに押しても何も起きない", seen(ui), [L3, "2"])
+    ui.check("無効のときに押しても何も起きない", seen(ui), ["3 / 3", "2"])
     ui.check("無効のときに押しても振動しない", ui.ev("__VIB"), [])
     # 3 まで到達済みなら、‹ で 1・2 に戻っても薄いまま。押しても段階もバッジも変わらず振動もしない
     for lv in (2, 1):
@@ -147,12 +137,12 @@ def run(ui):
         ui.check("%d を表示中に押しても振動しない" % lv, ui.ev("__VIB"), [])
     ui.click("hint-next")
     ui.click("hint-next")
-    ui.check("› で 3 に戻す（見返しは無料）", seen(ui), [L3, "2"])
+    ui.check("› で 3 に戻す（見返しは無料）", seen(ui), ["3 / 3", "2"])
     ui.click("hint-close")
     ui.ev("__VIB.length=0")
     ui.click("hint")
     ui.check("閉じた状態で押すと 3 がもう一度出て、振動もする",
-             [seen(ui), ui.ev("__VIB.splice(0)")], [[L3, "2"], [ui.ev("DEV_DEFAULT.vibBtn")]])
+             [seen(ui), ui.ev("__VIB.splice(0)")], [["3 / 3", "2"], [ui.ev("DEV_DEFAULT.vibBtn")]])
     ui.click("hint-close")
     ui.check("閉じると無効が外れる",
              [ui.ev("$('hint').getAttribute('aria-disabled')"),
@@ -165,7 +155,7 @@ def run(ui):
     ui.check("1 まで戻って閉じた", seen(ui), ["閉", "2"])
     ui.ev("go('home'); start('free'); go('home'); start('course')")
     ui.click("hint")
-    ui.check("問題を切り替えて戻ると到達済みの最大（3）が出る（減らない）", seen(ui), [L3, "2"])
+    ui.check("問題を切り替えて戻ると到達済みの最大（3）が出る（減らない）", seen(ui), ["3 / 3", "2"])
     # 設定へ行って戻っても覚えている（問題は切り替わらない）
     ui.ev("$('hint-prev').click(); $('hint-close').click()")
     ui.click("menu")
@@ -181,7 +171,7 @@ def run(ui):
     ui.open(save)
     ui.ev("start('course')")
     ui.click("hint")
-    ui.check("再起動後は到達済みの最大（3）が出る（減らない）", seen(ui), [L3, "2"])
+    ui.check("再起動後は到達済みの最大（3）が出る（減らない）", seen(ui), ["3 / 3", "2"])
 
     # ── 6.4: ヒントを開いたまま正解すると閉じる ─────────────────
     ui.open({"ci": 0, "cleared": 120, "hintStock": 5})
