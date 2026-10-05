@@ -750,7 +750,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="7.1";
+const APP_VERSION="7.2";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -40937,7 +40937,10 @@ const HINT_ROW={btnW:32,btnH:48,gap:2,icW:20,digitW:6.25,font:12.5,padX:2,border
    lv = 段階表示「3 / 3」の幅（11.5px。px）、label = 「解答例：」の幅（全角 4 文字 = 4em）*/
 const HINT_GLYPH={"0":502,"1":409,"2":449,"3":482,"4":494,"5":470,"6":496,"7":416,"8":508,"9":479,
   "+":851,"−":851,"×":851,"÷":851,"^":542,"!":293,"(":378,")":378," ":280};
-const HINT_TEXT={lv:23.83,labelEm:4,slack:.5};
+/* slack = 縮めるときに式の左右に残す余白の合計（px。7.2 で 0.5 → 6）。0.5 のときは、縮めた行で
+   「3 / 3」「解答例：式」「›」の間が間隔の 2px だけになり詰まって見えた。6 にすると片側 3px
+   ずつ空く（8 にすると縮む行が 1,033 → 1,792 に増え、いちばん小さい文字が 10px を割る）*/
+const HINT_TEXT={lv:23.83,labelEm:4,slack:6};
 /* 式（pretty() 済みの文字列）の幅。HINT_ROW.font のときの px */
 function hintExprW(s){
   let w=0;
@@ -40948,7 +40951,7 @@ function hintExprW(s){
    「使える幅 / 式の幅」を 1 で頭打ち・MIN_SCALE で下げ止め。式の幅は上の表からの算術で、
    画面には描かずに決める。使える幅は、箱の幅（.overlays の幅。中身に依らない）から
    枠・余白・‹ › × のボタン 3 つ・間隔 4 つ・段階表示・ラベル「解答例：」を引いたもの。
-   縮めるのは式だけ（段階表示とラベルは縮めない）。slack は端数の丸めのぶんの余裕 */
+   縮めるのは式だけ（段階表示とラベルは縮めない）。slack は式の左右に残す余白（上の HINT_TEXT）*/
 function hintExprScale(ex){
   const boxW=$("hintbox").parentNode.clientWidth;
   if(!boxW)return 1;                 // 問題画面が隠れていて測れない（applyScale と同じ扱い）

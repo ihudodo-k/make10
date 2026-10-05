@@ -319,23 +319,27 @@ def run(ui):
     # ── 3. 長い式の縮小（収まらない行だけ、式の文字を縮める。率は算術で決まる） ───────
     longp = max(lists, key=lambda k: max(width(sols.pretty(s)) for s in lists[k]))
     LL = [sols.pretty(s) for s in lists[longp]]
-    avail = ui.ev("Math.min(innerWidth,430)") - 24 - 6 - 3 * 32 - 4 * 2 - 23.83 - 50 - 0.5
+    # 最後の 6 は縮めるときに式の左右に残す余白 HINT_TEXT.slack（7.2 で 0.5 → 6。仕様の値を直に書く）
+    SLACK = 6
+    avail = ui.ev("Math.min(innerWidth,430)") - 24 - 6 - 3 * 32 - 4 * 2 - 23.83 - 50 - SLACK
     want = [min(100.0, math.floor(max(0.5, avail / width(s)) * 1000) / 10) for s in LL]
     load(ui, *longp)
     open3(ui)
     base = None
-    got, okfit, same = [], [], []
+    got, okfit, same, gaps = [], [], [], []
     for i in range(len(LL)):
         r = ui.ev(
             "(function(){const b=$('hintbox'),R=e=>e.getBoundingClientRect(),r=x=>Math.round(x*100)/100,"
             "c=b.querySelector('code'),hi=b.querySelector('.hbin'),s=b.querySelector('.hsub'),"
             "hb=b.querySelector('.hbody'),f=parseFloat(getComputedStyle(c).fontSize);"
-            "return {pc:Math.round(f/12.5*1000)/10,fit:hb.scrollWidth<=hb.clientWidth&&R(hi).width<=R(hb).width+0.01,"
+            "return {pc:Math.round(f/12.5*1000)/10,gap:r(R(hb).width-R(hi).width),fit:hb.scrollWidth<=hb.clientWidth&&R(hi).width<=R(hb).width+0.01,"
             "geo:[r(R(b).height),r(R(hi).top),r(R(hi).height),r(R(s).top),r(R(s).height),"
             "getComputedStyle(hi).fontSize,getComputedStyle(b.querySelector('.hlv')).fontSize,"
             "r(R(b.querySelector('.hlv')).left),[...b.querySelectorAll('.hbtn')].map(e=>r(R(e).left))]}})()")
         got.append(r["pc"])
         okfit.append(r["fit"])
+        if r["pc"] < 100:
+            gaps.append(r["gap"])
         if base is None:
             base = r["geo"]
         same.append(r["geo"] == base)
@@ -355,8 +359,11 @@ def run(ui):
         "const h=hi.getBoundingClientRect().height;if(Math.abs(h-20)>0.01)bad.push([k/10,h])}"
         "c.style.fontSize=keep;return bad.length})()"), 0)
     if ui.viewport == "compact":
-        ui.check("幅 360px では、この問題に縮む行がある（いちばん小さい率は 84% 前後）",
-                 [nshr > 0, 83.0 <= min(got) <= 85.0], [True, True])
+        ui.check("幅 360px では、この問題に縮む行がある（いちばん小さい率は 80.7%）",
+                 [nshr > 0, min(got)], [True, 80.7])
+        # 率は 0.1% 刻みの切り捨てなので、余白は 6px ちょうどから +0.2px ほどまで（7.1 は 0.5px〜）
+        ui.check("縮めた行は、式の左右に合わせて 6px 以上の余白が残る（6.0〜6.3px）",
+                 [x for x in gaps if not (SLACK - 0.01 <= x <= SLACK + 0.3)], [])
     else:
         ui.check("幅 430px では、どの行も縮めない", nshr, 0)
     ui.check("ゲームの式の幅の計算が、実物の幅と 0.05px 以内で合う（縮めない行）", ui.ev(
