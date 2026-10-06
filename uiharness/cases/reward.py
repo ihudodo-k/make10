@@ -148,13 +148,20 @@ CARD_H = 55.5
 CARD_VISIBLE = ("[...$('win').querySelectorAll('[id]')].filter(e=>e.offsetHeight>0).map(e=>e.id)")
 
 
-# 「つぎへ」#wnext と演算子の箱の色（6.5）。計算後のスタイルで比べる。
-# 演算子の記号 .chip は地も枠も持たない（background:none / border:0）ので、見えている箱は
-# トレイのパネル .tray。地と枠は .tray と、文字の色はトレイの先頭の記号（+）の .chip と比べる
-COLORS = ("(()=>{const b=getComputedStyle($('wnext')),t=getComputedStyle(document.querySelector('.tray')),"
-          "c=getComputedStyle(document.querySelector('.tray .chip'));"
-          "return [[b.backgroundColor,b.borderTopColor,b.borderTopStyle,b.borderTopWidth,b.color],"
-          "[t.backgroundColor,t.borderTopColor,t.borderTopStyle,t.borderTopWidth,c.color]]})()")
+# 「つぎへ」#wnext とトレイの見た目（7.3。6.5〜7.2 は「トレイと同じ面と枠」だった）。計算後のスタイルで見る。
+# - 「つぎへ」: 面なし・金の下線 1 本（上と左右は透明の枠を残す）・角丸なし・文字は記号 .chip と同じ色
+# - トレイ: 面なし・上に細い線 1 本（左右と下は透明の枠を残す）・角丸なし
+# 色はテーマ変数を解決した値と比べる（V）。透明は rgba(0, 0, 0, 0)
+NONE = "rgba(0, 0, 0, 0)"
+COLORS = ("(()=>{const V=n=>{const e=document.createElement('i');e.style.color='var('+n+')';"
+          "document.body.appendChild(e);const c=getComputedStyle(e).color;e.remove();return c},"
+          "b=getComputedStyle($('wnext')),t=getComputedStyle(document.querySelector('.tray')),"
+          "c=getComputedStyle(document.querySelector('.tray .chip')),"
+          "side=x=>[x.borderTopColor,x.borderRightColor,x.borderBottomColor,x.borderLeftColor],"
+          "wid=x=>[x.borderTopWidth,x.borderRightWidth,x.borderBottomWidth,x.borderLeftWidth,x.borderBottomStyle,"
+          "x.borderTopLeftRadius];"
+          "return {next:[b.backgroundColor,side(b),wid(b),b.color===c.color],"
+          "tray:[t.backgroundColor,side(t),wid(t)],gold:V('--gold'),edge:V('--edge'),paper:V('--paper')}})()")
 
 
 def _force_active(ui, selectors, on):
@@ -171,17 +178,23 @@ def _force_active(ui, selectors, on):
 
 
 def check_wnext_colors(ui, label):
-    """#wnext の地・枠・文字が演算子の箱と同じ。押したときも .chip:active と同じ変化"""
-    got, want = ui.ev(COLORS)
-    ui.check(label + ": 「つぎへ」の地・枠・文字の色が演算子の箱と同じ", got, want)
+    """#wnext は面なし・金の下線 1 本、トレイは面なし・上の線 1 本。押したときは .chip:active と同じ変化"""
+    g = ui.ev(COLORS)
+    one = ["1px", "1px", "1px", "1px", "solid", "0px"]
+    ui.check(label + ": 「つぎへ」は面なし・下だけ金の線（上と左右は透明の 1px）・角丸なし・文字は記号と同じ色",
+             g["next"], [NONE, [NONE, NONE, g["gold"], NONE], one, True])
+    ui.check(label + ": トレイは面なし・上だけ細い線（左右と下は透明の 1px）・角丸なし",
+             g["tray"], [NONE, [g["edge"], NONE, NONE, NONE], one])
+    ui.check(label + ": 金・線・文字の色は互いに違う（透明と見分けがつく）",
+             len({g["gold"], g["edge"], g["paper"], NONE}), 4)
     _force_active(ui, ["#wnext", ".tray .chip"], True)
     pressed = ui.ev("(()=>{const b=getComputedStyle($('wnext')),"
                     "c=getComputedStyle(document.querySelector('.tray .chip'));"
                     "return [[b.backgroundColor,b.opacity],"
-                    "[getComputedStyle(document.querySelector('.tray')).backgroundColor,c.opacity]]})()")
+                    "[c.backgroundColor,c.opacity]]})()")
     _force_active(ui, ["#wnext", ".tray .chip"], False)
-    ui.check(label + ": 押したときも地は変えず、記号と同じだけ薄くなる", pressed[0], pressed[1])
-    ui.check(label + ": 押したときの薄さは 0.5", pressed[0][1], "0.5")
+    ui.check(label + ": 押したときも地は出さず、記号と同じだけ薄くなる", pressed[0], pressed[1])
+    ui.check(label + ": 押したときの地は透明・薄さは 0.5", pressed[0], [NONE, "0.5"])
 
 
 # 「10」の見えている倍率（拡大後の高さ ÷ 元の高さ）
@@ -249,7 +262,7 @@ def win_display(ui):
     ui.check("白テーマで本当に色が変わっている（藍と比べる意味がある）",
              ui.ev("getComputedStyle($('wnext')).color"), "rgb(30, 37, 48)")
     ui.ev("G.theme='ai'; applyTheme()")
-    ui.check("藍テーマの文字の色", ui.ev("getComputedStyle($('wnext')).color"), "rgb(245, 242, 233)")
+    ui.check("藍テーマの文字の色（7.3 の --paper）", ui.ev("getComputedStyle($('wnext')).color"), "rgb(244, 241, 232)")
     # ── 正解の 10 の大きさ ───────────────────────────────
     scale = TEN_SCALE
     ui.check("10: 既定の倍率は 1.8（devVars.tenScale・実機で決めた値）", ui.ev("DEV_DEFAULT.tenScale"), 1.8)
@@ -300,7 +313,14 @@ def win_display(ui):
     ui.check("オン: 詳細行", ui.ev(r"/^難易度 3　\d+秒$/.test($('wmeta').innerText)"), True)
     ui.check("オン: カードに「正解」「お見事」は無い",
              ui.ev("/正解|お見事/.test($('win').innerText)"), False)
-    ui.check("オン: カードには枠がある", ui.ev("getComputedStyle($('win')).borderTopWidth"), "1px")
+    # 7.3: 枠も面も見せない。枠の太さだけは残す（高さ 55.5px を変えないため）
+    ui.check("オン: カードは枠も面も見えない（太さ 1px の透明の枠だけ残す）・文字は中央",
+             ui.ev("(()=>{const c=getComputedStyle($('win')),w=$('win').getBoundingClientRect(),"
+                   "p=$('wpts').getBoundingClientRect(),m=$('wmeta').getBoundingClientRect();"
+                   "return [c.borderTopWidth,c.borderTopColor,c.backgroundColor,"
+                   "Math.abs((p.left+p.right)/2-(w.left+w.right)/2)<0.6,"
+                   "Math.abs((m.left+m.right)/2-(w.left+w.right)/2)<0.6]})()"),
+             ["1px", NONE, NONE, True, True])
     ui.check("オン: カードの高さ（点数・詳細行の 2 行。星を消しても同じ）",
              ui.ev("Math.round($('win').getBoundingClientRect().height*10)/10"), CARD_H)
     ui.check("オン: 式・トレイ・.foot・読み出し行が解く前と同じ位置", ui.ev(RECTS), before)
@@ -345,8 +365,14 @@ def win_levels(ui):
         ("d=13 で 60 秒（段階 3）", "loadPuzzle(ALL().find(p=>p.d===13)); t0-=61000",
          3, True, True, [[18, 40, 26]]),
     ]
+    # 7.3: 背景の模様は普段は見えない（opacity 0）。段階 3 のときだけ 0.85 秒、浮かんで消える
+    BG = ("(()=>{const c=getComputedStyle($('bg'));return [c.opacity,c.animationName,c.animationDuration,"
+          "c.backgroundImage!=='none',getComputedStyle(document.body).backgroundImage]})()")
     for label, load, lv, shine, flash, vib in cases:
         ui.ev("go('home'); start('free'); " + load)
+        # [模様の不透明度, 模様の定義はある, 地にグラデーションが無い]（前の問題の .flash は残るので演出の名前は見ない）
+        b0 = ui.ev(BG)
+        ui.check(label + ": 解く前は背景の模様が見えない（単色の地）", [b0[0], b0[3], b0[4]], ["0", True, "none"])
         got = ui.ev("(()=>{const r=__solve();__VIB.length=0;return r})()")
         ui.check(label + ": 読み出し行は「正解」", got, "10|正解")
         time.sleep(1.0)
@@ -359,3 +385,19 @@ def win_levels(ui):
                  fx[1] if shine else fx[2], True if shine else 0)
         ui.check(label + ": 背景のフラッシュ（段階 3）", fx[3], flash)
         ui.check(label + ": 振動の型", fx[4], vib)
+        # ここは win()（解いて 260ms 後）から約 0.75 秒後。演出は 0.85 秒なので、段階 3 ではまだ消えかけ
+        bg = ui.ev(BG)
+        if flash:
+            ui.check(label + ": 背景の演出は sweep・0.85 秒", bg[1:3], ["sweep", "0.85s"])
+        else:
+            ui.check(label + ": 段階 3 でなければ模様は出ない", bg[0], "0")
+        time.sleep(0.5)
+        ui.check(label + ": 演出が終わると模様は見えない", ui.ev("getComputedStyle($('bg')).opacity"), "0")
+    # 山（35% ≒ 0.3 秒）のあたりで模様が見えていること。win() は解いて 260ms 後
+    ui.ev("go('home'); start('free'); loadPuzzle(ALL().find(p=>p.d===14))")
+    ui.ev("__solve()")
+    time.sleep(0.26 + 0.30)
+    peak = ui.ev("parseFloat(getComputedStyle($('bg')).opacity)")
+    ui.check("段階 3: 演出の山のあたりで模様が浮かんでいる（不透明度 0.5 以上）", peak >= 0.5, True)
+    time.sleep(1.0)
+    ui.check("段階 3: 0.85 秒を過ぎると消えている", ui.ev("getComputedStyle($('bg')).opacity"), "0")

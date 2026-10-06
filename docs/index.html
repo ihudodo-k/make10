@@ -25,50 +25,54 @@
  --bannerH:52px;
  /* トレイと広告の間に空ける余白。トレイが広告に接して見えないようにする */
  --bannerGap:14px}
-/* --ink は画面全体の地の色。ai の #0B111B は指示された値。実機で見て要調整。
-   COLOR-TRIAL 2.9: プレイヤー向けは藍 1 つに絞った。--tileBg/--tileInk/--par は
-   参照 0 件だったので削除（数字がタイルだった頃の名残）。--gold は本体では未参照に
-   なったが定義は残す（達成表示を戻す余地）。--teal は開発者パネルだけが使う */
+/* 配色は BRAND.md 7 章（深い紺 × 温かい白 × 抑えた金）。7.3 で作り替えた（DESIGN.md 1 章）。
+   色の使い方の決まり:
+   - --gold（金）は 3 か所だけ ―― 正解の「10」・ホームの進捗の線・「つぎへ」の下線
+   - --coral（赤）は注意専用 ―― 注意の文と、相手のいない赤い括弧（と、外へ出して削除の合図）
+   - --slate は「無効・効いていない」専用。読ませる字には使わない（それは --dim）
+   --teal は開発者パネルだけが使う。--line は背景の模様（段階 3 の正解のときだけ見える）*/
 body[data-theme="ai"]{   /* 藍。プレイヤー向けの唯一の配色 */
- --ink:#0B111B;--panel:#1D3150;--edge:#2B4670;--paper:#F5F2E9;
- --teal:#4FC3B0;--slate:#55688A;--coral:#E2705F;--gold:#E8B44A;--line:159,180,214;
- /* 読ませる副次テキスト用。--slate は「無効」専用（コントラスト不足のため分けた・3.0） */
- --dim:color-mix(in srgb,var(--paper) 70%,transparent);
- /* 演算子の箱（トレイのパネル）の地。.tray と「つぎへ」#wnext が共有する（6.5） */
- --trayBg:color-mix(in srgb,var(--panel) 60%,transparent)}
+ --ink:#0A1220;--panel:#121D31;--edge:#24344F;--paper:#F4F1E8;
+ --teal:#4FC3B0;--slate:#55688A;--coral:#E2705F;--gold:#E3C16F;--line:159,180,214;
+ /* 読ませる副次テキスト用。7.3 で「--paper の 70%」から直値にした（面の上でも地の上でも同じ色） */
+ --dim:#8FA3C4;
+ /* 丸ボタン（全部消す・ヒント）の薄い輪。出すかどうかは開発者パネルで切り替える（既定は出さない）*/
+ --ring:color-mix(in srgb,var(--paper) 22%,transparent);
+ /* 広告枠の仮の文字（7.2 までは直値 #3E5170）*/
+ --bannerText:#2F4163}
 /* 白は開発者パネルからのみ選べる。定義を残すのは DESIGN.md 1-3 の「新しい配色は
    paper でも確認する」を維持するため。明暗が反転したテーマが 1 つも無いと、
    rgba(255,255,255,…) のような片方向にしか効かない書き方を検出できなくなり、
    将来ライトモードを足すコストが上がる */
 body[data-theme="paper"]{ /* 白（開発用） */
- --ink:#E8E3D5;--panel:#FFFFFF;--edge:#DCD6C6;--paper:#1E2530;
- --teal:#1E8F7A;--slate:#8C8778;--coral:#C6503C;--gold:#B8862B;--line:60,70,90;
- --dim:color-mix(in srgb,var(--paper) 70%,transparent);
- /* 演算子の箱（トレイのパネル）の地。.tray と「つぎへ」#wnext が共有する（6.5） */
- --trayBg:color-mix(in srgb,var(--panel) 60%,transparent)}
+ --ink:#E8E3D5;--panel:#FFFFFF;--edge:#C9C2AF;--paper:#1E2530;
+ --teal:#1E8F7A;--slate:#8C8778;--coral:#C6503C;--gold:#7A5A12;--line:60,70,90;
+ --dim:#5A6070;
+ --ring:color-mix(in srgb,var(--paper) 22%,transparent);
+ --bannerText:#A49D8B}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden}
-/* 背景はグラデーション（--ink を軸に --panel 側へ少し寄せるだけ。新しい色は増やさない）。
-   以前 Android の液晶で縞が出る懸念でべた塗りにしていたが、地を明るく戻したので復活させる。
-   縞が出るようなら、上下の明度差を狭めるか radial-gradient（中心から広がる形）に変える */
-body{background:linear-gradient(180deg,
-   color-mix(in srgb,var(--ink) 82%,var(--panel) 18%) 0%,var(--ink) 62%);
+/* 背景は単色（7.3。7.2 まではグラデーション＋三角の模様）。余白を主役にするため */
+body{background:var(--ink);
  color:var(--paper);
  /* 数字・記号・日本語すべて Zen Kaku Gothic New。縦に細い直線的な書体 */
  font-family:"Zen Kaku Gothic New",system-ui,-apple-system,"Hiragino Sans",sans-serif;
  font-weight:500;display:flex;justify-content:center;overscroll-behavior:none;touch-action:manipulation}
-/* 幾何学模様。地を明るく戻したぶん、濃度も暗くする前の水準に戻す */
-#bg{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+/* 三角の模様。普段は見えない（opacity:0）。段階 3 の正解の演出（win() が .flash を付ける）の
+   0.85 秒だけ、浮かんで消える（7.3）。7.2 までは常に薄く見えていて、演出のときに明るさを
+   4.2 倍にしていた ―― 線の濃さはその「いちばん明るい瞬間」（.05 × 4.2 ≒ .21）に合わせてある。
+   きっかけ（段階 3）・時間（.85s）・山の位置（35%）は 7.2 と同じ */
+#bg{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;
  background-image:
-  repeating-linear-gradient(60deg,rgba(var(--line),.05) 0 1px,transparent 1px 36px),
-  repeating-linear-gradient(-60deg,rgba(var(--line),.05) 0 1px,transparent 1px 36px),
-  repeating-linear-gradient(0deg,rgba(var(--line),.032) 0 1px,transparent 1px 36px)}
-@keyframes sweep{0%{opacity:1;filter:brightness(1)}35%{opacity:1;filter:brightness(4.2)}100%{opacity:1;filter:brightness(1)}}
+  repeating-linear-gradient(60deg,rgba(var(--line),.21) 0 1px,transparent 1px 36px),
+  repeating-linear-gradient(-60deg,rgba(var(--line),.21) 0 1px,transparent 1px 36px),
+  repeating-linear-gradient(0deg,rgba(var(--line),.134) 0 1px,transparent 1px 36px)}
+@keyframes sweep{0%{opacity:0}35%{opacity:1}100%{opacity:0}}
 #bg.flash{animation:sweep .85s ease-out}
 #banner{position:fixed;left:0;right:0;bottom:0;height:var(--bannerH);z-index:40;
  display:flex;align-items:center;justify-content:center;overflow:hidden;
- background:var(--panel);border-top:min(1px,var(--bannerH)) solid var(--edge);
- font-size:11px;color:#3E5170;letter-spacing:.04em}
+ background:var(--ink);border-top:min(1px,var(--bannerH)) solid var(--edge);
+ font-size:11px;color:var(--bannerText);letter-spacing:.04em}
 /* 画面の左上（戻る）と右上（設定）。#app 直下に 1 つずつ置き、go() が出し分ける。
    位置だけを持ち、大きさ・枠・地・透明度は .plainbtn に任せる（5.1）――
    問題画面の #menu と同じ class なので、見た目の指定が 1 か所で済む。
@@ -92,6 +96,15 @@ body{background:linear-gradient(180deg,
 .group.pad{padding:5px 14px}
 /* 面の中の行（.toggle / .kv）。区切り線は左右 14px インセット（行の padding と揃える）。
    面の端まで引くと枠線と繋がって格子に見える。節の最終行には引かない */
+/* 設定は面と枠を持たない（7.3。囲まない）。枠は透明にして残す ―― 外寸と行の位置を変えないため。
+   統計の面は 7.4 で組み替えるまで今のまま */
+#settings .group{background:none;border-color:transparent;border-radius:0}
+/* 設定・遊び方の節見出しは、副次色の小さい見出し（7.3）。中身（行・本文）を前に出すため。
+   設定では行の文字（.toggle の padding 14px ＋ 面の枠 1px）と左端を揃える */
+#settings h3,#help h3{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.08em}
+#settings h3,#appver{padding-left:15px}
+/* バージョン表記は副次色の小さい字（7.3）。.small だけでは .sheet p（13px・--paper の 85%）に負ける */
+#appver{font-size:11.5px;color:var(--dim);opacity:1}
 .group .toggle:not(:last-child)::after,
 .group .kv:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;
  bottom:0;height:1px;background:var(--edge)}
@@ -181,6 +194,8 @@ button:active{background:var(--edge)}
 .card{background:var(--panel);border:1px solid var(--edge);border-radius:15px;padding:14px;margin-bottom:11px}
 .bar{height:9px;border-radius:5px;background:var(--edge);overflow:hidden;margin:9px 0 7px}
 .bar i{display:block;height:100%;background:var(--paper);border-radius:5px;transition:width .4s}
+/* ホームの進捗の線は金（7.3。金を使う 3 か所の 1 つ）。統計の棒は --paper のまま */
+#cbar{background:var(--gold)}
 .row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px}
 .row b{font-size:21px;font-weight:700;color:var(--paper)}
 .small{font-size:11.5px;color:var(--dim)}
@@ -222,8 +237,11 @@ button:active{background:var(--edge)}
 .top{position:relative}
 #share{position:absolute;top:calc(100% + var(--shareGap));right:0;z-index:1}
 /* 丸アイコンボタン (ホーム / 全部消す / ヒント) */
+/* 輪は出さない（7.3。枠は透明にして残す ―― 太さと当たりの大きさを変えないため）。
+   「全部消す」「ヒント」だけは、開発者パネルの切り替え（devVars.btnRing → body.rings）で
+   薄い輪 --ring を出せる。既定は出さない（実機で決める）。ホーム #back には出さない */
 .iconbtn{width:var(--btnW);height:var(--btnW);padding:0;border-radius:50%;background:none;
- border:1.5px solid color-mix(in srgb,var(--paper) 34%,transparent);
+ border:1.5px solid transparent;
  color:var(--paper);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .iconbtn:active{background:color-mix(in srgb,var(--paper) 12%,transparent)}
 /* 丸ボタンの右肩に重ねる数字（ヒントの残数）。トレイの .chip .stock と同じ
@@ -241,8 +259,10 @@ button:active{background:var(--edge)}
    穴の半径 13.5px は「3 桁（999 / 100）の行ボックスの角までの距離 12.3px」＋余裕。
    12.5px だと余裕が 0.2px しかなく、端末の字形の差で線が数字に触りうる */
 #hint{border-color:transparent}
+body.rings #clear{border-color:var(--ring)}
+body.rings #hint::before{border-color:var(--ring)}
 #hint::before{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
- border:1.5px solid color-mix(in srgb,var(--paper) 34%,transparent);
+ border:1.5px solid transparent;
  -webkit-mask:radial-gradient(circle 13.5px at calc(100% - 8px) 6.5px,transparent 99%,#000 100%);
  mask:radial-gradient(circle 13.5px at calc(100% - 8px) 6.5px,transparent 99%,#000 100%)}
 /* 最後の段階（3/3）を開いている間は押しても何も起きないので、無効の色にする（6.4）。
@@ -254,9 +274,11 @@ button:active{background:var(--edge)}
 .plainbtn{width:var(--btnW);height:var(--btnW);padding:0;border:0;background:none;color:var(--paper);
  display:flex;align-items:center;justify-content:center;flex:0 0 auto;opacity:.9}
 .plainbtn:active{background:none;opacity:.6}
-.top .info{flex:1;text-align:right;font-size:12px;color:var(--slate);line-height:1.35}
+/* 中央揃え（7.3。7.2 までは右寄せ）。#back と #menu が同じ幅なので、画面の軸に乗る。
+   色は --dim（7.2 までは無効専用の --slate を読ませる字に使っていた）*/
+.top .info{flex:1;text-align:center;font-size:12px;color:var(--dim);line-height:1.35}
 .top .info b{color:var(--paper);font-weight:700}
-.code{font-size:11px;color:var(--slate);letter-spacing:.09em}
+.code{font-size:11px;color:var(--dim);letter-spacing:.09em}
 /* タップでコピーできる箇所（6.4）。点線の下線だけで示す（色は変えない）。
    コピーできない環境では選択状態にして見せるので、ここだけ選択を許す */
 .copyable{text-decoration:underline dotted;text-underline-offset:3px;text-decoration-thickness:1px;
@@ -286,7 +308,7 @@ button:active{background:var(--edge)}
     階乗表の桁揃えは対応不要：値が 1〜479,001,600 と桁数がバラバラで tnum でも揃わない */
  font-variant-numeric:tabular-nums;
  transition:color .18s;text-align:center;word-break:break-word}
-.eq.idle{font-size:21px;font-weight:500;color:color-mix(in srgb,var(--paper) 55%,var(--slate))}
+.eq.idle{font-size:21px;font-weight:500;color:var(--dim)}
 /* 正解でも色は変えない。いちばん明るい白にするだけで、あとは既存の演出で伝える。
    「10」は大きく見せる（6.5）。倍率は devVars.tenScale（既定 1.8・実機で決めた値。
    開発者パネル「正解の表示」のスライダーは調整用に残す）を applyDevVars() が --tenScale として流す。
@@ -296,12 +318,17 @@ button:active{background:var(--edge)}
    上の .top に向かってだけ伸びる（上限は DESIGN.md 3-1-6）。
    大きさに動きは付けない ―― 正解した瞬間から拡大後の大きさで出し、崩したときも
    一瞬で戻す（transform の遷移は書かない。色の遷移は .eq の color .18s のまま）*/
-.eq.hit{color:var(--paper);transform:scale(var(--tenScale));transform-origin:50% 100%}
+/* 正解の「10」だけ金（7.3。金を使う 3 か所の 1 つ）*/
+.eq.hit{color:var(--gold);transform:scale(var(--tenScale));transform-origin:50% 100%}
 .eq.miss{opacity:.5}
+/* 10 だが使えない記号を使った（7.3）。10 でない値（.miss の 50%）より濃くして「惜しい」を伝える。
+   理由は下の注意の文（赤）が言う。金にはしない */
+.eq.ban{opacity:.75}
 .eq.part{font-size:34px;opacity:.75;letter-spacing:.01em}
-.sub{font-size:12.5px;color:var(--slate);min-height:18px;text-align:center}
+.sub{font-size:12.5px;color:var(--dim);min-height:18px;text-align:center}
 .sub.warn{color:var(--coral)}
-.sub.ok{color:color-mix(in srgb,var(--paper) 82%,transparent)}
+/* 「正解」は字間を広げる（7.3）。text-indent は、最後の字の後ろにも付く字間のぶん（中央がずれる）を戻す */
+.sub.ok{color:color-mix(in srgb,var(--paper) 82%,transparent);letter-spacing:.24em;text-indent:.24em}
 /* 式エリアはカードをやめて背景に溶かす。枠線は「外へドラッグして削除」の
    フィードバック (.trash) 用に幅だけ残し、通常は透明にしておく */
 .field{flex:1 1 0;min-height:96px;display:flex;align-items:center;justify-content:center;
@@ -385,10 +412,11 @@ button:active{background:var(--edge)}
 .facttable .c span{color:var(--paper)}
 .facttable .n{font-size:10.5px;color:var(--slate);margin-top:6px;padding-top:6px;
  border-top:1px solid var(--edge)}
-/* トレイは 1 枚の角丸パネル。枠線はパネル側だけに付け、チップは記号だけを並べる */
+/* トレイは面を持たず、上に細い線 1 本だけ（7.3。7.2 までは角丸のパネル）。線は「ここから下が
+   記号の置き場」の手がかり。左右と下の枠は透明にして残す ―― 外寸と記号の位置を変えないため */
 .tray{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--trayGap);
- background:var(--trayBg);
- border:1px solid var(--edge);border-radius:20px;padding:var(--trayPad)}
+ background:none;
+ border:1px solid transparent;border-top-color:var(--edge);padding:var(--trayPad)}
 .chip{position:relative;height:54px;border-radius:9px;background:none;border:0;
  display:flex;align-items:center;justify-content:center;font-size:var(--chipF);font-weight:700;
  color:var(--paper);cursor:grab;user-select:none;touch-action:none}
@@ -402,7 +430,7 @@ button:active{background:var(--edge)}
 .chip.off{color:var(--slate);opacity:.5;cursor:not-allowed;background:none}
 /* 括弧の在庫はモックアップどおり記号の右肩に上付きで出す */
 .chip .stock{position:absolute;top:8px;right:calc(50% - 22px);font-size:12px;
- font-weight:700;color:var(--slate);line-height:1}
+ font-weight:700;color:var(--dim);line-height:1}
 @keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}
 30%,50%,70%{transform:translateX(-6px)}40%,60%{transform:translateX(6px)}}
 .chip.shake{animation:shake .42s}
@@ -411,8 +439,11 @@ button:active{background:var(--edge)}
 .foot button.on{border-color:var(--paper);color:var(--paper)}
 #ghost{position:fixed;pointer-events:none;z-index:99;font-size:34px;font-weight:700;color:var(--paper);
  transform:translate(-50%,-50%) scale(1.22);text-shadow:0 3px 10px rgba(0,0,0,.5)}
-.hintbox{font-size:var(--hintF);color:var(--paper);line-height:1.6;background:var(--panel);box-shadow:0 8px 22px rgba(0,0,0,.45);
- border:var(--hintBorder) solid var(--edge);border-radius:11px;padding:4px var(--hintPadX);display:none}
+/* 地の色に上下の線だけ（7.3。7.2 までは面・影・角丸のある箱）。地は不透明のまま ―― 式の上に
+   重なることがあるため。左右の枠は透明にして残す（HINT_ROW.border が縮小の計算に入っている）*/
+.hintbox{font-size:var(--hintF);color:var(--paper);line-height:1.6;background:var(--ink);
+ border:var(--hintBorder) solid transparent;border-top-color:var(--edge);border-bottom-color:var(--edge);
+ padding:4px var(--hintPadX);display:none}
 .hintbox.show{display:block}
 /* ラベル（使う記号：/ 形：/ 解答例：）と中身の差は太さだけ。
    色は .hintbox から継承する ―― 同じ色を 2 箇所に書かない */
@@ -471,18 +502,18 @@ button:active{background:var(--edge)}
      幅は JS の NEXT_BTN.w を applyMetrics() が --nextW として流す（寸法の定数は JS に 1 か所）。
    点数表示オンのときだけ、点数・詳細行のカード #win（星は 6.6 で廃止）を .overlays の中（.foot の上）に
      重ねて出す。カードに「つぎへ」は入れない */
-#win{display:flex;flex-direction:column;gap:2px;
- background:var(--panel);border:1px solid color-mix(in srgb,var(--paper) 30%,transparent);
- border-radius:15px;padding:8px 14px}
-#win .meta{font-size:11.5px;color:var(--slate);line-height:1.35}
+/* 点数のカードは枠も面も持たない（7.3）。枠は透明にして残す（高さ 55.5px を変えない）。文字は中央 */
+#win{display:flex;flex-direction:column;gap:2px;align-items:center;
+ background:none;border:1px solid transparent;padding:8px 14px}
+#win .meta{font-size:11.5px;color:var(--dim);line-height:1.35}
 #win .pts{font-size:14px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
-/* 「つぎへ」の色は演算子の箱と同じ（6.5）。地と枠はトレイのパネル .tray（--trayBg /
-   1px --edge）、文字は記号 .chip（--paper）、押したときは .chip:active と同じく地を変えず
-   薄くするだけ（button:active の --edge の地を打ち消す）。値は書かず変数だけを使う */
+/* 「つぎへ」は面を持たず、金の下線 1 本（7.3。金を使う 3 か所の 1 つ。7.2 まではトレイと同じ面と枠）。
+   上と左右の枠は透明にして残す（大きさを変えない）。文字は記号 .chip と同じ --paper、押したときは
+   .chip:active と同じく地を変えず薄くするだけ（button:active の --edge の地を打ち消す）*/
 #wnext{flex:0 0 auto;width:var(--nextW);height:var(--btnW);padding:0;
- font-size:15px;font-weight:700;letter-spacing:.04em;
- border:1px solid var(--edge);color:var(--paper);background:var(--trayBg)}
-#wnext:active{background:var(--trayBg);opacity:.5}
+ font-size:15px;font-weight:700;letter-spacing:.04em;border-radius:0;
+ border:1px solid transparent;border-bottom-color:var(--gold);color:var(--paper);background:none}
+#wnext:active{background:none;opacity:.5}
 #toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%) translateY(12px);
  background:var(--panel);border:1px solid var(--edge);color:var(--paper);
  padding:11px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:80;
@@ -507,7 +538,6 @@ button:active{background:var(--edge)}
      JS の TOKEN_METRICS.compact が CSS 変数として流し込む。
      ここに数値を書くと二重管理になるので、変数にしていない値だけ残す */
   .chip{height:42px}
-  .tray{border-radius:16px}
   .foot{margin:0 6px 8px}
   .top{margin-bottom:0}
   .field{padding:6px;margin-bottom:6px;min-height:72px}
@@ -718,6 +748,8 @@ button:active{background:var(--edge)}
       <h3 class="sec" data-sec="ten"><span class="mk"></span>正解の表示</h3>
       <div class="dv"><span>正解したときの 10 の倍率（決定 1.8）</span><b id="dv-tenScale-v"></b></div>
       <input type="range" id="dv-tenScale" min="1" max="3" step="0.05">
+      <h3 class="sec" data-sec="ring"><span class="mk"></span>丸ボタンの輪（仮・実機で決める）</h3>
+      <div class="dv"><span>「全部消す」「ヒント」の薄い輪</span><button id="dv-btnRing" style="padding:3px 9px;font-size:11px"></button></div>
       <h3 class="sec" data-sec="meas"><span class="mk"></span>実測値（読み取り専用・今つまんでいる記号について）</h3>
       <div class="dv"><span>隙間の上限</span><b id="dv-zbase-v"></b></div>
       <div class="dv"><span>通常時の隙間幅（--zoneW・採用値）</span><b id="dv-zused-v"></b></div>
@@ -750,7 +782,7 @@ button:active{background:var(--edge)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="7.2";
+const APP_VERSION="7.3";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -39972,7 +40004,7 @@ function render(closing){
         // 「お見事」をやめ、段階によらず「正解」の 1 語にした（表示を減らすため）。
         // 段階 hitLv 自体は win() の光り方と振動の強さが使うので残す
         su.className="sub ok";su.textContent="正解"}
-      else if(ten){eq.classList.add("miss");su.className="sub warn";
+      else if(ten){eq.classList.add("ban");su.className="sub warn";   // 10 だが使えない記号（7.3。75%）
         su.textContent=`${GLYPH[c.op]} は使えません`}
       else{eq.classList.add("miss");su.className="sub";
         su.textContent=dead.size?"グレーの括弧は計算に効いていません":""}
@@ -40525,7 +40557,7 @@ document.querySelector(".title").addEventListener("click",()=>{
 /* 開発者パネルの配色切り替え用（プレイヤー向けは藍固定、COLOR-TRIAL 2.9）。
    [id, 表示名, --ink, --panel]。色は :root のテーマ定義から取った実値。
    旧配列は paper の 1 色目に #F2EFE6 と書いてあったが実際の --ink は #E8E3D5。修正済み */
-const THEMES=[["ai","藍","#0B111B","#1D3150"],["paper","白","#E8E3D5","#FFFFFF"]];
+const THEMES=[["ai","藍","#0A1220","#121D31"],["paper","白","#E8E3D5","#FFFFFF"]];
 const THEME_IDS=THEMES.map(t=>t[0]);
 /* 保存値が現存しないテーマ（旧 sumi/fuji 等）なら藍に戻す。放置するとどのセレクタにも
    一致せずテーマ変数が全て未定義になり画面が崩れる */
@@ -40567,6 +40599,8 @@ const DEV_DEFAULT={dur:300,shrink:80,catch:40,swapCatch:40,hotDur:200,zoneMin:ZO
   // 段階 3 の全解答の見せ方は 7.1 で「2 段」に決めた。6.9 の hintSolMode（ア・イ）と
   // 7.0 の hintSolView（シート／2 段）は消した ―― 古い保存データに残っていても、
   // load() が DEV_DEFAULT に無いキーを捨てるので読まれない
+  // 「全部消す」「ヒント」の薄い輪（7.3。0=出さない / 1=出す。実機で決めるための仮の切り替え）
+  btnRing:0,
   devTop:0};         // 開発者パネルを上側に付けるか（0=下 / 1=上）。開き直しても維持する
 const VIB_KEYS=["vibPick","vibHover","vibDrop","vibBtn"];   // 開発者パネルの振動の節
 /* 開発者パネルの節の開閉（4.1）。devVars は「調整した値」だけを持たせたいので別のキーにする
@@ -40575,7 +40609,7 @@ const VIB_KEYS=["vibPick","vibHover","vibDrop","vibBtn"];   // 開発者パネ�
    スライダーを動かして実測値を読む、が 1 往復なので同時に開いているほうが速い。
    画面高 690px（clientHeight 275px）での実測は basic のみ 636px・basic+meas 964px で、
    どちらにしてもスクロールは要る ―― 片方を閉じても届く画面数が変わるだけなので開けておく */
-const DEV_SEC_DEFAULT={basic:1,vib:1,ten:1,meas:1,copy:0};
+const DEV_SEC_DEFAULT={basic:1,vib:1,ten:1,ring:1,meas:1,copy:0};
 
 function applyDevVars(){
   const dv=G.devVars||DEV_DEFAULT;
@@ -40585,6 +40619,7 @@ function applyDevVars(){
   DEV_CATCH=dv.catch;
   DEV_SWAP=dv.swapCatch;
   document.documentElement.style.setProperty("--tenScale",dv.tenScale);
+  document.body.classList.toggle("rings",!!dv.btnRing);   // 丸ボタンの輪（色は CSS の --ring）
   applyDevPos();
 }
 /* パネルを上側／下側のどちらに付けるか。式を見たいときは下、トレイを見たいときは上 */
@@ -40620,6 +40655,7 @@ function renderDevPanel(){
   $("dv-zoneMin").value=dv.zoneMin; $("dv-zoneMin-v").textContent=dv.zoneMin+"px";
   for(const k of VIB_KEYS){$("dv-"+k).value=dv[k]; $("dv-"+k+"-v").textContent=dv[k]+"ms"}
   $("dv-tenScale").value=dv.tenScale; $("dv-tenScale-v").textContent=dv.tenScale+"倍";
+  $("dv-btnRing").textContent=dv.btnRing?"輪あり":"輪なし（既定）";
   applySecs();
   renderDevMeasured();
 }
@@ -40752,6 +40788,11 @@ $("dv-close").onclick=()=>devPanelShow(false);
 $("dv-min").onclick=()=>{
   const min=$("devpanel").classList.toggle("min");
   $("dv-min").textContent=min?"ひらく":"たたむ";
+};
+$("dv-btnRing").onclick=()=>{
+  G.devVars={...DEV_DEFAULT,...(G.devVars||{})};
+  G.devVars.btnRing=G.devVars.btnRing?0:1;
+  applyDevVars(); save(); renderDevPanel();
 };
 $("dv-pos").onclick=()=>{
   G.devVars={...DEV_DEFAULT,...(G.devVars||{})};
