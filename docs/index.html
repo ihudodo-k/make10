@@ -94,23 +94,31 @@ body{background:var(--ink);
 .group{background:var(--panel);border:1px solid var(--edge);border-radius:15px;
  margin-bottom:11px;overflow:hidden}
 .group.pad{padding:5px 14px}
-/* 面の中の行（.toggle / .kv）。区切り線は左右 14px インセット（行の padding と揃える）。
-   面の端まで引くと枠線と繋がって格子に見える。節の最終行には引かない */
-/* 設定は面と枠を持たない（7.3。囲まない）。枠は透明にして残す ―― 外寸と行の位置を変えないため。
-   統計の面は 7.4 で組み替えるまで今のまま */
-#settings .group{background:none;border-color:transparent;border-radius:0}
-/* 設定・遊び方の節見出しは、副次色の小さい見出し（7.3）。中身（行・本文）を前に出すため。
-   設定では行の文字（.toggle の padding 14px ＋ 面の枠 1px）と左端を揃える */
-#settings h3,#help h3{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.08em}
-#settings h3,#appver{padding-left:15px}
+/* 面の中の行（.toggle）。区切り線は左右 14px インセット（行の padding と揃える）。
+   節の最終行には引かない */
+/* 設定と統計は面と枠を持たない（設定は 7.3、統計は 7.4。囲まない）。枠は透明にして残す ――
+   行の位置を変えないため。.group の面の指定（上）は、どの画面にも当たらなくなったが、
+   面を戻すときの元として残してある */
+#settings .group,#stats .group{background:none;border-color:transparent;border-radius:0}
+/* 設定・遊び方・統計の節見出しは、副次色の小さい見出し（7.3。統計は 7.4）。中身（行・本文）を
+   前に出すため。設定と統計では行の文字（行の padding 14px ＋ 面の枠 1px）と左端を揃える */
+#settings h3,#help h3,#stats h3{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.08em}
+#settings h3,#stats h3,#appver{padding-left:15px}
 /* バージョン表記は副次色の小さい字（7.3）。.small だけでは .sheet p（13px・--paper の 85%）に負ける */
 #appver{font-size:11.5px;color:var(--dim);opacity:1}
-.group .toggle:not(:last-child)::after,
-.group .kv:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;
+.group .toggle:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;
  bottom:0;height:1px;background:var(--edge)}
-.sheet .kv{position:relative;display:flex;justify-content:space-between;align-items:center;
- font-size:13px;padding:14px;min-height:48px}
-.sheet .kv b{font-weight:700;font-variant-numeric:tabular-nums}
+/* 統計の上の 6 項目（7.4）。2 列 × 3 段の「大きい数字＋小さい名前」。数字が主役。
+   7.3 までは「名前 …… 値」の行 .kv が 6 つ並んでいた（.kv は削除）。
+   単位（問・秒・回）は小さい副次色。記録が無いときは数字の場所に「—」を副次色で出す。
+   左端は行の文字と同じ（padding 14px ＋ 枠 1px）*/
+#statlist{display:grid;grid-template-columns:1fr 1fr;padding:6px 14px 0}
+.stat{height:76px;min-width:0}
+.stat .sv{display:flex;align-items:baseline;white-space:nowrap}
+.stat .sv b,.stat .sv .none{font-size:26px;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums}
+.stat .sv .none{color:var(--dim)}
+.stat .sv .su{font-size:12px;color:var(--dim);margin-left:4px}
+.stat .sk{font-size:11.5px;color:var(--dim);white-space:nowrap}
 /* 開発者パネル。画面（SCREENS）の 1 つではなく、どの画面にも重なる道具なので
    #settings の中ではなく #app の直下に置く（3.4 で移動）。画面の下半分に重ね、
    上半分に問題画面を見せたまま寸法を調整できるようにするため。
@@ -189,29 +197,50 @@ button{font:inherit;cursor:pointer;color:var(--paper);background:var(--panel);
 button:active{background:var(--edge)}
 .hide{display:none!important}
 
-/* ── ホーム ── */
-.title{font-size:31px;font-weight:700;letter-spacing:.02em;margin:26px 0 23px}
-.card{background:var(--panel);border:1px solid var(--edge);border-radius:15px;padding:14px;margin-bottom:11px}
+/* ── ホーム（7.4。囲まない・数字が主役・中央揃え。Figma「13 余白（改）」の 02b）──
+   7.3 までは「題名 31px・本編のカード・面のあるモード 3 行・面のある入力欄」の縦積みだった。
+   大きさと余白は normal の値。compact は下の @media で詰める */
+.title{font-size:15px;font-weight:700;letter-spacing:.14em;text-indent:.14em;text-align:center;
+ line-height:22px;margin:14px 0 0}
+/* 主役は「進んだ問題数」。#cnum の中に大きい数字 #chero と「/ 1000 問」#cden を縦に積む
+   （#cnum の文字は 7.3 までと同じ「137 / 1000 問」のまま）*/
+.hero{margin-top:80px;text-align:center}
+#cnum,#chero,#cden{display:block}
+#chero{font-size:104px;font-weight:700;line-height:1.05;color:var(--paper);font-variant-numeric:tabular-nums}
+#cden{font-size:14px;color:var(--dim);margin-top:2px}
 .bar{height:9px;border-radius:5px;background:var(--edge);overflow:hidden;margin:9px 0 7px}
 .bar i{display:block;height:100%;background:var(--paper);border-radius:5px;transition:width .4s}
-/* ホームの進捗の線は金（7.3。金を使う 3 か所の 1 つ）。統計の棒は --paper のまま */
+/* ホームの進捗は細い線（幅 180 / 150px・高さ 2px）。金（金を使う 3 か所の 1 つ）。統計の棒は --paper のまま */
+.hero .bar{width:180px;height:2px;border-radius:1px;margin:14px auto 10px}
+.hero .bar i{border-radius:1px}
 #cbar{background:var(--gold)}
 .row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px}
 .row b{font-size:21px;font-weight:700;color:var(--paper)}
 .small{font-size:11.5px;color:var(--dim)}
-.modes{display:flex;flex-direction:column;gap:9px;margin-top:4px}
-/* アイコン ＋ 名前 ＋ 右端の値 の 1 行（3.0）。padding 14*2 + 中身 ~24px ≥ 48px */
-.mode{display:flex;align-items:center;gap:12px;padding:14px;min-height:48px;text-align:left;width:100%}
-.mode .mi{width:calc(var(--icW) + 6px);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
-.mode .mt{flex:1;font-size:15px;font-weight:700;color:var(--paper)}
-.mode .mv{flex:0 0 auto;font-size:13px;color:var(--dim);white-space:nowrap}
-.mode.lock{opacity:.55}
-.share{display:flex;gap:8px;margin-top:12px}
-.share input{flex:1;background:var(--edge);border:1px solid var(--edge);border-radius:11px;
- color:var(--paper);font:inherit;font-size:15px;font-weight:700;padding:11px 13px;
- letter-spacing:.1em;text-transform:uppercase;min-width:0}
-.share input::placeholder{color:var(--dim);letter-spacing:.04em;font-weight:500}
-.share button{padding:0 17px;font-size:13.5px;font-weight:700;white-space:nowrap}
+/* モード 3 行。面もアイコンも持たず、細い線で区切る。右端に ›（押せる手がかり）。
+   線の幅 = 行の幅（264 / 228px）。挑戦の値（あと N 問・N / 1471・全問クリア）は名前の下の小さい字 */
+.modes{width:264px;margin:104px auto 0;border-top:1px solid var(--edge)}
+.mode{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ width:100%;height:64px;padding:0;background:none;border:0;border-bottom:1px solid var(--edge);border-radius:0}
+.mode:active{background:none;opacity:.6}
+.mode .mt{font-size:19px;font-weight:700;color:var(--paper);line-height:1.3}
+.mode .mv{font-size:11.5px;color:var(--dim);line-height:1.2;white-space:nowrap}
+.mode .mv:empty{display:none}
+.mode .chev{position:absolute;right:2px;top:50%;margin-top:-8px}
+/* ロック中は薄くせず、無効の色にする（7.3 までは行ごと不透明度 55%）。値「あと N 問」は読ませる字なので --dim のまま */
+.mode.lock{cursor:default}
+.mode.lock .mt,.mode.lock .chev{color:var(--slate)}
+.mode.lock:active{opacity:1}
+/* 共有コードの欄は下線だけ、「ひらく」は文字だけ（面と枠をやめた）。下線は欄とボタンを通して 1 本 */
+.share{display:flex;align-items:stretch;margin:40px 48px 0;border-bottom:1px solid var(--edge)}
+.share input{flex:1;min-width:0;background:none;border:0;border-radius:0;outline:none;
+ color:var(--paper);font:inherit;font-size:15px;font-weight:700;padding:8px 0;
+ letter-spacing:.1em;text-transform:uppercase}
+.share input::placeholder{color:var(--dim);letter-spacing:.04em;font-weight:500;font-size:14px}
+.share button{padding:0 0 0 14px;font-size:13.5px;font-weight:700;white-space:nowrap;
+ background:none;border:0;border-radius:0}
+.share button:active{background:none;opacity:.6}
+.sharenote{margin:10px 48px 0;line-height:1.6;text-align:center}
 
 /* ── プレイ ── */
 /* アイコンは PNG を読み込まずインライン SVG。currentColor なので 4 テーマに追従する */
@@ -303,7 +332,7 @@ body.rings #hint::before{border-color:var(--ring)}
  /* tabular-nums は Zen Kaku Gothic New 本体では無効（tnum feature を持たず、数字も
     等幅でない＝送り幅 409〜508 units/1000）。ただしフォールバック（system-ui /
     Hiragino Sans 等）では効くので、Google Fonts の読み込み前・失敗時や、Capacitor で
-    フォント同梱が済むまでの環境の保険として残す。.sheet .kv b / .dv b / .num /
+    フォント同梱が済むまでの環境の保険として残す。.stat .sv b / .dv b / .num /
     .facttable .c にも同じ指定があり理由は同じ（説明はこの1箇所だけに置く）。
     階乗表の桁揃えは対応不要：値が 1〜479,001,600 と桁数がバラバラで tnum でも揃わない */
  font-variant-numeric:tabular-nums;
@@ -541,6 +570,17 @@ body.rings #hint::before{border-color:var(--ring)}
   .foot{margin:0 6px 8px}
   .top{margin-bottom:0}
   .field{padding:6px;margin-bottom:6px;min-height:72px}
+  /* ホームと統計（7.4）。低い端末では主役の数字と余白を詰める */
+  .hero{margin-top:40px}
+  #chero{font-size:80px}
+  .hero .bar{width:150px}
+  .modes{width:228px;margin-top:56px}
+  .mode{height:52px}
+  .mode .mt{font-size:17px}
+  .share{margin:18px 32px 0}
+  .sharenote{margin:10px 32px 0}
+  .stat{height:66px}
+  .stat .sv b,.stat .sv .none{font-size:22px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -557,26 +597,24 @@ body.rings #hint::before{border-color:var(--ring)}
   <div id="home">
     <div class="title">Make10</div>
 
-    <div class="card">
-      <div class="row"><span>本編</span><span><b id="cpct">0</b>%</span></div>
+    <!-- 主役は進んだ問題数（7.4）。#cnum の文字は「137 / 1000 問」のまま（大きい数字と小さい分母に分けただけ）-->
+    <div class="hero">
+      <div id="cnum"><b id="chero">0</b><span id="cden"> / 1000 問</span></div>
       <div class="bar"><i id="cbar" style="width:0%"></i></div>
-      <div class="row small"><span id="cnum">0 / 1000 問</span><span id="ctot">累計 0 問クリア</span></div>
+      <div class="small">本編 <span id="cpct">0</span>%　<span id="ctot">累計 0 問</span></div>
     </div>
 
     <div class="modes">
-      <button class="mode" id="m-course"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></div>
-        <div class="mt">本編</div></button>
-      <button class="mode" id="m-free"><div class="mi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 9.3c-1.5 0-2.7 1.2-2.7 2.7s1.2 2.7 2.7 2.7c2.7 0 3-5.4 5.6-5.4 1.5 0 2.7 1.2 2.7 2.7s-1.2 2.7-2.7 2.7c-2.7 0-3-5.4-5.6-5.4z"/></svg></div>
-        <div class="mt">フリープレイ</div></button>
-      <button class="mode" id="m-chal"><div class="mi"></div>
-        <div class="mt">挑戦</div><div class="mv" id="m-chal-v"></div></button>
+      <button class="mode" id="m-course"><span class="mt">本編</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="mode" id="m-free"><span class="mt">フリープレイ</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="mode" id="m-chal"><span class="mt">挑戦</span><span class="mv" id="m-chal-v"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
 
     <div class="share">
       <input id="codein" placeholder="共有コード（5文字）" maxlength="7">
       <button id="codego">ひらく</button>
     </div>
-    <div class="small" style="margin-top:7px;line-height:1.6">
+    <div class="small sharenote">
       問題ごとにコードがあります。友達に送ると同じ問題が開きます。
     </div>
 
@@ -782,7 +820,7 @@ body.rings #hint::before{border-color:var(--ring)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="7.3";
+const APP_VERSION="7.4";
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -40505,26 +40543,27 @@ const ICON_MENU  =`<svg class="ic thick" viewBox="0 0 24 24" aria-hidden="true">
    文字列は 1 箇所に持つ ―― 片方だけ直して食い違うのを防ぐ（4.5 と同じ考え方）*/
 const CHEV_L="M15 6l-6 6 6 6", CHEV_R="M9 6l6 6-6 6";
 const ICON_BACK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${CHEV_L}"/></svg>`;
-const ICON_LOCK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 11h11v9h-11z"/><path d="M8.8 11V8a3.2 3.2 0 0 1 6.4 0v3"/></svg>`;
-const ICON_STAR  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8L13.84 9.47L19.8 9.47L14.98 12.97L16.82 18.63L12 15.13L7.18 18.63L9.02 12.97L4.2 9.47L10.16 9.47Z"/></svg>`;
-const ICON_TROPHY=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h10v4a5 5 0 0 1-10 0z"/><path d="M7 6.5H4.5v1.5a3 3 0 0 0 3 3"/><path d="M17 6.5h2.5v1.5a3 3 0 0 1-3 3"/><path d="M12 14v6"/><path d="M8.5 20h7"/></svg>`;
+/* 鍵・星・トロフィー（ICON_LOCK / ICON_STAR / ICON_TROPHY）は 7.4 で削除した。ホームのモードが
+   アイコンを持たなくなったため（挑戦の 3 状態は、名前の下の値と、ロック中の --slate で示す）*/
 function renderHome(){
   $("codein").value="";$("codein").placeholder="共有コード（5文字）";
   // G.ci はクリアでしか進まない（5.0 で保留を廃止し、位置だけ進める経路が無くなった）
   const doneC=Math.min(G.ci,COURSE.length);
   const pct=Math.floor(doneC/COURSE.length*1000)/10;
   $("cpct").textContent=pct.toFixed(1);
-  $("cbar").style.width=Math.max(pct,.6)+"%";
-  $("cnum").textContent=`${doneC} / ${COURSE.length} 問`;
+  // 進んでいれば最低でも 0.6%（細い線の 1px ぶん）見せる。0 問のときは金を出さない（7.4）
+  $("cbar").style.width=(pct>0?Math.max(pct,.6):0)+"%";
+  // 主役の数字と分母（7.4）。#cnum 全体の文字は「137 / 1000 問」のまま
+  $("chero").textContent=doneC;
+  $("cden").textContent=` / ${COURSE.length} 問`;
   // 累計点数はホームに出さない（6.6。表示を減らすため）。点数の記録 G.best と
   // totalScore() はそのまま残すので、表示を戻すときはここに足すだけでよい
   $("ctot").textContent=`累計 ${G.cleared} 問`;
   const lk=G.cleared<CHAL_AT;
   $("m-chal").classList.toggle("lock",lk);
   const chalLeft=CHAL.length-G.chalDone.length;
-  // アイコンは 3 状態あるので innerHTML を差し替える（textContent では SVG が入らない）
-  $("m-chal").querySelector(".mi").innerHTML=lk?ICON_LOCK:(chalLeft<=0?ICON_TROPHY:ICON_STAR);
-  // 右端の値。ロック中は「あと N 問」だけ（難易度17以上の条件は遊び方に記載）
+  // 名前の下の値（7.4。7.3 までは右端の値と、鍵・星・トロフィーのアイコン）。
+  // ロック中は「あと N 問」だけ（難易度17以上の条件は遊び方に記載）
   $("m-chal-v").textContent=lk?`あと ${CHAL_AT-G.cleared} 問`
     :chalLeft<=0?"全問クリア"
     :`${G.chalDone.length} / ${CHAL.length}`;
@@ -40854,12 +40893,15 @@ function renderStats(){
   const rows=[
     // 累計スコアは出さない（6.6。正解カード・ホームと揃えて表示を減らす）。
     // 記録 G.best と totalScore() は残すので、表示を戻すときはここに 1 行足すだけでよい
-    ["解いた問題（ユニーク）",G.seen.length+" 問"],
-    ["本編の進み",`${Math.min(G.ci,COURSE.length)} / ${COURSE.length} 問`],
-    ["平均でかかった時間",avg?avg+" 秒":"—"],["いちばん速かった",st.best?st.best+" 秒":"—"],
-    ["挑戦モードの進み",`${G.chalDone.length} / ${CHAL.length} 問`],
-    ["ヒントの残り",G.hintStock+" 回"]];   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
-  $("statlist").innerHTML=rows.map(([k,v])=>`<div class="kv"><span>${k}</span><b>${v}</b></div>`).join("");
+    // [名前, 数字, 単位]。数字が null なら記録が無い ―― 数字の場所に「—」を副次色で出す（7.4）
+    ["解いた問題（ユニーク）",G.seen.length,"問"],
+    ["本編の進み",`${Math.min(G.ci,COURSE.length)} / ${COURSE.length}`,"問"],
+    ["平均でかかった時間",avg||null,"秒"],["いちばん速かった",st.best||null,"秒"],
+    ["挑戦モードの進み",`${G.chalDone.length} / ${CHAL.length}`,"問"],
+    ["ヒントの残り",G.hintStock,"回"]];   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
+  // 2 列 × 3 段の「大きい数字＋小さい名前」（7.4。7.3 までは「名前 …… 値」の行 .kv）
+  $("statlist").innerHTML=rows.map(([k,v,u])=>`<div class="stat"><div class="sv">${
+    v===null?'<span class="none">—</span>':`<b>${v}</b><span class="su">${u}</span>`}</div><div class="sk">${k}</div></div>`).join("");
   const bands=[["3-8","やさしい"],["9-13","ふつう"],["14-16","むずかしい"],["17+","挑戦"]];
   const mx=Math.max(1,...bands.map(([b])=>st.band[b]||0));
   const hh=$("stathist");
