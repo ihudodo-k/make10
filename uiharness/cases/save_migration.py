@@ -6,6 +6,7 @@ BLOB を組み替えると、保存データには存在しない問題のコー
 検証が古いデータに縛られるので、INDEX に無い (id,rc) から codeOf() で作る。
 """
 import json
+import time
 
 NAME = "保存データの移行"
 
@@ -71,6 +72,7 @@ def run(ui):
     ui.check("chalRem は保たれる", ui.ev("G.chalRem"), 1)
     ui.check("5.0 で廃止した held 系は G に入らない",
              ui.ev("['held','heldC','heldT','heldF'].filter(k=>k in G)"), [])
+    ui.check("7.6 で足した lang: 項目が無い保存データは auto で読める", ui.ev("G.lang"), "auto")
     ui.check("読み込みでは保存 JSON を書き換えない",
              ui.ev("localStorage.getItem(%s)===%s"
                    % (json.dumps("make10.progress.v4"), json.dumps(raw))), True)
@@ -116,3 +118,19 @@ def run(ui):
     ui.click("codego")
     ui.check("生きているコードの共有入力は通る", ui.ev("SCR"), "play")
     ui.check_no_errors("移行の確認のあとも JS エラー 0")
+
+    # ── 言語（7.6）: 選んだ値が保存されて残る ─────────────────
+    ui.open({"ci": 3, "cleared": 3})
+    ui.click("gear")
+    ui.click("t-lang")
+    ui.click("t-lang")
+    time.sleep(0.3)                     # save() は 150ms 後に書く
+    kept = json.loads(ui.ev("localStorage.getItem(%s)" % json.dumps("make10.progress.v4")))
+    ui.check("lang: 設定で選んだ値が保存 JSON に入る", kept.get("lang"), "en")
+    ui.open(kept)
+    ui.check("lang: 読み込み直しても残る（進捗もそのまま）", ui.ev("[G.lang,G.ci,G.cleared]"), ["en", 3, 3])
+    ui.click("gear")
+    ui.check("lang: 設定の行にも出る", ui.text("t-lang-v"), "English")
+    ui.open({"ci": 3, "lang": "fr"})
+    ui.check("lang: 知らない値は auto で読む", ui.ev("G.lang"), "auto")
+    ui.check_no_errors("言語の確認のあとも JS エラー 0")

@@ -833,6 +833,7 @@ BRAND.md 6 章「丸すぎる UI」を避ける。
 | 行 `.toggle` | `padding:14px` / `min-height:48px` / `display:flex` `justify-content:space-between` `align-items:center` / 地・枠・角丸なし / `margin:0`（`.kv` は 7.4 で削除） |
 | 区切り線 | `.group .toggle:not(:last-child)::after`。`position:absolute` / `left:14px` `right:14px` `bottom:0` / `height:1px` / `background:var(--edge)`。節の最終行には引かない |
 | 行の押下 | `.toggle:active{background:color-mix(in srgb,var(--paper) 10%,transparent)}`（直値を使わない） |
+| 行の右端の値 `.toggle .tv`（7.6） | `font-size:13px` / `font-weight:500` / `color:var(--dim)` / `flex:0 0 auto`。押すたびに値が回る行の、今の値（6-3） |
 
 **統計の上の 6 項目は「大きい数字＋小さい名前」**（7.4。BRAND.md 8 章「数字を主要なビジュアル要素として扱う」）。
 7.3 までは「名前 …… 値」の同じ高さの行 `.kv` が 6 つ並んでいた。
@@ -869,7 +870,10 @@ BRAND.md 6 章「丸すぎる UI」を避ける。
 | 副次テキスト `.small` / プレースホルダ | `color:var(--dim)`（1-1） |
 | シート `.sheet` | `overflow-y:auto`（**縦スクロールする**。問題画面と違う） / `padding-bottom:12px` |
 
-### 6-3. 遷移矢印・トグルスイッチ
+### 6-3. 遷移矢印・トグルスイッチ・値が回る行
+
+設定の行の右端に置く部品は 3 種類。**2 択はスイッチ、別の画面へ進む・その場で実行するものは矢印、
+3 択以上は値が回る行**（7.6）。
 
 **遷移矢印 `.chev`**（`#settings` の `go-help` / `go-stats` / `reset`）
 
@@ -883,6 +887,20 @@ BRAND.md 6 章「丸すぎる UI」を避ける。
 - つまみ `::after` `19×19` / `top:3px` `left:3px` / `border-radius:50%` / off 時 `background:var(--slate)` / `transition:transform .18s,background .18s`
 - on 時: トラック `color-mix(in srgb,var(--paper) 45%,transparent)` / つまみ `transform:translateX(19px)` ＋ `background:var(--paper)`
 - 状態は**つまみの左右位置**で伝える。色（`--paper`）は補助で、金は使わない（金は 3 か所だけ。1-2）
+
+**値が回る行 `.toggle .tv`**（7.6。`#settings` の「言語 / Language」`#t-lang`）
+
+- 3 択の項目に使う。行そのものは他と同じ `.toggle`（高さ 48px・`padding` 14px・区切り線）で、
+  **右端に今の値を文字で出し、押すたびに次の値へ回る**（言語は 自動 → 日本語 → English → 自動）。
+  スイッチも矢印も持たない。面・枠・新しい色は足さない（「囲まない」。7.3）
+- 値の文字: 13px / 500 / `--dim`（矢印 `.chev` と同じ色）。右端は矢印の右端と同じ位置（行の右から 14px）、
+  行の中で上下の中央
+- 置き場所は「その他」の節のいちばん上（遊び方の上）。行が 1 つ増えたぶん、下の行と版の表示は 48px 下がる。
+  幅 320px でも項目名（99.8px）と値（いちばん長い「English」で 40.7px）は重ならず 1 行に収まる。
+  360×640 では設定のシートが 36px ぶん縦に動くようになった（シートは元から縦スクロールする。6-2）
+- 項目名は、どの言語のときも「言語 / Language」（GAME-SPEC 13-7）
+- 7.6 で比べてやめた出し方: 3 行＋チェック印（行が 3 つ増える）／矢印で別の画面／横に並んだ 3 つのボタン
+  （面か枠で選択を示すことになり「囲まない」に反する）
 
 ### 6-4. ホーム `#home`（7.4 で組み立て直した）
 

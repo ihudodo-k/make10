@@ -174,6 +174,8 @@ body{background:var(--ink);
 /* 遷移矢印。文字の › は書体で位置・太さが揃わないのでインライン SVG に */
 .chev{width:16px;height:16px;flex:0 0 auto;display:block;fill:none;stroke:currentColor;
  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--dim)}
+/* 行の右端に出す今の値（7.6。言語の行）。押すたびに次の値へ回る行で、スイッチも矢印も持たない */
+.toggle .tv{flex:0 0 auto;font-size:13px;font-weight:500;color:var(--dim)}
 .toggle span.sw{width:44px;height:25px;border-radius:13px;background:var(--edge);
  position:relative;transition:background .18s;flex:0 0 auto}
 .toggle span.sw::after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;
@@ -698,6 +700,7 @@ body.rings #hint::before{border-color:var(--ring)}
     </div>
     <h3 data-i18n="settings.sec_other"></h3>
     <div class="group">
+      <button class="toggle" id="t-lang"><span data-i18n="settings.lang"></span><span class="tv" id="t-lang-v"></span></button>
       <button class="toggle" id="go-help"><span data-i18n="settings.help"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       <button class="toggle" id="go-stats"><span data-i18n="settings.stats"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       <button class="toggle" id="reset"><span data-i18n="settings.reset"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -818,13 +821,14 @@ body.rings #hint::before{border-color:var(--ring)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="7.5";
+const APP_VERSION="7.6";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
    単数・複数で文が変わる所は {one:…, other:…} の形で持ち、t() が vars.n と Intl.PluralRules で選ぶ
    （日本語は other の 1 通りだけ）。_html で終わるキーはタグを含む（innerHTML に入れる）。
-   言語を選ぶ処理はまだ無い（常に LANG="ja"。決め方は次の段）。
+   辞書は言語ごとに持つ（7.6）。ja が正で、en に無いキーは ja の文で出す（英語の文は次の段で入れる）。
+   言語の決め方は下の pickLang()。
 
    STR_CORE = デイリーのページと共通にする文（盤・読み出し行・ヒントの箱・丸ボタンの名前。
    render() とヒントの箱が使う）。デイリーはこの塊を文字列で照合する（DAILY-SPEC 2 章・11 章）。
@@ -856,6 +860,8 @@ const STR_CORE={ja:{
   "hint.sr_spent":"これ以上のヒントはありません。残り {stock}",
   "hint.sr_closed":"ヒントは閉じています。押すと {again}/3 をもう一度表示。残り {stock}",
   "hint.sr_open":"ヒント {lv}/3 を表示中。次は {next}/3。残り {stock}"
+},
+en:{
 }};
 const STR_APP={ja:{
   "nav.back":"戻る",
@@ -929,6 +935,10 @@ const STR_APP={ja:{
   "settings.stats":"統計",
   "settings.reset":"進捗をリセット",
   "settings.reset_confirm":"もう一度押すと消えます",
+  "settings.lang":"言語 / Language",
+  "settings.lang_auto":"自動",
+  "settings.lang_ja":"日本語",
+  "settings.lang_en":"English",
   "settings.version":"バージョン {v}（試作）",
   "help.title":"遊び方",
   "help.intro_html":"4つの数字は<b>並び順が決まっています</b>。間に演算子を置いて、答えを 10 にしてください。",
@@ -948,10 +958,25 @@ const STR_APP={ja:{
   "help.m3_html":"<b>挑戦モード</b> … 100問クリアで解放。かなりの難問です",
   "help.sec_hint":"ヒント",
   "help.hint":"3段階です。押すたびに少しずつ答えに近づきます。3段階目の式を押すと、ほかの解き方も見られます。"
+},
+en:{
 }};
-const LANG="ja";
-const STR={...STR_CORE[LANG],...STR_APP[LANG]};
-const PLURAL=new Intl.PluralRules(LANG);
+/* ═══ 言語（7.6。GAME-SPEC 13 章）═══
+   LANG = いま表示している言語。決めるのは pickLang()、当てるのは applyLang()（起動時と設定の切り替え）。
+   STR は「ja の文に、表示している言語の文を重ねたもの」―― その言語に無いキーは ja の文で出る。
+   ?lang=ja / ?lang=en は検証と確認のための入口で、保存してある G.lang より優先する（G.lang は書き換えない） */
+const LANGS=["ja","en"];
+const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");
+  return LANGS.includes(q)?q:null}catch(e){return null}})();
+let LANG="ja";
+let STR={...STR_CORE.ja,...STR_APP.ja};
+let PLURAL=new Intl.PluralRules(LANG);
+function pickLang(){
+  if(LANG_URL)return LANG_URL;
+  if(LANGS.includes(G.lang))return G.lang;
+  // 自動: 端末の言語が ja で始まれば日本語、それ以外は英語
+  return (navigator.language||"").toLowerCase().startsWith("ja")?"ja":"en";
+}
 /* 辞書を引く。vars の {名前} を置き換える。複数形の文は vars.n で選ぶ（無ければ other）。
    辞書に無いキーはキーそのものを返す（画面で気づけるように。検証の i18n ケースが先に止める） */
 function t(key,vars){
@@ -39806,7 +39831,10 @@ const G={ci:0,cleared:0,tap:false,fact:false,vib:true,easy:false,theme:'ai',
   // 一度でも抜け道を通ればその点数が永久に残る）。端末に残して塞ぐ
   hints:{},
   // ヒントの残数。段階を「初めて」開くたびに 1 減る（見返しは無料。GAME-SPEC 5-4）
-  hintStock:HINT_START};
+  hintStock:HINT_START,
+  // 言語（7.6）。"auto"（端末の言語に合わせる）/ "ja" / "en"。設定のスイッチと同じ扱いで、
+  // 「進捗をリセット」では戻さない
+  lang:"auto"};
 function load(){
   try{
     const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
@@ -39817,6 +39845,8 @@ function load(){
       if(Array.isArray(s.hist))G.hist=s.hist.slice(0,100);
       if(s.best&&typeof s.best==='object')G.best=s.best;
       G.scoreOn=!!s.scoreOn;
+      // 7.6 で追加。項目が無い（か、知らない値の）保存データは "auto" で始める
+      G.lang=LANGS.includes(s.lang)?s.lang:"auto";
       if(Array.isArray(s.seen))G.seen=s.seen;
       if(s.hints&&typeof s.hints==='object')G.hints=s.hints;
       // 4.7 で追加。項目が無い保存データは初期値で始める（0 にはしない）
@@ -40760,7 +40790,33 @@ function renderSettings(){
   $("t-easy").classList.toggle("on",G.easy);
   $("t-vib").classList.toggle("on",G.vib);
   $("t-tap").classList.toggle("on",G.tap);
+  $("t-lang-v").textContent={auto:t("settings.lang_auto"),ja:t("settings.lang_ja"),en:t("settings.lang_en")}[G.lang];
 }
+/* 言語を当てる（7.6）。辞書を組み直し、<html lang> を合わせ、HTML の文を流し込み直す。
+   起動時は画面を描く前に 1 回、設定で切り替えたときは redraw=true で、描き済みの文も引き直す */
+function applyLang(redraw){
+  LANG=pickLang();
+  STR={...STR_CORE.ja,...STR_APP.ja,...STR_CORE[LANG],...STR_APP[LANG]};
+  PLURAL=new Intl.PluralRules(LANG);
+  document.documentElement.lang=LANG;
+  applyI18n();
+  renderFactTable();
+  $("appver").textContent=t("settings.version",{v:APP_VERSION});
+  if(!redraw)return;
+  delete $("reset").dataset.armed;          // 確認待ちの文は applyI18n が元の文に戻している
+  renderSettings();renderHome();
+  if(cur){                                  // 問題画面は隠れている。戻ったときに同じ問題を新しい言語で出す
+    $("pmode").textContent=pmodeText(MODE);
+    if(MODE==="free")$("alt").textContent=t("play.skip");
+    else if(MODE==="course"||MODE==="chal")$("alt").textContent=t("play.alt");
+    showHint();renderHintStock();showWinCard();
+    playDirty=true;
+  }
+}
+// 押すたびに 自動 → 日本語 → English → 自動 と回る
+$("t-lang").onclick=()=>{
+  const order=["auto",...LANGS];
+  G.lang=order[(order.indexOf(G.lang)+1)%order.length];save();applyLang(true)};
 $("t-score").onclick=()=>{G.scoreOn=!G.scoreOn;save();renderSettings()};
 $("t-easy").onclick=()=>{G.easy=!G.easy;save();renderSettings();playDirty=true};
 // オンにした瞬間の手応えは、下の「ボタンの振動」が出す（切り替えた後の G.vib を見るので、
@@ -41106,13 +41162,13 @@ $("alt").onclick=()=>{
     save(); loadPuzzle(alt);
   }
 };
-(function(){
+function renderFactTable(){
   let v=1n,g="";
   for(let n=0;n<=12;n++){ if(n>1)v*=BigInt(n);
     g+=`<div class="c"><b>${n}!</b><span>${v.toLocaleString()}</span></div>` }
   $("facttable").innerHTML=`<div class="g">${g}</div>`+
     `<div class="n">${t("play.fact_note")}</div>`;
-})();
+}
 /* モックアップで表示を止めている UI。CSS の #rule,.trayrow,#alt の
    display:none と対で管理する。CSS は「見た目を消す」、この定数は「機能の状態を
    復元しない」判断に使う。表示を戻すときは両方を同時に変えること。
@@ -41317,7 +41373,7 @@ $("codego").onclick=()=>{
   if(!p){$("codein").value="";$("codein").placeholder=t("home.code_bad");return}
   MODE="share";loadPuzzle(p);go("play")};
 
-applyI18n();load();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
+load();applyLang();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
 // 絵柄は 1 定義から流し込む（4.5）。役割が固定になったので差し替えは起きない（5.1）
 $("menu").innerHTML=ICON_MENU; $("gear").innerHTML=ICON_MENU;
 $("share").innerHTML=ICON_SHARE;
@@ -41325,7 +41381,6 @@ $("navback").innerHTML=ICON_BACK;
 // 階乗表ボタン (#factbtn) は .trayrow ごと非表示。開いた状態の保存値があっても
 // 復元すると閉じる手段が無くなるので、非表示中は開かない（保存値は保持）
 factShow(HIDDEN_UI.factTable?false:G.fact,false);
-$("appver").textContent=t("settings.version",{v:APP_VERSION});
 go("home");
 </script>
 </body>

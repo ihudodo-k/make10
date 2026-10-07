@@ -40,6 +40,7 @@
    `tempfile.mkdtemp()` で作って終了時に消す。さらに起動直後に
    `docs/index.html` のソースの `APP_VERSION` と、設定画面に**見えている**
    `#appver` を突き合わせ、食い違えばケースを回さずに赤で止まる
+   （7.6 から、文ではなく版の数字だけを比べる。表示する言語に依らないように）
    （キャッシュ以外の原因で古い版が読まれた場合もここで止まる）
 """
 import argparse
@@ -93,7 +94,9 @@ def check_version(chrome, url, want):
     helper.click("gear")
     shown = helper.visible("appver")
     text = helper.text("appver")
-    ok = shown and text == "バージョン " + want + "（試作）"
+    # 言語に依らないよう、文ではなく版の数字だけを突き合わせる（7.6）
+    nums = re.findall(r"\d+(?:\.\d+)+", text or "")
+    ok = shown and nums == [want]
     return ok, shown, text
 
 

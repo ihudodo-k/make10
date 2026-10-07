@@ -21,6 +21,7 @@ addEventListener('unhandledrejection',e=>__ERRS.push('reject: '+e.reason));
   console.error=function(){__ERRS.push('console.error: '+[].join.call(arguments,' '));
     o.apply(console,arguments)};
 })();
+%(nav)s
 try{
   localStorage.removeItem(%(key)s);
   %(seed)s
@@ -65,8 +66,13 @@ class UI:
         self.case = ""
 
     # ── 開く ───────────────────────────────────────────────
-    def open(self, save=None):
-        """保存データを仕込んでから開き直す。save=None なら保存データ無し。"""
+    def open(self, save=None, lang="ja", nav=None):
+        """保存データを仕込んでから開き直す。save=None なら保存データ無し。
+
+        lang … 表示する言語を ?lang= で固定する（7.6）。**既定は日本語に固定** ―― ケースの期待値は
+               日本語の文で書いてあり、headless Chrome の言語（en-US）に左右させないため。
+               None なら ?lang= を付けない（言語の決め方そのものを見るケース用）
+        nav  … navigator.language をこの値に差し替えてから読み込む（None なら触らない）"""
         seed = ""
         if save is not None:
             seed = "localStorage.setItem(%s,%s);" % (
@@ -75,8 +81,11 @@ class UI:
         if self._seed_id:
             self.c.remove_on_new_document(self._seed_id)
         self._seed_id = self.c.on_new_document(
-            SEED % {"key": json.dumps(SAVE_KEY), "seed": seed})
-        self.c.goto(self.url)
+            SEED % {"key": json.dumps(SAVE_KEY), "seed": seed,
+                    "nav": "" if nav is None else
+                    "Object.defineProperty(navigator,'language',{get:()=>%s,configurable:true});"
+                    % json.dumps(nav)})
+        self.c.goto(self.url + ("?lang=" + lang if lang else ""))
         self.c.ev(SOLVE)
 
     # ── 読む ───────────────────────────────────────────────
