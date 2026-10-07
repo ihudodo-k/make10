@@ -590,8 +590,8 @@ body.rings #hint::before{border-color:var(--ring)}
 <div id="app">
   <!-- 左上＝戻る／右上＝設定。役割を固定し、go() が画面ごとに出し分ける（5.1）。
        中身は初期化時に一度だけ流し込む（絵柄は ICON_BACK / ICON_MENU の 1 定義）-->
-  <button id="navback" class="plainbtn" title="戻る" aria-label="戻る"></button>
-  <button id="gear" class="plainbtn" title="設定" aria-label="設定"></button>
+  <button id="navback" class="plainbtn" data-i18n-label="nav.back"></button>
+  <button id="gear" class="plainbtn" data-i18n-label="nav.settings"></button>
 
   <!-- ホーム -->
   <div id="home">
@@ -599,31 +599,29 @@ body.rings #hint::before{border-color:var(--ring)}
 
     <!-- 主役は進んだ問題数（7.4）。#cnum の文字は「137 / 1000 問」のまま（大きい数字と小さい分母に分けただけ）-->
     <div class="hero">
-      <div id="cnum"><b id="chero">0</b><span id="cden"> / 1000 問</span></div>
+      <div id="cnum"><b id="chero">0</b><span id="cden"></span></div>
       <div class="bar"><i id="cbar" style="width:0%"></i></div>
-      <div class="small">本編 <span id="cpct">0</span>%　<span id="ctot">累計 0 問</span></div>
+      <div class="small" data-i18n-pre="home.course"> <span id="cpct">0</span>%　<span id="ctot"></span></div>
     </div>
 
     <div class="modes">
-      <button class="mode" id="m-course"><span class="mt">本編</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-      <button class="mode" id="m-free"><span class="mt">フリープレイ</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-      <button class="mode" id="m-chal"><span class="mt">挑戦</span><span class="mv" id="m-chal-v"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="mode" id="m-course"><span class="mt" data-i18n="home.course"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="mode" id="m-free"><span class="mt" data-i18n="home.free"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="mode" id="m-chal"><span class="mt" data-i18n="home.chal"></span><span class="mv" id="m-chal-v"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
 
     <div class="share">
-      <input id="codein" placeholder="共有コード（5文字）" maxlength="7">
-      <button id="codego">ひらく</button>
+      <input id="codein" data-i18n-ph="home.code_placeholder" maxlength="7">
+      <button id="codego" data-i18n="home.code_open"></button>
     </div>
-    <div class="small sharenote">
-      問題ごとにコードがあります。友達に送ると同じ問題が開きます。
-    </div>
+    <div class="small sharenote" data-i18n="home.code_note"></div>
 
   </div>
 
   <!-- プレイ -->
   <div id="play" class="hide" style="flex:1;display:flex;flex-direction:column">
     <div class="top">
-      <button id="back" class="iconbtn" title="ホーム" aria-label="ホーム">
+      <button id="back" class="iconbtn" data-i18n-label="play.home">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M3.2 11.3 12 4l8.8 7.3"/>
           <path d="M5.6 10.4V19a1 1 0 0 0 1 1h10.8a1 1 0 0 0 1-1v-8.6"/>
@@ -633,21 +631,21 @@ body.rings #hint::before{border-color:var(--ring)}
       <!-- #pcode の中は 2 つに分けてある（6.4 で 3 つ、6.8 で「正解 N 通り」#pcount を外して 2 つ）。
            コード（#pcodev）だけをタップでコピーにするため。
            render() は各 span の文字だけを書き換える（要素を作り直さない）-->
-      <div class="info"><b id="pmode"></b><br><span class="code" id="pcode">コード <span id="pcodev"
-        class="copyable" role="button" tabindex="0" title="コードをコピー" aria-label="コードをコピー"></span>　<span
+      <div class="info"><b id="pmode"></b><br><span class="code" id="pcode" data-i18n-pre="play.code_label"> <span id="pcodev"
+        class="copyable" role="button" tabindex="0" data-i18n-label="play.copy_code"></span>　<span
         id="pdiff"></span></span></div>
       <!-- 中身は ICON_MENU を流し込む（#gear と同じ絵柄を 1 つの定義から出す）-->
-      <button id="menu" class="plainbtn" title="メニュー" aria-label="メニュー"></button>
+      <button id="menu" class="plainbtn" data-i18n-label="play.menu"></button>
       <!-- 共有（6.4）。三本線 #menu の真下に position:absolute で重ねる（式・トレイ・.foot は
            動かない）。見た目は #menu と同じ枠なしの .plainbtn。位置と見た目は実機で比べて決めた
            （GAME-SPEC 5-5）。中身は ICON_SHARE を流し込む -->
-      <button id="share" class="plainbtn" title="この問題を共有" aria-label="この問題を共有"></button>
+      <button id="share" class="plainbtn" data-i18n-label="play.share"></button>
     </div>
     <div class="rule" id="rule"></div>
     <div class="readout"><div class="eq idle" id="eq"></div><div class="sub" id="sub"></div></div>
     <div class="field" id="field">
       <div class="exprwrap" id="exprwrap"><div class="expr" id="expr"></div></div>
-      <div class="trashmsg">ここで離すと外れます</div>
+      <div class="trashmsg" data-i18n="field.trash"></div>
     </div>
     <div class="bottom">
       <div class="overlays">
@@ -661,26 +659,26 @@ body.rings #hint::before{border-color:var(--ring)}
         </div>
       </div>
       <div class="trayrow">
-        <span id="trayhead">つまんで式の中へ</span>
-        <button id="factbtn">階乗表</button>
+        <span id="trayhead" data-i18n="tray.head_drag"></span>
+        <button id="factbtn" data-i18n="play.fact_btn"></button>
       </div>
       <div class="foot">
-        <button id="clear" class="iconbtn" title="全部消す" aria-label="全部消す">
+        <button id="clear" class="iconbtn" data-i18n-label="btn.clear">
           <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M20.5 12a8.5 8.5 0 1 1-2.49-6.01"/>
             <path d="M18.4 2.2v4.2h-4.2"/>
           </svg>
         </button>
         <!-- 正解したら出る「つぎへ」（6.5）。.foot の中央。点数表示のオン・オフで場所は変わらない -->
-        <button id="wnext" class="hide">つぎへ</button>
-        <button id="alt" class="hide">スキップ</button>
-        <button id="hint" class="iconbtn" title="ヒント" aria-label="ヒント">
+        <button id="wnext" class="hide" data-i18n="play.next"></button>
+        <button id="alt" class="hide" data-i18n="play.skip"></button>
+        <button id="hint" class="iconbtn" data-i18n-label="btn.hint">
           <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3.2a5.9 5.9 0 0 0-3.5 10.7c.7.5 1.1 1.3 1.1 2.1h4.8c0-.8.4-1.6 1.1-2.1A5.9 5.9 0 0 0 12 3.2Z"/>
             <path d="M9.9 18.6h4.2"/><path d="M10.7 21h2.6"/>
           </svg>
           <!-- 見えない読み上げ用のラベル。段階と残数はここで伝える -->
-          <span class="btnlabel" id="hintlabel">ヒント</span>
+          <span class="btnlabel" id="hintlabel" data-i18n="btn.hint"></span>
           <!-- 目に見える残数。読み上げは #hintlabel が担うので aria からは外す -->
           <span class="stocknum" id="hintstock" aria-hidden="true"></span>
         </button>
@@ -690,19 +688,19 @@ body.rings #hint::before{border-color:var(--ring)}
   </div>
 
 <div id="settings" class="hide sheet">
-    <h2>設定</h2>
-    <h3>操作</h3>
+    <h2 data-i18n="settings.title"></h2>
+    <h3 data-i18n="settings.sec_controls"></h3>
     <div class="group">
-      <button class="toggle" id="t-score"><span>スコアを表示する</span><span class="sw"></span></button>
-      <button class="toggle" id="t-easy"><span>途中の値を表示する</span><span class="sw"></span></button>
-      <button class="toggle" id="t-vib"><span>振動</span><span class="sw"></span></button>
-      <button class="toggle" id="t-tap"><span>タップで配置する</span><span class="sw"></span></button>
+      <button class="toggle" id="t-score"><span data-i18n="settings.score"></span><span class="sw"></span></button>
+      <button class="toggle" id="t-easy"><span data-i18n="settings.easy"></span><span class="sw"></span></button>
+      <button class="toggle" id="t-vib"><span data-i18n="settings.vib"></span><span class="sw"></span></button>
+      <button class="toggle" id="t-tap"><span data-i18n="settings.tap"></span><span class="sw"></span></button>
     </div>
-    <h3>その他</h3>
+    <h3 data-i18n="settings.sec_other"></h3>
     <div class="group">
-      <button class="toggle" id="go-help"><span>遊び方</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-      <button class="toggle" id="go-stats"><span>統計</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-      <button class="toggle" id="reset"><span>進捗をリセット</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="toggle" id="go-help"><span data-i18n="settings.help"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="toggle" id="go-stats"><span data-i18n="settings.stats"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="toggle" id="reset"><span data-i18n="settings.reset"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
     <div id="dv-open-row" class="hide">
       <h3>開発者パネル</h3>
@@ -713,38 +711,38 @@ body.rings #hint::before{border-color:var(--ring)}
   </div>
 
   <div id="help" class="hide sheet">
-    <h2>遊び方</h2>
-    <p>4つの数字は<b>並び順が決まっています</b>。間に演算子を置いて、答えを 10 にしてください。</p>
-    <h3>操作</h3>
+    <h2 data-i18n="help.title"></h2>
+    <p data-i18n-html="help.intro_html"></p>
+    <h3 data-i18n="help.sec_controls"></h3>
     <ul>
-      <li>下の記号を<b>つまんで式の中へ</b>。置ける場所に隙間が開きます</li>
-      <li>置いた記号を<b>式の外へ出すと外れます</b></li>
-      <li>演算子は、置いてある演算子の<b>上に重ねると差し替わります</b></li>
-      <li>括弧は <b>( と ) を別々に</b>置きます。相手がいない括弧は赤くなります</li>
+      <li data-i18n-html="help.c1_html"></li>
+      <li data-i18n-html="help.c2_html"></li>
+      <li data-i18n-html="help.c3_html"></li>
+      <li data-i18n-html="help.c4_html"></li>
     </ul>
-    <h3>計算のきまり</h3>
+    <h3 data-i18n="help.sec_rules"></h3>
     <ul>
-      <li><b>^ は右から</b>計算します。<code>2 ^ 3 ^ 2</code> は <code>2 ^ ( 3 ^ 2 )</code></li>
-      <li><code>0 ^ 0</code> は <b>1</b> です</li>
-      <li>階乗は <b>12! まで</b>。<code>3!!</code> とは書けません。<code>( 3! )!</code> と書きます</li>
-      <li>0 で割る式は正解になりません</li>
+      <li data-i18n-html="help.r1_html"></li>
+      <li data-i18n-html="help.r2_html"></li>
+      <li data-i18n-html="help.r3_html"></li>
+      <li data-i18n="help.r4"></li>
     </ul>
-    <h3>モード</h3>
+    <h3 data-i18n="help.sec_modes"></h3>
     <ul>
-      <li><b>本編</b> … 1000問。だんだん難しくなります</li>
-      <li><b>フリープレイ</b> … ランダムに出題。何問でも遊べます</li>
-      <li><b>挑戦モード</b> … 100問クリアで解放。かなりの難問です</li>
+      <li data-i18n-html="help.m1_html"></li>
+      <li data-i18n-html="help.m2_html"></li>
+      <li data-i18n-html="help.m3_html"></li>
     </ul>
-    <h3>ヒント</h3>
-    <p>3段階です。押すたびに少しずつ答えに近づきます。3段階目の式を押すと、ほかの解き方も見られます。</p>
+    <h3 data-i18n="help.sec_hint"></h3>
+    <p data-i18n="help.hint"></p>
   </div>
 
   <div id="stats" class="hide sheet">
-    <h2>統計</h2>
+    <h2 data-i18n="stats.title"></h2>
     <div class="group" id="statlist"></div>
-    <h3>難易度べつのクリア数</h3>
+    <h3 data-i18n="stats.by_level"></h3>
     <div class="group pad" id="statbars"></div>
-    <h3>最近解いた問題</h3>
+    <h3 data-i18n="stats.recent"></h3>
     <div class="group" id="stathist"></div>
   </div>
 
@@ -820,7 +818,159 @@ body.rings #hint::before{border-color:var(--ring)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="7.4";
+const APP_VERSION="7.5";
+/* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
+   画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
+   キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
+   単数・複数で文が変わる所は {one:…, other:…} の形で持ち、t() が vars.n と Intl.PluralRules で選ぶ
+   （日本語は other の 1 通りだけ）。_html で終わるキーはタグを含む（innerHTML に入れる）。
+   言語を選ぶ処理はまだ無い（常に LANG="ja"。決め方は次の段）。
+
+   STR_CORE = デイリーのページと共通にする文（盤・読み出し行・ヒントの箱・丸ボタンの名前。
+   render() とヒントの箱が使う）。デイリーはこの塊を文字列で照合する（DAILY-SPEC 2 章・11 章）。
+   STR_APP  = 本編だけの文。
+   開発者パネルの文・広告バナーの仮の文・console の文は辞書に入れない */
+const STR_CORE={ja:{
+  "read.paren_mismatch":"括弧が対応していません",
+  "read.paren_extra":"赤い括弧が余っています",
+  "read.no_calc":"この式は計算できません",
+  "read.no_calc_why":"0 で割る、階乗が大きすぎる、などの理由です",
+  "read.solved":"正解",
+  "read.banned":"{op} は使えません",
+  "read.dead_paren":"グレーの括弧は計算に効いていません",
+  "read.no_hint":"ヒントの残りがありません",
+  "rule.none":"使える演算子に制限はありません",
+  "rule.banned_html":"<b>{op}</b> は使えません",
+  "tray.head_drag":"つまんで式の中へ",
+  "tray.head_tap":"押して選び、置き場所を押す",
+  "field.trash":"ここで離すと外れます",
+  "btn.clear":"全部消す",
+  "btn.hint":"ヒント",
+  "hint.label_symbols":"使う記号：",
+  "hint.label_shape":"形：",
+  "hint.label_example":"解答例：",
+  "hint.next_solution":"次の解答を見る（{k}/{n} を表示中）",
+  "hint.prev":"前の段階",
+  "hint.next":"次の段階",
+  "hint.close":"閉じる",
+  "hint.sr_spent":"これ以上のヒントはありません。残り {stock}",
+  "hint.sr_closed":"ヒントは閉じています。押すと {again}/3 をもう一度表示。残り {stock}",
+  "hint.sr_open":"ヒント {lv}/3 を表示中。次は {next}/3。残り {stock}"
+}};
+const STR_APP={ja:{
+  "nav.back":"戻る",
+  "nav.settings":"設定",
+  "home.course":"本編",
+  "home.free":"フリープレイ",
+  "home.chal":"挑戦",
+  "home.total_den":"/ {total} 問",
+  "home.total":{other:"累計 {n} 問"},
+  "home.chal_locked":{other:"あと {n} 問"},
+  "home.chal_all_clear":"全問クリア",
+  "home.code_placeholder":"共有コード（5文字）",
+  "home.code_open":"ひらく",
+  "home.code_note":"問題ごとにコードがあります。友達に送ると同じ問題が開きます。",
+  "home.code_bad":"コードが正しくありません",
+  "home.dev_unlocked":"開発者モードで解放済み",
+  "play.home":"ホーム",
+  "play.code_label":"コード",
+  "play.copy_code":"コードをコピー",
+  "play.menu":"メニュー",
+  "play.share":"この問題を共有",
+  "play.mode_course":"本編 {i}/{total}",
+  "play.mode_chal":"挑戦 {i}/{total}",
+  "play.next":"つぎへ",
+  "play.skip":"スキップ",
+  "play.alt":"べつの問題",
+  "play.alt_none":"代わりの問題が見つかりませんでした",
+  "play.fact_btn":"階乗表",
+  "play.fact_note":"( 3! )! は 6! なので 720。階乗は 12! までしか使えません。",
+  "win.points":{other:"{n} 点"},
+  "win.meta":{other:"難易度 {d}　{n}秒"},
+  "win.meta_hint":"ヒント{lv}",
+  "win.meta_best":"自己ベスト更新",
+  "toast.copied":"コピーしました",
+  "toast.share_copied":"共有の文面をコピーしました",
+  "toast.copy_failed":"コピーできません　{code}",
+  "toast.hint_reward":"ヒント +1（残り {stock}）",
+  "toast.chal_end":"挑戦モードは全問出題しました（クリア {done}/{total}）",
+  "toast.reset":"リセットしました",
+  "toast.exit_confirm":"もう一度タップでゲームを終了します",
+  "toast.exit_app":"（アプリ版ではここで終了します）",
+  "share.text":"Make10 のこの問題、解ける？ コード {code}",
+  "puzzle.missing":"（この試作には入っていない問題です）",
+  "stats.title":"統計",
+  "stats.by_level":"難易度べつのクリア数",
+  "stats.recent":"最近解いた問題",
+  "stats.solved":"解いた問題（ユニーク）",
+  "stats.course":"本編の進み",
+  "stats.avg":"平均でかかった時間",
+  "stats.fastest":"いちばん速かった",
+  "stats.chal":"挑戦モードの進み",
+  "stats.hints":"ヒントの残り",
+  "stats.band_easy":"やさしい",
+  "stats.band_normal":"ふつう",
+  "stats.band_hard":"むずかしい",
+  "stats.band_chal":"挑戦",
+  "stats.empty":"まだありません",
+  "stats.banned":"{op}禁止",
+  "stats.hist_meta":{other:"難易度 {d}・{n}秒"},
+  "unit.puzzle":{other:"問"},
+  "unit.sec":{other:"秒"},
+  "unit.times":{other:"回"},
+  "settings.title":"設定",
+  "settings.sec_controls":"操作",
+  "settings.score":"スコアを表示する",
+  "settings.easy":"途中の値を表示する",
+  "settings.vib":"振動",
+  "settings.tap":"タップで配置する",
+  "settings.sec_other":"その他",
+  "settings.help":"遊び方",
+  "settings.stats":"統計",
+  "settings.reset":"進捗をリセット",
+  "settings.reset_confirm":"もう一度押すと消えます",
+  "settings.version":"バージョン {v}（試作）",
+  "help.title":"遊び方",
+  "help.intro_html":"4つの数字は<b>並び順が決まっています</b>。間に演算子を置いて、答えを 10 にしてください。",
+  "help.sec_controls":"操作",
+  "help.c1_html":"下の記号を<b>つまんで式の中へ</b>。置ける場所に隙間が開きます",
+  "help.c2_html":"置いた記号を<b>式の外へ出すと外れます</b>",
+  "help.c3_html":"演算子は、置いてある演算子の<b>上に重ねると差し替わります</b>",
+  "help.c4_html":"括弧は <b>( と ) を別々に</b>置きます。相手がいない括弧は赤くなります",
+  "help.sec_rules":"計算のきまり",
+  "help.r1_html":"<b>^ は右から</b>計算します。<code>2 ^ 3 ^ 2</code> は <code>2 ^ ( 3 ^ 2 )</code>",
+  "help.r2_html":"<code>0 ^ 0</code> は <b>1</b> です",
+  "help.r3_html":"階乗は <b>12! まで</b>。<code>3!!</code> とは書けません。<code>( 3! )!</code> と書きます",
+  "help.r4":"0 で割る式は正解になりません",
+  "help.sec_modes":"モード",
+  "help.m1_html":"<b>本編</b> … 1000問。だんだん難しくなります",
+  "help.m2_html":"<b>フリープレイ</b> … ランダムに出題。何問でも遊べます",
+  "help.m3_html":"<b>挑戦モード</b> … 100問クリアで解放。かなりの難問です",
+  "help.sec_hint":"ヒント",
+  "help.hint":"3段階です。押すたびに少しずつ答えに近づきます。3段階目の式を押すと、ほかの解き方も見られます。"
+}};
+const LANG="ja";
+const STR={...STR_CORE[LANG],...STR_APP[LANG]};
+const PLURAL=new Intl.PluralRules(LANG);
+/* 辞書を引く。vars の {名前} を置き換える。複数形の文は vars.n で選ぶ（無ければ other）。
+   辞書に無いキーはキーそのものを返す（画面で気づけるように。検証の i18n ケースが先に止める） */
+function t(key,vars){
+  let s=STR[key];
+  if(s===undefined){console.warn("t: no such key "+key);return key}
+  if(typeof s==="object")s=s[PLURAL.select(vars&&typeof vars.n==="number"?vars.n:0)]??s.other;
+  return vars?s.replace(/\{(\w+)\}/g,(m,k)=>k in vars?vars[k]:m):s;
+}
+/* HTML に直書きしない文を流し込む。属性で引くキーを指定する:
+   data-i18n=文字 / data-i18n-html=タグを含む文 / data-i18n-label=title と aria-label /
+   data-i18n-ph=placeholder / data-i18n-pre=先頭の文字（後ろに要素が続く行。あとに空白 1 つ）*/
+function applyI18n(){
+  const each=(a,f)=>document.querySelectorAll("["+a+"]").forEach(e=>f(e,t(e.getAttribute(a))));
+  each("data-i18n",(e,x)=>{e.textContent=x});
+  each("data-i18n-html",(e,x)=>{e.innerHTML=x});
+  each("data-i18n-label",(e,x)=>{e.title=x;e.setAttribute("aria-label",x)});
+  each("data-i18n-ph",(e,x)=>{e.placeholder=x});
+  each("data-i18n-pre",(e,x)=>{e.firstChild.textContent=x+" "});
+}
 const BLOB=`§COURSE
 8842,N,3,12,0,0,8 + 8 - 4 - 2
 9540,N,3,87,0,0,9 + 5 - 4 + 0
@@ -39609,7 +39759,7 @@ function byCode(code){
 function byCodeShown(code){
   const d=decode(code); if(!d)return null;
   return byCode(code)
-      || {id:d.id,rc:d.rc,d:0,n:0,sol:"（この試作には入っていない問題です）"};
+      || {id:d.id,rc:d.rc,d:0,n:0,sol:t("puzzle.missing")};
 }
 function conOf(p){
   if(p.rc==="N")return null;
@@ -39636,7 +39786,7 @@ const TIER_NAME=["","EASY","NORMAL","HARD"];   // 6.5 で英語に（6.4 は か
 /* 共有の文面に入れる公開ページ（6.4）。問題の 4 つの数字や制約は入れない
    （受け取った人にアプリで解いてもらうため。GAME-SPEC 5-5）*/
 const SHARE_URL="https://ihudodo-k.github.io/make10/";
-const shareText=p=>`Make10 のこの問題、解ける？ コード ${codeOf(p)}`;
+const shareText=p=>t("share.text",{code:codeOf(p)});
 
 /* ═══ 進捗（端末に保存） ═══ */
 const SAVE_KEY="make10.progress.v4";
@@ -39979,8 +40129,8 @@ function render(closing){
      通り数 p.n（BLOB の n＝survivor_count）はデータに残しているので、表示を戻すときは
      #pcode に span を足してここで p.n を書くだけ。p.n を読んでいたのはここだけだった */
   const r=$("rule");
-  if(!c){r.className="rule none";r.textContent="使える演算子に制限はありません"}
-  else{r.className="rule";r.innerHTML=`<b>${GLYPH[c.op]}</b> は使えません`}
+  if(!c){r.className="rule none";r.textContent=t("rule.none")}
+  else{r.className="rule";r.innerHTML=t("rule.banned_html",{op:GLYPH[c.op]})}
 
   const m=match(), ops=T().filter(x=>x.t==="op").length;
   const bal=Object.values(m).every(v=>v!==null);
@@ -40024,12 +40174,12 @@ function render(closing){
     // 何も置いていないときの案内文「演算子を式の中へ」は 6.5 で廃止（トレイの見出しが同じことを
     // 言っている）。空にしても .readout の高さは flex で決まるので式・トレイは動かない
     else{eq.className="eq idle";eq.textContent="";su.className="sub";su.textContent=""}}
-  else if(!bal){eq.className="eq idle";eq.textContent="括弧が対応していません";
-    su.className="sub warn";su.textContent="赤い括弧が余っています"}
+  else if(!bal){eq.className="eq idle";eq.textContent=t("read.paren_mismatch");
+    su.className="sub warn";su.textContent=t("read.paren_extra")}
   else{
     const v=ast&&ev(ast);
-    if(!v){eq.className="eq idle";eq.textContent="この式は計算できません";
-      su.className="sub warn";su.textContent="0 で割る、階乗が大きすぎる、などの理由です"}
+    if(!v){eq.className="eq idle";eq.textContent=t("read.no_calc");
+      su.className="sub warn";su.textContent=t("read.no_calc_why")}
     else{
       eq.className="eq";eq.textContent=isInt(v)?v.n.toString():`${v.n}/${v.d}`;
       const ten=isInt(v)&&v.n===10n;
@@ -40041,14 +40191,14 @@ function render(closing){
         // 「正解」を出すのはここだけ（6.5。正解カードには出さない）。6.6 で
         // 「お見事」をやめ、段階によらず「正解」の 1 語にした（表示を減らすため）。
         // 段階 hitLv 自体は win() の光り方と振動の強さが使うので残す
-        su.className="sub ok";su.textContent="正解"}
+        su.className="sub ok";su.textContent=t("read.solved")}
       else if(ten){eq.classList.add("ban");su.className="sub warn";   // 10 だが使えない記号（7.3。75%）
-        su.textContent=`${GLYPH[c.op]} は使えません`}
+        su.textContent=t("read.banned",{op:GLYPH[c.op]})}
       else{eq.classList.add("miss");su.className="sub";
-        su.textContent=dead.size?"グレーの括弧は計算に効いていません":""}
+        su.textContent=dead.size?t("read.dead_paren"):""}
     }
   }
-    $("trayhead").textContent=tapMode?"押して選び、置き場所を押す":"つまんで式の中へ";
+    $("trayhead").textContent=t(tapMode?"tray.head_tap":"tray.head_drag");
   if(held)showZones(held);
   else if(closing){
     document.querySelectorAll(".tok.op").forEach(t=>
@@ -40319,7 +40469,7 @@ function win(){
   // 中身を出さないため ―― 既定（scoreOn=false）のプレイヤーに伝わらない
   // 位置は .foot の中央（トレイに重ねない。6.4）。表示時間は既定の 2.4 秒のまま。
   // 文面は compact の .foot の中央（236px）に収まる長さ
-  if(gained)setTimeout(()=>toast(`ヒント +1（残り ${G.hintStock}）`,{at:"foot"}),900);
+  if(gained)setTimeout(()=>toast(t("toast.hint_reward",{stock:G.hintStock}),{at:"foot"}),900);
 }
 /* 挑戦を 1 問クリアしたときの計上。CHAL_REWARD_N 問ごとに 1 個配る。
    端数（G.chalRem）は保存するので、1 問クリアして終了→再開→1 問クリアでも配られる。
@@ -40344,9 +40494,9 @@ function showWinCard(){
   $("wnext").classList.remove("hide");
   $("win").classList.toggle("hide",!G.scoreOn);
   if(G.scoreOn){
-    $("wpts").textContent=`${w.sc.pts} 点`;
-    $("wmeta").textContent=`難易度 ${w.d}　${w.secs}秒`
-      + (w.hint?`　ヒント${w.hint}`:"") + (w.beat?"　自己ベスト更新":"");
+    $("wpts").textContent=t("win.points",{n:w.sc.pts});
+    $("wmeta").textContent=t("win.meta",{d:w.d,n:w.secs})
+      + (w.hint?"　"+t("win.meta_hint",{lv:w.hint}):"") + (w.beat?"　"+t("win.meta_best"):"");
   }else{
     $("wpts").textContent="";
     $("wmeta").textContent="";
@@ -40365,8 +40515,8 @@ $("wnext").onclick=()=>{
 /* 問題画面の番号。本編は「今の位置 / 全体」、挑戦は「出題数 / 全体」で意味が違う。
    フリー・共有は出さない（GAME-SPEC 5）。分母は定数を書かず配列の長さから取る */
 function pmodeText(mode){
-  if(mode==="course")return `本編 ${Math.min(G.ci+1,COURSE.length)}/${COURSE.length}`;
-  if(mode==="chal")  return `挑戦 ${G.chalShown.length}/${CHAL.length}`;
+  if(mode==="course")return t("play.mode_course",{i:Math.min(G.ci+1,COURSE.length),total:COURSE.length});
+  if(mode==="chal")  return t("play.mode_chal",{i:G.chalShown.length,total:CHAL.length});
   return "";
 }
 function loadPuzzle(p){
@@ -40436,7 +40586,7 @@ function advance(){
    （未クリアのまま打ち止めになりうる）。クリア数は括弧で併記する */
 function chalEnd(){
   if(MODE!=="chal")return;
-  toast(`挑戦モードは全問出題しました（クリア ${G.chalDone.length}/${CHAL.length}）`);
+  toast(t("toast.chal_end",{done:G.chalDone.length,total:CHAL.length}));
 }
 const SCREENS=["home","play","settings","help","stats"];
 let SCR="home", retScr="home", exitArm=0;   // retScr = 設定に入る前の画面
@@ -40478,10 +40628,10 @@ function goBack(){
   if(n-exitArm<2500){
     if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.App)
       window.Capacitor.Plugins.App.exitApp();
-    else toast("（アプリ版ではここで終了します）");
+    else toast(t("toast.exit_app"));
     exitArm=0; return;
   }
-  exitArm=n; toast("もう一度タップでゲームを終了します");
+  exitArm=n; toast(t("toast.exit_confirm"));
 }
 let toastT=0;
 /* トースト。opts.ms＝表示時間（既定 TOAST_MS）、opts.at="foot"＝問題画面の .foot の中央
@@ -40517,8 +40667,8 @@ history.pushState(null,"");
 function start(mode){
   MODE=mode;const n=nextOf(mode);if(!n)return;
   const altBtn=$("alt");
-  if(mode==="free"){altBtn.classList.remove("hide");altBtn.textContent="スキップ"}
-  else if(mode==="course"||mode==="chal"){altBtn.classList.remove("hide");altBtn.textContent="べつの問題"}
+  if(mode==="free"){altBtn.classList.remove("hide");altBtn.textContent=t("play.skip")}
+  else if(mode==="course"||mode==="chal"){altBtn.classList.remove("hide");altBtn.textContent=t("play.alt")}
   else altBtn.classList.add("hide");
   loadPuzzle(n);go("play")}
 
@@ -40546,7 +40696,7 @@ const ICON_BACK  =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path 
 /* 鍵・星・トロフィー（ICON_LOCK / ICON_STAR / ICON_TROPHY）は 7.4 で削除した。ホームのモードが
    アイコンを持たなくなったため（挑戦の 3 状態は、名前の下の値と、ロック中の --slate で示す）*/
 function renderHome(){
-  $("codein").value="";$("codein").placeholder="共有コード（5文字）";
+  $("codein").value="";$("codein").placeholder=t("home.code_placeholder");
   // G.ci はクリアでしか進まない（5.0 で保留を廃止し、位置だけ進める経路が無くなった）
   const doneC=Math.min(G.ci,COURSE.length);
   const pct=Math.floor(doneC/COURSE.length*1000)/10;
@@ -40555,26 +40705,26 @@ function renderHome(){
   $("cbar").style.width=(pct>0?Math.max(pct,.6):0)+"%";
   // 主役の数字と分母（7.4）。#cnum 全体の文字は「137 / 1000 問」のまま
   $("chero").textContent=doneC;
-  $("cden").textContent=` / ${COURSE.length} 問`;
+  $("cden").textContent=" "+t("home.total_den",{total:COURSE.length});
   // 累計点数はホームに出さない（6.6。表示を減らすため）。点数の記録 G.best と
   // totalScore() はそのまま残すので、表示を戻すときはここに足すだけでよい
-  $("ctot").textContent=`累計 ${G.cleared} 問`;
+  $("ctot").textContent=t("home.total",{n:G.cleared});
   const lk=G.cleared<CHAL_AT;
   $("m-chal").classList.toggle("lock",lk);
   const chalLeft=CHAL.length-G.chalDone.length;
   // 名前の下の値（7.4。7.3 までは右端の値と、鍵・星・トロフィーのアイコン）。
   // ロック中は「あと N 問」だけ（難易度17以上の条件は遊び方に記載）
-  $("m-chal-v").textContent=lk?`あと ${CHAL_AT-G.cleared} 問`
-    :chalLeft<=0?"全問クリア"
+  $("m-chal-v").textContent=lk?t("home.chal_locked",{n:CHAL_AT-G.cleared})
+    :chalLeft<=0?t("home.chal_all_clear")
     :`${G.chalDone.length} / ${CHAL.length}`;
 }
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
     G.ci=0;G.cleared=0;G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.chalShown=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
-    delete b.dataset.armed;s.textContent="進捗をリセット";toast("リセットしました");return}
-  b.dataset.armed="1";s.textContent="もう一度押すと消えます";
-  setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent="進捗をリセット"}},3500);
+    delete b.dataset.armed;s.textContent=t("settings.reset");toast(t("toast.reset"));return}
+  b.dataset.armed="1";s.textContent=t("settings.reset_confirm");
+  setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent=t("settings.reset")}},3500);
 };
 /* 開発者用：タイトルを7回連続で押すか、合言葉を入力する */
 let devN=0,devT=0;
@@ -40584,14 +40734,14 @@ function devOn(msg){
 }
 function devCode(raw){
   const k=(raw||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
-  if(k==="MAKE10DEV"){$("codein").value="";devOn("開発者モードで解放済み");return true}
+  if(k==="MAKE10DEV"){$("codein").value="";devOn(t("home.dev_unlocked"));return true}
   if(k==="SKIP100"){G.ci=Math.min(G.ci+100,COURSE.length);G.cleared+=100;save();
     $("codein").value="";renderHome();return true}
   return false;
 }
 document.querySelector(".title").addEventListener("click",()=>{
   const n=performance.now(); if(n-devT>2500)devN=0; devT=n;
-  if(++devN>=7){devN=0;devOn("開発者モードで解放済み")}
+  if(++devN>=7){devN=0;devOn(t("home.dev_unlocked"))}
 });
 /* 開発者パネルの配色切り替え用（プレイヤー向けは藍固定、COLOR-TRIAL 2.9）。
    [id, 表示名, --ink, --panel]。色は :root のテーマ定義から取った実値。
@@ -40846,7 +40996,7 @@ $("dv-copy").onclick=async()=>{
    （http や古いブラウザ）では、#dv-copy と同じくコードを選択状態にして手でコピーしてもらう */
 async function copyCode(){
   const el=$("pcodev");
-  try{await navigator.clipboard.writeText(el.textContent);toast("コピーしました",TOAST_QUICK)}
+  try{await navigator.clipboard.writeText(el.textContent);toast(t("toast.copied"),TOAST_QUICK)}
   catch(e){const r=document.createRange();r.selectNodeContents(el);
     const sel=getSelection();sel.removeAllRanges();sel.addRange(r)}
 }
@@ -40862,9 +41012,9 @@ $("share").onclick=async()=>{
     try{await navigator.share({title:"Make10",text,url:SHARE_URL});return}
     catch(e){if(e&&e.name==="AbortError")return}
   }
-  try{await navigator.clipboard.writeText(text+"\n"+SHARE_URL);toast("共有の文面をコピーしました",TOAST_QUICK)}
+  try{await navigator.clipboard.writeText(text+"\n"+SHARE_URL);toast(t("toast.share_copied"),TOAST_QUICK)}
   // .foot の中央（compact で 236px）に収まる長さにしてある。コードは出す（手で写せるように）
-  catch(e){toast("コピーできません　"+codeOf(cur),TOAST_QUICK)}
+  catch(e){toast(t("toast.copy_failed",{code:codeOf(cur)}),TOAST_QUICK)}
 };
 /* ボタンを押したときの振動（6.4）。ボタンごとに書かず、ここ 1 か所で拾う ――
    ボタンを足しても漏れない。<button> と role="button"（#pcodev）が対象。
@@ -40893,28 +41043,29 @@ function renderStats(){
   const rows=[
     // 累計スコアは出さない（6.6。正解カード・ホームと揃えて表示を減らす）。
     // 記録 G.best と totalScore() は残すので、表示を戻すときはここに 1 行足すだけでよい
-    // [名前, 数字, 単位]。数字が null なら記録が無い ―― 数字の場所に「—」を副次色で出す（7.4）
-    ["解いた問題（ユニーク）",G.seen.length,"問"],
-    ["本編の進み",`${Math.min(G.ci,COURSE.length)} / ${COURSE.length}`,"問"],
-    ["平均でかかった時間",avg||null,"秒"],["いちばん速かった",st.best||null,"秒"],
-    ["挑戦モードの進み",`${G.chalDone.length} / ${CHAL.length}`,"問"],
-    ["ヒントの残り",G.hintStock,"回"]];   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
+    // [名前, 数字, 単位]。数字が null なら記録が無い ―― 数字の場所に「—」を副次色で出す（7.4）。
+    // 単位は辞書の複数形で引く（7.5）。n は単位が掛かる数（「137 / 1000 問」なら分母）
+    [t("stats.solved"),G.seen.length,t("unit.puzzle",{n:G.seen.length})],
+    [t("stats.course"),`${Math.min(G.ci,COURSE.length)} / ${COURSE.length}`,t("unit.puzzle",{n:COURSE.length})],
+    [t("stats.avg"),avg||null,t("unit.sec",{n:avg})],[t("stats.fastest"),st.best||null,t("unit.sec",{n:st.best||0})],
+    [t("stats.chal"),`${G.chalDone.length} / ${CHAL.length}`,t("unit.puzzle",{n:CHAL.length})],
+    [t("stats.hints"),G.hintStock,t("unit.times",{n:G.hintStock})]];   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
   // 2 列 × 3 段の「大きい数字＋小さい名前」（7.4。7.3 までは「名前 …… 値」の行 .kv）
   $("statlist").innerHTML=rows.map(([k,v,u])=>`<div class="stat"><div class="sv">${
     v===null?'<span class="none">—</span>':`<b>${v}</b><span class="su">${u}</span>`}</div><div class="sk">${k}</div></div>`).join("");
-  const bands=[["3-8","やさしい"],["9-13","ふつう"],["14-16","むずかしい"],["17+","挑戦"]];
+  const bands=[["3-8",t("stats.band_easy")],["9-13",t("stats.band_normal")],["14-16",t("stats.band_hard")],["17+",t("stats.band_chal")]];
   const mx=Math.max(1,...bands.map(([b])=>st.band[b]||0));
   const hh=$("stathist");
   hh.innerHTML="";
-  if(!G.hist.length){hh.innerHTML='<p class="small" style="margin:0;padding:14px">まだありません</p>'}
+  if(!G.hist.length){hh.innerHTML='<p class="small" style="margin:0;padding:14px">'+t("stats.empty")+'</p>'}
   else for(const it of G.hist.slice(0,30)){
     const p=byCodeShown(it.c);   // 消えた問題でも行は残す（押しても開かない）
     const b=document.createElement("button");
     b.className="toggle";   // 行の間隔は .group の区切り線が持つ（margin は付けない）
-    const cs=p&&p.rc!=="N"?` ${GLYPH[OPOF[p.rc[0]]]}禁止`:"";
+    const cs=p&&p.rc!=="N"?" "+t("stats.banned",{op:GLYPH[OPOF[p.rc[0]]]}):"";
     // 右端の点数と星は出さない（6.6。点数を出すのは点数表示オンの正解カードだけ）。
     // 記録 it.p / it.st は残すので、表示を戻すときはここに足し直すだけでよい
-    b.innerHTML=`<span>${p?p.id:"????"}${cs}　<span style="opacity:.6">難易度 ${it.d}・${it.s}秒</span></span>`;
+    b.innerHTML=`<span>${p?p.id:"????"}${cs}　<span style="opacity:.6">${t("stats.hist_meta",{d:it.d,n:it.s})}</span></span>`;
     b.onclick=()=>{const q=byCode(it.c); if(!q)return;
       MODE="share";loadPuzzle(q);go("play")};
     hh.appendChild(b);
@@ -40929,7 +41080,7 @@ $("m-free").onclick=()=>start("free");
 $("m-chal").onclick=()=>{if(G.cleared<CHAL_AT)return;   // ロック中は反応しない（揺れ演出は廃止）
   // 判定は抽選と同じ chalRemain()（出題済みで数える）。クリア済みの数とは違う
   if(!chalRemain().length){
-    toast(`挑戦モードは全問出題しました（クリア ${G.chalDone.length}/${CHAL.length}）`);return}
+    toast(t("toast.chal_end",{done:G.chalDone.length,total:CHAL.length}));return}
   start("chal")};
   // .lock は現状維持：空の行は押しても start() が何もしないので「淡い＝押せない」と一致
 $("back").onclick=()=>goBack();
@@ -40950,7 +41101,7 @@ $("alt").onclick=()=>{
   if(MODE==="free"){const n=nextOf("free"); if(n)loadPuzzle(n); return}
   if(MODE==="course"||MODE==="chal"){
     const alt=findAlt(cur);
-    if(!alt){toast("代わりの問題が見つかりませんでした");return}
+    if(!alt){toast(t("play.alt_none"));return}
     if(MODE==="course"){G.swap[G.ci]=codeOf(alt)}
     save(); loadPuzzle(alt);
   }
@@ -40960,7 +41111,7 @@ $("alt").onclick=()=>{
   for(let n=0;n<=12;n++){ if(n>1)v*=BigInt(n);
     g+=`<div class="c"><b>${n}!</b><span>${v.toLocaleString()}</span></div>` }
   $("facttable").innerHTML=`<div class="g">${g}</div>`+
-    `<div class="n">( 3! )! は 6! なので 720。階乗は 12! までしか使えません。</div>`;
+    `<div class="n">${t("play.fact_note")}</div>`;
 })();
 /* モックアップで表示を止めている UI。CSS の #rule,.trayrow,#alt の
    display:none と対で管理する。CSS は「見た目を消す」、この定数は「機能の状態を
@@ -41076,10 +41227,10 @@ function renderHintStock(){
   const spent=hintSpent();
   $("hint").setAttribute("aria-disabled",spent?"true":"false");
   $("hintlabel").textContent = spent
-    ? `これ以上のヒントはありません。残り ${G.hintStock}`
+    ? t("hint.sr_spent",{stock:G.hintStock})
     : (hintLv===0&&again)
-    ? `ヒントは閉じています。押すと ${again}/3 をもう一度表示。残り ${G.hintStock}`
-    : `ヒント ${hintLv}/3 を表示中。次は ${nx}/3。残り ${G.hintStock}`;
+    ? t("hint.sr_closed",{again,stock:G.hintStock})
+    : t("hint.sr_open",{lv:hintLv,next:nx,stock:G.hintStock});
 }
 /* 丸ボタンが無効の状態（6.4）。3 まで到達済みで、箱が開いている */
 const hintSpent=()=>hintLv>0&&hintReached()>=3;
@@ -41094,9 +41245,9 @@ function showHint(){
   // 段階 1・2 は 1 本目（解答例 p.sol）から作る。段階 3 だけが解答の一覧を送る（6.9）
   let body, sub="", tap=0, cls="hbody", aria="";
   if(hintLv===1){
-    body=`使う記号：<code>${hintSymbols(p.sol).join(" ")}</code>`;
+    body=`${t("hint.label_symbols")}<code>${hintSymbols(p.sol).join(" ")}</code>`;
   }else if(hintLv===2){
-    body=`形：<code>${pretty(p.sol).replace(/ [−+×÷^] /g," ? ")}</code>`;
+    body=`${t("hint.label_shape")}<code>${pretty(p.sol).replace(/ [−+×÷^] /g," ? ")}</code>`;
   }else{
     // 全解答（7.1）。1 段目は 6.8 と同じ「解答例：式」、2 段目に小さく「k/N」（1 本だけでも 1/1）。
     // 解答が 2 本以上のときだけ本文がタップできる（次の解答へ。1 本だけなら何も起きない）
@@ -41106,24 +41257,24 @@ function showHint(){
     cls+=" two"+(tap?" tap":"");
     // 収まらない式だけ縮める。率は算術で決め、切り捨てて 0.1% 刻みにする（切り上げるとあふれる）
     const ex=pretty(sols[hintSolAt]), k=Math.floor(hintExprScale(ex)*1000)/10;
-    body=`解答例：<code${k<100?` style="font-size:${k}%"`:""}>${ex}</code>`;
+    body=`${t("hint.label_example")}<code${k<100?` style="font-size:${k}%"`:""}>${ex}</code>`;
     sub=`<span class="hsub"><b style="--subN:${String(n).length}">${hintSolAt+1}</b>/${n}</span>`;
-    aria=`次の解答を見る（${hintSolAt+1}/${n} を表示中）`;
+    aria=t("hint.next_solution",{k:hintSolAt+1,n});
   }
   // ‹ 段階 本文 › × を横 1 行に。‹ は前の段階へ、
   // › は到達済みの範囲を進む（未到達へは行かない。そちらは丸ボタン）
   const canPrev = hintLv>1, canNext = hintLv<hintReached();
   b.innerHTML=
     `<div class="hintrow">`+
-    `<button class="hbtn" id="hint-prev" aria-label="前の段階"${canPrev?"":" disabled"}>${ICON_HPREV}</button>`+
+    `<button class="hbtn" id="hint-prev" aria-label="${t("hint.prev")}"${canPrev?"":" disabled"}>${ICON_HPREV}</button>`+
     `<span class="hlv">${hintLv} / 3</span>`+
     // 中央寄せは .hbody 側の justify-content:safe center。本文は 1 つの箱に包む。
     // 解答が 2 本以上のときは本文がタップできる（role="button" なので、ボタンの振動
     // vibBtn もここ 1 か所の決まりで鳴る。1 本だけのときは付けないので振動もしない）
     `<span class="${cls}"`+(tap?` id="hint-sol" role="button" tabindex="0" aria-label="${aria}"`:"")+`>`+
     `<span class="hbin">${body}</span>${sub}</span>`+
-    `<button class="hbtn" id="hint-next" aria-label="次の段階"${canNext?"":" disabled"}>${ICON_HNEXT}</button>`+
-    `<button class="hbtn" id="hint-close" aria-label="閉じる">${ICON_HCLOSE}</button></div>`;
+    `<button class="hbtn" id="hint-next" aria-label="${t("hint.next")}"${canNext?"":" disabled"}>${ICON_HNEXT}</button>`+
+    `<button class="hbtn" id="hint-close" aria-label="${t("hint.close")}">${ICON_HCLOSE}</button></div>`;
   $("hint-prev").onclick=()=>hintSet(hintLv-1);   // 1 のときは disabled で押せない
   $("hint-next").onclick=()=>hintSet(hintLv+1);   // 到達済みの範囲なので消費しない
   $("hint-close").onclick=()=>hintSet(0);         // hintMax は下げない（減点は据え置き）
@@ -41149,7 +41300,7 @@ $("hint").onclick=()=>{
     if(G.hintStock<=0){
       // 黙って何も起きないと壊れて見えるので、#sub の赤字で伝える
       $("sub").className="sub warn";
-      $("sub").textContent="ヒントの残りがありません";
+      $("sub").textContent=t("read.no_hint");
       return;
     }
     G.hintStock--;
@@ -41163,10 +41314,10 @@ $("codego").onclick=()=>{
   const raw=$("codein").value.trim();
   if(devCode(raw))return;
   const p=byCode(raw);
-  if(!p){$("codein").value="";$("codein").placeholder="コードが正しくありません";return}
+  if(!p){$("codein").value="";$("codein").placeholder=t("home.code_bad");return}
   MODE="share";loadPuzzle(p);go("play")};
 
-load();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
+applyI18n();load();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
 // 絵柄は 1 定義から流し込む（4.5）。役割が固定になったので差し替えは起きない（5.1）
 $("menu").innerHTML=ICON_MENU; $("gear").innerHTML=ICON_MENU;
 $("share").innerHTML=ICON_SHARE;
@@ -41174,7 +41325,7 @@ $("navback").innerHTML=ICON_BACK;
 // 階乗表ボタン (#factbtn) は .trayrow ごと非表示。開いた状態の保存値があっても
 // 復元すると閉じる手段が無くなるので、非表示中は開かない（保存値は保持）
 factShow(HIDDEN_UI.factTable?false:G.fact,false);
-$("appver").textContent="バージョン "+APP_VERSION+"（試作）";
+$("appver").textContent=t("settings.version",{v:APP_VERSION});
 go("home");
 </script>
 </body>
