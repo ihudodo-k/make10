@@ -6,7 +6,7 @@
   3. ?lang=ja / ?lang=en は保存してある値より優先し、G.lang を書き換えない
   4. <html lang> は表示している言語
   5. 設定の行「言語 / Language」は、押すたびに 自動 → 日本語 → English と回る。右端に今の値
-  6. 英語が無いキーは日本語で出る（英語の文を入れるまで、英語でも見た目は日本語のまま）
+  6. 英語が無いキーは日本語で出る（7.7 で英語を全部入れたので、キーを 1 つ消して見る）
   7. 切り替えたとき、描き済みの文も引き直す（問題画面の状態は保つ）
   8. 「進捗をリセット」では言語を戻さない
 
@@ -61,11 +61,16 @@ def run(ui):
     ui.check("英語にあるキーは、すべて日本語の辞書にもある",
              ui.ev("[...Object.keys(STR_CORE.en).filter(k=>!(k in STR_CORE.ja)),"
                    "...Object.keys(STR_APP.en).filter(k=>!(k in STR_APP.ja))]"), [])
-    ui.check("英語が無いキーは日本語の文で出る（キーの数も同じ）",
-             ui.ev("(()=>{const ja={...STR_CORE.ja,...STR_APP.ja},en={...STR_CORE.en,...STR_APP.en};"
-                   "return [Object.keys(STR).length===Object.keys(ja).length,"
-                   "Object.keys(ja).filter(k=>!(k in en)&&STR[k]!==ja[k])]})()"), [True, []])
-    ui.ev("delete STR_APP.en['home.total'];applyLang(true)")
+    ui.check("英語のキーがあるうちは英語の文が出る",
+             ui.ev('[t("home.free"),t("read.solved")]'), ["Free Play", "Solved!"])
+    ui.ev("delete STR_APP.en['home.free'];delete STR_CORE.en['read.solved'];"
+          "delete STR_APP.en['home.total'];applyLang(true)")
+    ui.check("英語が無いキーは日本語の文で出る（本編だけの塊・共通の塊。キーの数は変わらない）",
+             ui.ev('[t("home.free"),t("read.solved"),Object.keys(STR).length===Object.keys({...STR_CORE.ja,...STR_APP.ja}).length]'),
+             ["フリープレイ", "正解", True])
+    ui.check("英語が無いキーは画面にも日本語で出て、あるキーは英語のまま",
+             ui.ev("[$('m-free').querySelector('.mt').textContent,$('m-course').querySelector('.mt').textContent]"),
+             ["フリープレイ", "Classic"])
     ui.check("英語でも、英語が無い複数形の文を引ける（日本語の文が出る）",
              ui.ev('[t("home.total",{n:1}),t("home.total",{n:2})]'), ["累計 1 問", "累計 2 問"])
 
@@ -75,7 +80,7 @@ def run(ui):
     ui.check("設定: 行が見えている", ui.visible("t-lang"), True)
     ui.check("設定: 項目名は「言語 / Language」",
              ui.ev("$('t-lang').firstElementChild.textContent"), "言語 / Language")
-    ui.check("設定: 右端の値は「自動」", ui.text("t-lang-v"), "自動")
+    ui.check("設定: 右端の値は「自動（日本語）」（今どちらの言語かを括弧で。7.7）", ui.text("t-lang-v"), "自動（日本語）")
     ui.check("設定:「その他」の節のいちばん上（次が遊び方）",
              ui.ev("[$('t-lang').parentElement===$('go-help').parentElement,"
                    "$('t-lang').nextElementSibling.id,$('t-lang').previousElementSibling]"),
@@ -104,12 +109,15 @@ def run(ui):
              [ui.text("t-lang-v")] + ui.ev(STATE), ["English", "en", "en", "en"])
     ui.check("英語のときも項目名は「言語 / Language」",
              ui.ev("$('t-lang').firstElementChild.textContent"), "言語 / Language")
-    ui.check("英語のときも、設定のほかの文は日本語のまま（英語の文がまだ無い）",
-             ui.ev("$('settings').innerText") == before.replace("自動", "English"), True)
+    ui.check("英語にすると、設定のほかの文はその場で英語になる（見出し・スイッチの名前・版）",
+             ui.ev("[document.querySelector('#settings h2').textContent,$('t-vib').firstElementChild.textContent,"
+                   "$('appver').textContent===t('settings.version',{v:APP_VERSION}),$('appver').textContent.startsWith('Version ')]"),
+             ["Settings", "Vibration", True, True])
     ui.check("選んだ値が保存される", stored(ui).get("lang"), "en")
     ui.click("t-lang")
     ui.check("3 回押すと「自動」に戻る（端末の言語になる）",
-             [ui.text("t-lang-v")] + ui.ev(STATE), ["自動", "ja", "ja", "auto"])
+             [ui.text("t-lang-v")] + ui.ev(STATE), ["自動（日本語）", "ja", "ja", "auto"])
+    ui.check("日本語に戻ると、設定の文も元に戻る", ui.ev("$('settings').innerText"), before)
     ui.check("自動に戻したことも保存される", stored(ui).get("lang"), "auto")
     ui.check("行を押すとボタンの振動が 1 回", ui.ev(
         "(()=>{const o=navigator.vibrate,log=[];navigator.vibrate=function(x){log.push(x);return true};"
@@ -125,11 +133,8 @@ def run(ui):
     ui.check("リセットのあと、設定の行は「English」のまま", ui.text("t-lang-v"), "English")
     ui.check("リセットのあと保存される lang も en", stored(ui).get("lang"), "en")
 
-    # ── 7. 切り替えたとき、描き済みの文も引き直す（英語の文を仮に 4 つ入れて見る）
+    # ── 7. 切り替えたとき、描き済みの文も引き直す
     ui.open(lang=None, nav="ja-JP")
-    ui.ev("""STR_APP.en["home.free"]="Free Play";STR_APP.en["play.mode_course"]="Main {i}/{total}";
-             STR_CORE.en["hint.label_symbols"]="Symbols: ";
-             STR_APP.en["home.total"]={one:"{n} puzzle total",other:"{n} puzzles total"};1""")
     ui.click("m-course")
     ui.ev("put('+',1);render()")
     ui.click("hint")
@@ -143,17 +148,16 @@ def run(ui):
     ui.click("t-lang")
     ui.check("英語に切り替えると、設定の外の描き済みの文も英語になる（ホーム）",
              ui.ev("[$('m-free').querySelector('.mt').textContent,$('ctot').textContent]"),
-             ["Free Play", "0 puzzles total"])
-    ui.check("英語の文が無いキーは日本語のまま（ホームの本編）",
-             ui.ev("$('m-course').querySelector('.mt').textContent"), "本編")
-    ui.ev("G.cleared=1;renderHome()")
-    ui.check("複数形は n で選ぶ（1 のときだけ単数）", ui.text("ctot"), "1 puzzle total")
-    ui.ev("G.cleared=0")
+             ["Free Play", "Solved: 0"])
+    ui.check("複数形は n で選ぶ（1 のときだけ単数）",
+             ui.ev('[t("win.points",{n:1}),t("win.points",{n:2}),t("win.points",{n:0}),'
+                   't("unit.puzzle",{n:1}),t("unit.puzzle",{n:1000}),t("unit.times",{n:1}),t("unit.times",{n:94})]'),
+             ["1 pt", "2 pts", "0 pts", "puzzle", "puzzles", "hint", "hints"])
     ui.click("navback")
     ui.check("問題画面に戻ると、問題番号とヒントが英語になっている",
-             [ui.ev("SCR"), ui.text("pmode"), ui.ev("$('hintbox').textContent.includes('Symbols: ')"),
+             [ui.ev("SCR"), ui.text("pmode"), ui.ev("$('hintbox').textContent.includes('Uses')"),
               ui.ev("$('hintbox').textContent.includes('使う記号：')")],
-             ["play", "Main 1/1000", True, False])
+             ["play", "Classic 1/1000", True, False])
     ui.check("問題・置いた記号・手数・時間・ヒントの段階と残数は切り替える前と同じ", ui.ev(snap), s0)
     ui.click("menu")
     ui.click("t-lang")

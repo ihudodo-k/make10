@@ -478,7 +478,12 @@ body.rings #hint::before{border-color:var(--ring)}
 .hintbox.show{display:block}
 /* ラベル（使う記号：/ 形：/ 解答例：）と中身の差は太さだけ。
    色は .hintbox から継承する ―― 同じ色を 2 箇所に書かない */
+/* 遊び方の式は行の途中で折り返さない（7.7。英語で 2 ^ ( 3 ^ 2 ) や ( 3! )! が 2 行に割れていた） */
+#help code{white-space:nowrap}
 .hintbox code{font-family:inherit;font-weight:700;line-height:1}
+/* ラベルと中身の間の空き（7.7）。日本語は全角の「：」が空きを持つので 0。英語はコロンを持たず、
+   ここで空ける。値は JS の HINT_TEXT.labelGap（縮小の計算も同じ値を引く）を applyLang() が流す */
+.hintbox .hbin code{margin-left:var(--hintLabelGap,0px)}
 /* line-height:1 は、長い式を縮めたとき（7.1。font-size を % で下げる）に行の高さを変えないため。
    式の箱を文字の高さにしておけば、行の高さは親（.hbin の 12.5px × 1.6 = 20px）だけで決まる。
    これが無いと、縮小率によって行が 20.7〜20.9px に伸びる行があった（360px で 26 行）*/
@@ -725,6 +730,8 @@ body.rings #hint::before{border-color:var(--ring)}
     </ul>
     <h3 data-i18n="help.sec_rules"></h3>
     <ul>
+      <li data-i18n-html="help.r_pow_html"></li>
+      <li data-i18n-html="help.r_fac_html"></li>
       <li data-i18n-html="help.r1_html"></li>
       <li data-i18n-html="help.r2_html"></li>
       <li data-i18n-html="help.r3_html"></li>
@@ -821,13 +828,14 @@ body.rings #hint::before{border-color:var(--ring)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="7.6";
+const APP_VERSION="7.7";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
    単数・複数で文が変わる所は {one:…, other:…} の形で持ち、t() が vars.n と Intl.PluralRules で選ぶ
    （日本語は other の 1 通りだけ）。_html で終わるキーはタグを含む（innerHTML に入れる）。
-   辞書は言語ごとに持つ（7.6）。ja が正で、en に無いキーは ja の文で出す（英語の文は次の段で入れる）。
+   辞書は言語ごとに持つ（7.6）。ja が正で、en に無いキーは ja の文で出す。英語の文は 7.7 で入れた
+   （en は ja と同じキーを全部持つ。検証の i18n ケースが見る）。
    言語の決め方は下の pickLang()。
 
    STR_CORE = デイリーのページと共通にする文（盤・読み出し行・ヒントの箱・丸ボタンの名前。
@@ -862,6 +870,31 @@ const STR_CORE={ja:{
   "hint.sr_open":"ヒント {lv}/3 を表示中。次は {next}/3。残り {stock}"
 },
 en:{
+  "read.paren_mismatch":"Parentheses don't match",
+  "read.paren_extra":"A red parenthesis has no partner",
+  "read.no_calc":"This can't be calculated",
+  "read.no_calc_why":"e.g. dividing by 0 or a factorial that's too big",
+  "read.solved":"Solved!",
+  "read.banned":"{op} isn't allowed",
+  "read.dead_paren":"Gray parentheses have no effect",
+  "read.no_hint":"No hints left",
+  "rule.none":"No restrictions on operations",
+  "rule.banned_html":"<b>{op}</b> isn't allowed",
+  "tray.head_drag":"Drag into the expression",
+  "tray.head_tap":"Tap to select, then tap a spot",
+  "field.trash":"Release here to remove",
+  "btn.clear":"Clear all",
+  "btn.hint":"Hint",
+  "hint.label_symbols":"Uses",
+  "hint.label_shape":"Shape",
+  "hint.label_example":"Solution",
+  "hint.next_solution":"Next solution (showing {k}/{n})",
+  "hint.prev":"Previous step",
+  "hint.next":"Next step",
+  "hint.close":"Close",
+  "hint.sr_spent":"No more hints. {stock} left",
+  "hint.sr_closed":"Hint closed. Tap to show {again}/3 again. {stock} left",
+  "hint.sr_open":"Showing hint {lv}/3. Next: {next}/3. {stock} left"
 }};
 const STR_APP={ja:{
   "nav.back":"戻る",
@@ -893,6 +926,7 @@ const STR_APP={ja:{
   "play.fact_note":"( 3! )! は 6! なので 720。階乗は 12! までしか使えません。",
   "win.points":{other:"{n} 点"},
   "win.meta":{other:"難易度 {d}　{n}秒"},
+  "win.meta_sep":"　",
   "win.meta_hint":"ヒント{lv}",
   "win.meta_best":"自己ベスト更新",
   "toast.copied":"コピーしました",
@@ -937,6 +971,7 @@ const STR_APP={ja:{
   "settings.reset_confirm":"もう一度押すと消えます",
   "settings.lang":"言語 / Language",
   "settings.lang_auto":"自動",
+  "settings.lang_auto_now":"{auto}（{lang}）",
   "settings.lang_ja":"日本語",
   "settings.lang_en":"English",
   "settings.version":"バージョン {v}（試作）",
@@ -948,6 +983,8 @@ const STR_APP={ja:{
   "help.c3_html":"演算子は、置いてある演算子の<b>上に重ねると差し替わります</b>",
   "help.c4_html":"括弧は <b>( と ) を別々に</b>置きます。相手がいない括弧は赤くなります",
   "help.sec_rules":"計算のきまり",
+  "help.r_pow_html":"<b>^ は累乗</b>です（<code>2 ^ 3 = 8</code>）",
+  "help.r_fac_html":"<b>! は階乗</b>です（<code>3! = 6</code>）",
   "help.r1_html":"<b>^ は右から</b>計算します。<code>2 ^ 3 ^ 2</code> は <code>2 ^ ( 3 ^ 2 )</code>",
   "help.r2_html":"<code>0 ^ 0</code> は <b>1</b> です",
   "help.r3_html":"階乗は <b>12! まで</b>。<code>3!!</code> とは書けません。<code>( 3! )!</code> と書きます",
@@ -960,6 +997,104 @@ const STR_APP={ja:{
   "help.hint":"3段階です。押すたびに少しずつ答えに近づきます。3段階目の式を押すと、ほかの解き方も見られます。"
 },
 en:{
+  "nav.back":"Back",
+  "nav.settings":"Settings",
+  "home.course":"Classic",
+  "home.free":"Free Play",
+  "home.chal":"Challenge",
+  "home.total_den":"/ {total} puzzles",
+  "home.total":{one:"Solved: {n}",other:"Solved: {n}"},
+  "home.chal_locked":{one:"{n} more to unlock",other:"{n} more to unlock"},
+  "home.chal_all_clear":"All cleared!",
+  "home.code_placeholder":"Share code (5 characters)",
+  "home.code_open":"Open",
+  "home.code_note":"Every puzzle has a code. Send it to a friend to open the same puzzle.",
+  "home.code_bad":"Invalid code",
+  "home.dev_unlocked":"Unlocked in developer mode",
+  "play.home":"Home",
+  "play.code_label":"Code",
+  "play.copy_code":"Copy code",
+  "play.menu":"Menu",
+  "play.share":"Share this puzzle",
+  "play.mode_course":"Classic {i}/{total}",
+  "play.mode_chal":"Challenge {i}/{total}",
+  "play.next":"Next",
+  "play.skip":"Skip",
+  "play.alt":"Another puzzle",
+  "play.alt_none":"No other puzzle found",
+  "play.fact_btn":"Factorials",
+  "play.fact_note":"( 3! )! is 6!, which is 720. Factorials go up to 12!.",
+  "win.points":{one:"{n} pt",other:"{n} pts"},
+  "win.meta":{one:"Difficulty {d} · {n}s",other:"Difficulty {d} · {n}s"},
+  "win.meta_sep":" · ",
+  "win.meta_hint":"Hint {lv}",
+  "win.meta_best":"New best!",
+  "toast.copied":"Copied!",
+  "toast.share_copied":"Share text copied!",
+  "toast.copy_failed":"Couldn't copy · {code}",
+  "toast.hint_reward":"Hint +1 ({stock} left)",
+  "toast.chal_end":"All Challenge puzzles played ({done}/{total} cleared)",
+  "toast.reset":"Progress reset",
+  "toast.exit_confirm":"Tap again to exit",
+  "toast.exit_app":"(The app would close here)",
+  "share.text":"Can you solve this Make10 puzzle? Code: {code}",
+  "puzzle.missing":"(This puzzle isn't in this prototype)",
+  "stats.title":"Stats",
+  "stats.by_level":"Clears by difficulty",
+  "stats.recent":"Recently solved",
+  "stats.solved":"Unique puzzles solved",
+  "stats.course":"Classic progress",
+  "stats.avg":"Average time",
+  "stats.fastest":"Fastest",
+  "stats.chal":"Challenge progress",
+  "stats.hints":"Hints left",
+  "stats.band_easy":"Easy",
+  "stats.band_normal":"Normal",
+  "stats.band_hard":"Hard",
+  "stats.band_chal":"Challenge",
+  "stats.empty":"Nothing yet",
+  "stats.banned":"No {op}",
+  "stats.hist_meta":{one:"Difficulty {d} · {n}s",other:"Difficulty {d} · {n}s"},
+  "unit.puzzle":{one:"puzzle",other:"puzzles"},
+  "unit.sec":{one:"s",other:"s"},
+  "unit.times":{one:"hint",other:"hints"},
+  "settings.title":"Settings",
+  "settings.sec_controls":"Controls",
+  "settings.score":"Show score",
+  "settings.easy":"Show intermediate values",
+  "settings.vib":"Vibration",
+  "settings.tap":"Tap to place",
+  "settings.sec_other":"Other",
+  "settings.help":"How to play",
+  "settings.stats":"Stats",
+  "settings.reset":"Reset progress",
+  "settings.reset_confirm":"Tap again to erase",
+  "settings.lang":"言語 / Language",
+  "settings.lang_auto":"Auto",
+  "settings.lang_auto_now":"{auto} ({lang})",
+  "settings.lang_ja":"日本語",
+  "settings.lang_en":"English",
+  "settings.version":"Version {v} (prototype)",
+  "help.title":"How to play",
+  "help.intro_html":"The four numbers <b>stay in order</b>. Put operations between them to make 10.",
+  "help.sec_controls":"Controls",
+  "help.c1_html":"<b>Drag</b> symbols from below <b>into the expression</b>. A gap opens where they fit.",
+  "help.c2_html":"<b>Drag a placed symbol out</b> to remove it.",
+  "help.c3_html":"Drop an operation <b>on top of another</b> to replace it.",
+  "help.c4_html":"Place <b>( and ) separately</b>. Unmatched parentheses turn red.",
+  "help.sec_rules":"Rules",
+  "help.r_pow_html":"<b>^ is power</b> (<code>2 ^ 3 = 8</code>)",
+  "help.r_fac_html":"<b>! is factorial</b> (<code>3! = 6</code>)",
+  "help.r1_html":"<b>^ is evaluated right to left</b>. <code>2 ^ 3 ^ 2</code> means <code>2 ^ ( 3 ^ 2 )</code>",
+  "help.r2_html":"<code>0 ^ 0</code> is <b>1</b>",
+  "help.r3_html":"Factorials go up to <b>12!</b>. You can't write <code>3!!</code>; write <code>( 3! )!</code>",
+  "help.r4":"Dividing by 0 never counts as correct",
+  "help.sec_modes":"Modes",
+  "help.m1_html":"<b>Classic</b> … 1000 puzzles that get harder as you go",
+  "help.m2_html":"<b>Free Play</b> … random puzzles, as many as you like",
+  "help.m3_html":"<b>Challenge</b> … unlocks after 100 clears. Very tough puzzles",
+  "help.sec_hint":"Hints",
+  "help.hint":"Hints come in 3 steps, each a little closer to the answer. In step 3, tap the expression to see other solutions."
 }};
 /* ═══ 言語（7.6。GAME-SPEC 13 章）═══
    LANG = いま表示している言語。決めるのは pickLang()、当てるのは applyLang()（起動時と設定の切り替え）。
@@ -40526,7 +40661,7 @@ function showWinCard(){
   if(G.scoreOn){
     $("wpts").textContent=t("win.points",{n:w.sc.pts});
     $("wmeta").textContent=t("win.meta",{d:w.d,n:w.secs})
-      + (w.hint?"　"+t("win.meta_hint",{lv:w.hint}):"") + (w.beat?"　"+t("win.meta_best"):"");
+      + (w.hint?t("win.meta_sep")+t("win.meta_hint",{lv:w.hint}):"") + (w.beat?t("win.meta_sep")+t("win.meta_best"):"");
   }else{
     $("wpts").textContent="";
     $("wmeta").textContent="";
@@ -40645,7 +40780,9 @@ let playDirty=false;
    描き直しが要るときだけ render() を通し、それ以外は縮小率を測り直すだけにする */
 function enterPlay(){
   if(!cur)return;
-  if(playDirty){playDirty=false;render()}   // 設定の変更を反映（render 内で測り直す）
+  // 設定の変更を反映（render 内で測り直す）。ヒントの箱も組み直す ―― 言語を切り替えたときは
+  // 問題画面が隠れていて、段階 3 の式の縮小率を決められていない（7.7）
+  if(playDirty){playDirty=false;showHint();render()}
   else if(held)showZones(held);             // タップで記号を持ったまま離れていた場合
   else fit();                               // 非表示中は applyScale() を止めてある
   if(solved)showWinCard();                  // 正解カードを出し直す（GAME-SPEC 8）
@@ -40790,7 +40927,10 @@ function renderSettings(){
   $("t-easy").classList.toggle("on",G.easy);
   $("t-vib").classList.toggle("on",G.vib);
   $("t-tap").classList.toggle("on",G.tap);
-  $("t-lang-v").textContent={auto:t("settings.lang_auto"),ja:t("settings.lang_ja"),en:t("settings.lang_en")}[G.lang];
+  // 言語の名前は、どの言語のときも自分の言葉（日本語 / English）。自動は、今どちらになっているかを括弧で出す（7.7）
+  const names={ja:t("settings.lang_ja"),en:t("settings.lang_en")};
+  $("t-lang-v").textContent=G.lang==="auto"
+    ?t("settings.lang_auto_now",{auto:t("settings.lang_auto"),lang:names[LANG]}):names[G.lang];
 }
 /* 言語を当てる（7.6）。辞書を組み直し、<html lang> を合わせ、HTML の文を流し込み直す。
    起動時は画面を描く前に 1 回、設定で切り替えたときは redraw=true で、描き済みの文も引き直す */
@@ -40799,6 +40939,7 @@ function applyLang(redraw){
   STR={...STR_CORE.ja,...STR_APP.ja,...STR_CORE[LANG],...STR_APP[LANG]};
   PLURAL=new Intl.PluralRules(LANG);
   document.documentElement.lang=LANG;
+  document.documentElement.style.setProperty("--hintLabelGap",HINT_TEXT.labelGap[LANG]+"px");
   applyI18n();
   renderFactTable();
   $("appver").textContent=t("settings.version",{v:APP_VERSION});
@@ -41230,7 +41371,10 @@ const HINT_GLYPH={"0":502,"1":409,"2":449,"3":482,"4":494,"5":470,"6":496,"7":41
 /* slack = 縮めるときに式の左右に残す余白の合計（px。7.2 で 0.5 → 6）。0.5 のときは、縮めた行で
    「3 / 3」「解答例：式」「›」の間が間隔の 2px だけになり詰まって見えた。6 にすると片側 3px
    ずつ空く（8 にすると縮む行が 1,033 → 1,792 に増え、いちばん小さい文字が 10px を割る）*/
-const HINT_TEXT={lv:23.83,labelEm:4,slack:6};
+/* labelEm = 段階 3 のラベルの文字の幅（em）、labelGap = ラベルと式の間の空き（px。CSS の --hintLabelGap）。
+   どちらも言語ごと（7.7）。日本語「解答例：」は全角 4 文字で、空きは「：」が持つ。英語「Solution」は
+   実測 45.04px（3.603em）で、空きは 6px（「：」の右の空き 4.5〜5px が目安） */
+const HINT_TEXT={lv:23.83,labelEm:{ja:4,en:3.61},labelGap:{ja:0,en:6},slack:6};
 /* 式（pretty() 済みの文字列）の幅。HINT_ROW.font のときの px */
 function hintExprW(s){
   let w=0;
@@ -41246,7 +41390,7 @@ function hintExprScale(ex){
   const boxW=$("hintbox").parentNode.clientWidth;
   if(!boxW)return 1;                 // 問題画面が隠れていて測れない（applyScale と同じ扱い）
   const avail=boxW-2*(HINT_ROW.border+HINT_ROW.padX)-3*HINT_ROW.btnW-4*HINT_ROW.gap
-    -HINT_TEXT.lv-HINT_TEXT.labelEm*HINT_ROW.font-HINT_TEXT.slack;
+    -HINT_TEXT.lv-HINT_TEXT.labelEm[LANG]*HINT_ROW.font-HINT_TEXT.labelGap[LANG]-HINT_TEXT.slack;
   const w=hintExprW(ex);
   return w>avail?Math.max(MIN_SCALE,avail/w):1;
 }

@@ -175,6 +175,36 @@ def run(ui):
              if(/<[a-z]/.test(s)!==/_html$/.test(k))bad.push(k)}
            return bad})()"""), [])
 
+    # ── 英語（7.7）: 日本語と同じキーを全部持ち、印と複数形の形が揃っている
+    ui.check("英語: 辞書のすべてのキーに英語がある（共通の塊・本編だけの塊。余分なキーも無い）", ui.ev(
+        """[STR_CORE,STR_APP].map(d=>[Object.keys(d.ja).filter(k=>!(k in d.en)),
+             Object.keys(d.en).filter(k=>!(k in d.ja))])"""), [[[], []], [[], []]])
+    ui.check("英語: 文が空のキーが無い・複数形のキーは日本語と同じで、one と other を持つ", ui.ev(
+        """(()=>{const bad=[];for(const d of [STR_CORE,STR_APP])for(const [k,v] of Object.entries(d.en)){
+             const j=d.ja[k];
+             if(typeof j==='object'){if(!v||typeof v!=='object'||typeof v.one!=='string'||!v.one
+                 ||typeof v.other!=='string'||!v.other||Object.keys(v).sort().join()!=='one,other')bad.push(k)}
+             else if(typeof v!=='string'||!v)bad.push(k)}
+           return bad})()"""), [])
+    ui.check("英語: 置き換えの印が日本語と同じ（複数形は one と other のどちらも）", ui.ev(
+        """(()=>{const m=s=>[...new Set((s.match(/\{(\w+)\}/g)||[]))].sort().join(),bad=[];
+           for(const d of [STR_CORE,STR_APP])for(const [k,j] of Object.entries(d.ja)){const e=d.en[k];if(e===undefined)continue;
+             const want=m(typeof j==='string'?j:Object.values(j).join(' '));
+             for(const s of (typeof e==='string'?[e]:Object.values(e)))if(m(s)!==want)bad.push(k+': '+want+' / '+m(s))}
+           return bad})()"""), [])
+    ui.check("英語: _html で終わるキーだけがタグを含む", ui.ev(
+        """(()=>{const bad=[];for(const d of [STR_CORE.en,STR_APP.en])for(const [k,v] of Object.entries(d)){
+             const s=typeof v==='string'?v:Object.values(v).join('');
+             if(/<[a-z]/.test(s)!==/_html$/.test(k))bad.push(k)}
+           return bad})()"""), [])
+    ui.check("英語: 文に全角の空白が無い（区切りは「 · 」。7.7）", ui.ev(
+        """(()=>{const bad=[];for(const d of [STR_CORE.en,STR_APP.en])for(const [k,v] of Object.entries(d)){
+             const s=typeof v==='string'?v:Object.values(v).join('');if(s.includes('\u3000'))bad.push(k)}
+           return bad})()"""), [])
+    ui.check("言語の名前は、どちらの言語でも自分の言葉（日本語 / English）。項目名もどちらも「言語 / Language」", ui.ev(
+        "['settings.lang_ja','settings.lang_en','settings.lang'].map(k=>[STR_APP.ja[k],STR_APP.en[k]])"),
+        [["日本語", "日本語"], ["English", "English"], ["言語 / Language", "言語 / Language"]])
+
     # 置き換えの印 {名前} と、呼ぶ側が渡す名前が合っていること（1 つでも違えば印が文字のまま出る）
     marks = ui.ev("""(()=>{const o={};for(const [k,v] of Object.entries(STR)){
         const s=typeof v==='string'?v:Object.values(v).join(' ');

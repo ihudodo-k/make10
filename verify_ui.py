@@ -100,7 +100,23 @@ def check_version(chrome, url, want):
     return ok, shown, text
 
 
+def safe_output():
+    """出力先の文字コードで出せない文字があっても、結果を最後まで出し切る（7.7）。
+
+    パイプやファイルへ出すとき、Windows の Python は cp932 で厳格に書くので、落ちた項目の
+    実測値に「·」や絵文字が 1 文字でも入っていると print() が UnicodeEncodeError で止まり、
+    「合計」も「落ちた項目」の一覧も出なかった（終了コードは例外のせいで 1 にはなる）。
+    文字コードは変えず（cp932 のコンソールやパイプの読み手を壊さない）、出せない文字だけを
+    \\xb7 / \\U0001f525 の形に置き換えて出す"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except Exception:
+            pass
+
+
 def main():
+    safe_output()
     ap = argparse.ArgumentParser()
     ap.add_argument("--case", action="append", default=[],
                     help="回すケース名（既定は全部）")
