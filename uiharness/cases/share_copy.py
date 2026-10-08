@@ -77,7 +77,9 @@ def run(ui):
     ui.open({"ci": 0, "cleared": 0, "hintStock": 50})
     ui.ev("start('course')")
     code = ui.ev("codeOf(cur)")
-    url = ui.ev("SHARE_URL")
+    # 共有に付ける URL（GAME-SPEC 5-5）。アプリの SHARE_URL を読まず、仕様の値を直に書く
+    # （7.8。読んでしまうと、値を間違えても気づけない）
+    url = "https://make10.app/"
     # ── コードの見た目 ────────────────────────────────────
     ui.check("コードが #pcodev に出る", ui.text("pcodev"), code)
     ui.check("コード欄の並び",

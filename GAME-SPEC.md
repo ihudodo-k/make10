@@ -742,7 +742,7 @@ CSS 変数への流し込みと `tokensWidth()` の算術は同じ `TOKEN_METRIC
 | 項目 | 値 |
 |---|---|
 | 本文 `text` | `Make10 のこの問題、解ける？ コード XXXXX` |
-| `url` | `SHARE_URL`（`https://ihudodo-k.github.io/make10/`） |
+| `url` | `SHARE_URL`（`https://make10.app/`。7.8。7.7 までは `https://ihudodo-k.github.io/make10/`） |
 | `title` | `Make10` |
 
 - **問題の 4 つの数字と制約は入れない。** 受け取った人にアプリ（ホームの共有コード欄 `#codein`）で

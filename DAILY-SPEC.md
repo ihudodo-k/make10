@@ -13,8 +13,9 @@
 ## 2. 置き場所と構成
 - docs/daily/index.html
 - **ドメインは make10.app**（Cloudflare で取得。DNS も Cloudflare）。**デイリーの URL は https://make10.app/daily/**
-  - GitHub Pages を make10.app につなぐまでは https://ihudodo-k.github.io/make10/daily/
-  - ドメインは公開（起点日）より前につないでおく（後で移すと localStorage の記録が消えるため）
+  - GitHub Pages は make10.app につないである（本編 7.8。前の https://ihudodo-k.github.io/make10/ は
+    make10.app の同じパスへ転送される）
+  - ドメインは今後変えない（移すと localStorage の記録が消えるため）
 - **デイリーはずっと /daily/ に置く**（共有されたリンクを壊さないため）
 - アプリを公開して本編の Web 版を非公開にしたあとは、make10.app/ を「Play ストアへの案内」か
   「/daily/ への転送」にする（どちらにするかは未決。12 章）

@@ -55,12 +55,14 @@ Google Play で配布予定。
 - GitHub Pages は `main` ブランチの **`docs/` フォルダ**から配信される。
   手元の `docs/index.html` がそのまま公開されるので、
   **コピーやアップロードの手作業は要らない**
-- 公開 URL は https://ihudodo-k.github.io/make10/ 。
-  **ドメインは make10.app に決めた**（Cloudflare で取得・DNS も Cloudflare）が、まだつないでいない。
-  **GitHub Pages を make10.app につなぐまでは、この github.io の URL が正**（つないだら
-  https://make10.app/ になる。デイリーは https://make10.app/daily/ 。DAILY-SPEC 2 章）。
+- 公開 URL は https://make10.app/ （7.8。独自ドメイン。Cloudflare で取得・DNS も Cloudflare で、
+  プロキシはオフ）。デイリーは https://make10.app/daily/ （DAILY-SPEC 2 章）。
   `docs/v27.html` `docs/v28.html` も同時に公開され、
-  `.../v27.html` `.../v28.html` で比較できる
+  https://make10.app/v27.html と https://make10.app/v28.html で比較できる
+  - ドメインの設定は `docs/CNAME`（中身は `make10.app` の 1 行。GitHub が Pages の設定の保存で作った）。
+    **消さない・書き換えない**（消すと独自ドメインが外れる）
+  - 前の URL https://ihudodo-k.github.io/make10/ は、make10.app の同じパスへ 301 で転送される
+    （`/make10/` が取れる。`…/make10/v27.html` → `make10.app/v27.html`）
 
 ## 毎回守ること
 
@@ -225,7 +227,6 @@ load() は `{...DEV_DEFAULT, ...s.devVars}` の形を保つこと。
 
 ## 残っている作業
 
-- GitHub Pages を make10.app につなぐ（**次の作業**）
 - 起点日（公開日）を決める
 - デイリーの集計の仕組みを決める（DAILY-SPEC に章を足す。①調査から。どれも案で、まだ決めていない）
   - 来た人数: Cloudflare Web Analytics（クッキーなし）をページに入れる案
@@ -337,3 +338,4 @@ load() は `{...DEV_DEFAULT, ...s.devVars}` の形を保つこと。
 | 7.7 追補 | 2026-10-08 | **「残っている作業」の整理**（この `CLAUDE.md` だけ。`docs/index.html`・仕様書・DB・BLOB は無変更・**APP_VERSION は 7.7 で据え置き**）。並びを DAILY-SPEC 16 章 → 起点日とドメイン → 集計の仕組み → デイリーの実装 → 本編のライトモード にし、起点日と独自ドメイン（make10.jp が候補）・デイリーの集計の仕組み（来た人数・みんなの結果・DNS・プライバシーポリシー。どれも案）・デイリーの実装を足した。前からの残り 5 件は既存の文書を探し、**どこにも無かったものだけ**を足した ―― アプリ化のときの縦向き固定・全部解いた後のホームの文言・宣伝（YouTube Shorts）。足さなかったもの: 丸ボタンの輪（DESIGN.md 3-1-2 と 6-5 に「仮・実機で決める」）、アプリ化（この文書の冒頭と GAME-SPEC の冒頭）、収益化とヒントの初期値 100 が仮であること（GAME-SPEC 10 章・5-4・9 章） |
 | 7.7 追補 2 | 2026-10-08 | **`DAILY-SPEC.md` に「16. 言語」を足した**（仕様書だけ。`docs/index.html`・`make10.py`・DB・BLOB・ほかの仕様書は無変更・**APP_VERSION は 7.7 で据え置き**）。①**16 章**: 言語の決め方（端末の言語が `ja` で始まれば日本語・それ以外は英語。切り替えは持たず保存もしない。`?lang=ja` / `?lang=en` で固定。`<html lang>` を合わせる。小さい `G` に `lang:"auto"` を固定で持たせて本編の `pickLang()` をそのまま複製する）／辞書の持ち方（本編の `STR_CORE`・`t()`・`applyI18n()` を 1 文字も変えずに複製し、デイリーだけの文は `STR_DAILY` に `daily.` で始まるキーで持つ。本編の `STR_CORE` と同じ意味の文は `STR_CORE` のキーを使う。`applyLang()` は `STR_APP` を名前で書いているので同期の検証の除外の一覧に載せる）／英語の決まり（ヒントのラベルはコロンなし・余白 6px、区切りは「 · 」で**共有文は対象外**（ダッシュ）、書体は本編と同じ）／言葉の表／xlsx から直した所。元は `C:\Users\0ihud\Downloads\make10_daily_strings.xlsx` のシート「画面の言葉」（34 行）。②**日付**: `Intl.DateTimeFormat` を日本語で 1 回で使うと `10月7日(水)`（半角の括弧。`month:"numeric"` だと `10/7(水)`）になることを Chrome で実測したので、月日と曜日を別々に整えて辞書の文 `#{no}　{md}（{wd}）` / `#{no} · {wd}, {md}` で組む（`#23　10月7日（水）` / `#23 · Wed, Oct 7`）。`Intl` に渡す言語は `ja` / `en` だけ。③**xlsx と本編の決めごとが食い違っていた 7 件を決めた**: 制約の 1 行は `read.banned`／ヒント 2 回目の英語は `Uses + ! · with ( )` / `no ( )`／日本語の日付は全角の括弧／`Average time`／共有文の英語はダッシュのまま／`No puzzle today`／`Want more puzzles? Play Make10`（矢印なし）。④**xlsx に無い文を 18 キー足した**（ページの `<title>`・ボタンの名前 4 つ・ヒントの共有の入口と読み上げ・統計の見出しと単位「日」（`day` / `days`）・閉じる・コピーできなかったときのトースト・遊び方のキーボードの一覧 6 つ）。キーボードの一覧はパソコンでだけ出す（`(hover:hover) and (pointer:fine)` が真か、キーを 1 回でも打ったとき。14-2 に参照を足した）。⑤**2 章と 11 章**に、`STR_CORE` を同期の照合の対象に入れることと、言語の検証（両方の言語があること・印が同じ・`?lang=en` で日本語が出ない・両方の言語 × 3 画面ではみ出しが無い・英語に全角の空白が無い・日付の形）を足した。⑥DAILY-SPEC の 12 章には書体の項目が元から無かったので、12 章は変えていない（16-3 に「書体は本編と同じ」と書いた）。⑦「残っている作業」から 16 章の項目を消した |
 | 7.7 追補 3 | 2026-10-08 | **ドメインを make10.app に決めた**（仕様書だけ。`docs/index.html`・`make10.py`・DB・BLOB は無変更・**APP_VERSION は 7.7 で据え置き**）。①**`DAILY-SPEC.md`**: 12 章の「独自ドメインを使うか」を外し、2 章に決定を書いた ―― ドメインは make10.app（Cloudflare で取得・DNS も Cloudflare）、デイリーの URL は https://make10.app/daily/（GitHub Pages をつなぐまでは github.io の URL）、デイリーはずっと /daily/ に置く（共有されたリンクを壊さないため）、アプリを公開して本編の Web 版を非公開にしたあとは make10.app/ を「Play ストアへの案内」か「/daily/ への転送」にする（どちらにするかは未決で、12 章に入れた）。9 章に、アプリの公開後は導線の行き先を Play ストアに切り替えることを足した。②**この `CLAUDE.md`**: 「ファイルの配置」の公開 URL に、make10.app につなぐまでは github.io の URL が正であることを書いた。「残っている作業」は、「起点日と独自ドメイン」を「起点日を決める」だけにし、「GitHub Pages を make10.app につなぐ（次の作業）」と「アプリの公開後、本編の Web 版を非公開にする（記録の引き継ぎはしない）」を足し、集計の項目から「make10.jp の DNS を Cloudflare で管理する案」を消した（DNS は決まったため）。③**直していないこと**: `docs/index.html` の `SHARE_URL` と GAME-SPEC 5-5 の表は github.io の URL のまま（今の公開ページの URL なので正しい。make10.app につなぐ作業で直す） |
+| 7.8 | 2026-10-08 | **公開ページを make10.app につなぎ、共有に付ける URL を直した**（BLOB・DB は 7.7 と同じ）。①**つないだ作業**（Cloudflare と GitHub の画面での設定は人が行った）: Cloudflare の DNS に A 4 本（`185.199.108〜111.153`）・`www` の CNAME（`ihudodo-k.github.io`）・検証用の TXT（`_github-pages-challenge-ihudodo-k`）を書き（プロキシはオフ）、GitHub の Pages の Custom domain に `make10.app` を入れた。GitHub が作ったコミット `549471f`「Create CNAME」（`docs/CNAME`。中身は `make10.app` の 10 バイト・改行なし）を `git pull` で取り込んだ。②**転送の実測**（`curl -I`）: `https://ihudodo-k.github.io/make10/` → 301 → `http://make10.app/`、`…/make10/v27.html` → 301 → `http://make10.app/v27.html`（`/make10/` が取れる）。`https://make10.app/`・`/v27.html`・`/v28.html` は 200。証明書は Let's Encrypt（`make10.app` だけ・2026-10-08 〜 2027-01-06）。**転送先が `http://` なのは Enforce HTTPS がまだ押せていないため**（`http://make10.app/` も 200 で返り、https へ送られない。`.app` は HSTS のプリロード一覧にあるのでブラウザは https で開く）。③**`https://www.make10.app/` は開けない**（作業の時点）: DNS は `ihudodo-k.github.io` を指しているが、証明書に `www.make10.app` が入っておらず（返るのは `*.github.io` の証明書）、名前の不一致で止まる。`http://www.make10.app/` は 301 → `http://make10.app/` を返すが、`.app` なのでブラウザは https で開こうとして止まる。apex の AAAA も引けない（A だけ）。**どちらも人が画面で直す所なので、この作業では触っていない**（報告のみ）。④**`docs/index.html`**: `SHARE_URL` を `https://ihudodo-k.github.io/make10/` → **`https://make10.app/`**。変えたのはこの 1 行と版だけ。ページの中に `/make10/` を前提にしたパスは無い（外部の参照は Google Fonts だけ）。⑤**verify_ui**: `share_copy` は URL をアプリの `SHARE_URL` から読んでいて（`ui.ev("SHARE_URL")`）、**値を間違えても気づけない形だった**ので、仕様の値 `https://make10.app/` を直に書く形にした（項目数は 100 のまま。共有メニューに渡す文面・共有が無いときのコピー・拒まれたときのコピーの 3 項目が URL を見る）。`SHARE_URL` を古い値に戻すと、その 3 項目が normal・compact の両方で落ちる（6 / 200）ことを確かめた（`cmp` で元に戻したことを確認）。`python verify_ui.py` **1498 / 1498**（版の照合はソース 7.8／画面 7.8）。⑥**保存データ**: `localStorage` はドメインごとなので、github.io で遊んでいた進捗は make10.app には引き継がれない（転送されるので前の URL へ戻ることもできない）。⑦GAME-SPEC 5-5（`SHARE_URL` の値）、DAILY-SPEC 2 章（「つなぐまでは github.io」の行）、この CLAUDE.md の「ファイルの配置」（公開 URL・`v27.html` / `v28.html` の URL・`docs/CNAME` を消さないこと・前の URL の転送）を直し、「残っている作業」から「GitHub Pages を make10.app につなぐ」を消した。⑧**公開ページはまだ 7.7**（`SHARE_URL` も前の値）。コミットとプッシュをしていないため |
