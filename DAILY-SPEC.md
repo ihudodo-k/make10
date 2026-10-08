@@ -21,6 +21,8 @@
 - 複製したエンジンは本編と自動では揃わない。本編の盤・判定を直したときは、
   デイリーに反映するかを版ごとに判断し、CLAUDE.md の変更履歴に書く
 - 反映漏れは、同じ名前の関数の文字列を照合する検証で見つける（11 章）
+- 画面の文の辞書のうち、本編と共通の塊 `STR_CORE`（日本語と英語）も 1 文字も変えずに複製し、
+  同じ照合の対象に入れる（16 章）
 - デイリー独自の版 `DAILY_VERSION` を持つ（本編の `APP_VERSION` とは別）。画面のいちばん下に小さく出し、
   検証で照合する（11 章）
 
@@ -121,6 +123,22 @@
   - 列の全問が 4 章の曜日と難易度の表に合っていること
   - 全問の解答例が DB に実在し、値が 10 になり、制約を満たすこと
   - 共有文に答えが漏れていないこと
+- 言語（16 章。本編の `verify_ui.py` のケース `i18n`・`lang`・`en` と同じ考え方）
+  - `STR_CORE` が本編の index.html と**文字列で一致**すること（上の「本編との同期」の対象に入れる。
+    `t()`・`pickLang()`・`applyI18n()` も同じ名前の関数として照合される）
+  - HTML と JS に、画面に出る日本語・英語の直書きが残っていないこと
+  - `STR_DAILY` のすべてのキーに日本語と英語の両方があること（片方だけのキーが無い）。
+    使われているキーがすべて辞書にあり、辞書のキーがすべて使われていること
+  - 置き換えの印（`{名前}`）が、日本語と英語で同じ名前・同じ数であること。呼ぶ側の渡す名前とも合っていること
+  - 複数形の文は、英語が `one` と `other` を持つこと。`_html` で終わるキーだけがタグを含むこと
+  - 英語の文に全角の空白が無いこと
+  - 端末の言語（`navigator.language`）を差し替えて、`ja` で始まれば日本語・それ以外は英語になること。
+    `?lang=` がそれより優先し、知らない値は無視されること。`<html lang>` が表示している言語と同じこと
+  - `?lang=en` で画面を巡って（問題画面・ヒントをもらう前・ヒント 1 回目・2 回目・ギブアップの確認・
+    解いた後・ギブアップの後・制約がある日・統計・遊び方・問題がありません・テスト表示）、
+    日本語の文字が出ないこと。共有文も同じ
+  - 両方の言語 × 3 画面（430×900・360×690・360×640）で、文字のはみ出し・折り返しが無いこと
+  - 上のバーの日付と曜日が、言語ごとの形で出ること（16-3）
 - 検証を足したら、わざと壊して赤くなることを確かめる
 
 ## 12. 決めていないこと
@@ -233,7 +251,7 @@
 - 演算子がもうある所に別の演算子を打ったら、差し替える（ドラッグで重ねたときと同じ）
 - 取り消しは `Backspace` だけ（`Ctrl+Z` は持たない）
 - `/` キーの既定の動き（ブラウザのページ内検索）を止める
-- キーの一覧は「?」の遊び方に載せる
+- キーの一覧は「?」の遊び方に載せる（パソコンでだけ出す。判定は 16-4 の「遊び方」）
 - 盤の操作は、本編から複製した関数（`canPut` `put` `dropTok` `clearAll` など）をそのまま呼ぶ。
   `put()` は置けるかを確かめないので、呼ぶ前に必ず `canPut()` を通す
 
@@ -276,3 +294,237 @@
 - 式の括弧は `--paper` の 58%（本編の CSS と同じ。Figma では `--paper` にレイヤーの不透明度 58%）
 - 文字と地の比（白 / 藍）: 主な文字 16.60 / 16.60、`--dim` 6.04 / 7.32、金の「10」 4.75 / 10.82、
   赤 4.76 / 6.00、`--slate` 3.33 / 3.33、使えない記号（`--slate`・50%）1.71 / 1.72、細い線 1.50 / 1.50
+
+## 16. 言語
+本編の 7.5〜7.7（GAME-SPEC 13 章）に合わせる。**印の意味**: ◎＝本編の `STR_CORE` のキーをそのまま使う／
+決＝xlsx の文と本編の辞書や訳の決めごとが食い違っていた所で、**決めた文**（16-5 の B）／
+足＝xlsx に無く、この章で足した文（16-5 の C）。**表の文は、どれも決まった文。**
+
+### 16-1. 言語の決め方
+- 日本語（`ja`）と英語（`en`）の 2 つ
+- 端末の言語（`navigator.language`）が **`ja` で始まれば日本語、それ以外は英語**
+  （大文字・小文字は区別しない。空でも英語。本編の「自動」と同じ）
+- **切り替えは持たない**（デイリーは設定画面を持たない。13-1）。言語は保存しない
+- URL の `?lang=ja` / `?lang=en` で固定できる（**検証と確認のための入口**。`ja` `en` 以外の値は無視する）。
+  `?date=`（11 章）と一緒に使える
+- `<html lang>` は、表示している言語に合わせる
+- 決めるのは本編の `pickLang()`。本編の `pickLang()` は `G.lang` を見るので、デイリーの小さい `G`（2 章）に
+  `lang:"auto"` を固定で持たせれば、**1 文字も変えずに複製できる**
+
+### 16-2. 辞書の持ち方
+本編の GAME-SPEC 13-1〜13-5 の決まりをそのまま使う。
+
+| 名前 | 中身 |
+|---|---|
+| `STR_CORE` | 本編と共通の文（盤・読み出し行・ヒントの箱・丸ボタンの名前。`ja` と `en`）。**本編の index.html から 1 文字も変えずに複製する** |
+| `STR_DAILY` | デイリーだけの文（`ja` と `en`）。**キーは `daily.` で始める** |
+| `STR` | 上の 2 つを合わせたもの。日本語の文に、表示している言語の文を重ねる（本編と同じ） |
+| `t(key, vars)`・`applyI18n()` | 本編から 1 文字も変えずに複製する（複数形の `Intl.PluralRules` の仕組みも） |
+
+- **同期の照合の対象に `STR_CORE` を入れる**（2 章・11 章）。`t()`・`pickLang()`・`applyI18n()` は
+  同じ名前の関数として照合される
+- 本編で `STR_APP` を名前で書いている所（`STR` を組む行と `applyLang()`）は、デイリーでは `STR_DAILY` に
+  なるので同じ文字列にならない。`applyLang()` は同期の検証の**除外の一覧**に載せる（11 章）
+- **本編の `STR_CORE` と同じ意味の文は、`STR_CORE` のキーを使う**（`STR_DAILY` に同じ文を持たない）。
+  対応は 16-4 の表の◎
+- 本編の `STR_APP` にある文（「コピーしました」「遊び方」など）は、文が同じでも `STR_DAILY` に持つ
+  （`STR_APP` は複製しないため）
+- `STR_CORE` のうちデイリーの画面に出ないキー（本編のヒントの段階の文など）も、削らずにそのまま持つ
+  （塊ごと照合するため）
+- **画面に出る文は直書きしない**（`title`・`aria-label`・トースト・共有文も含む。本編と同じ決まり）。
+  HTML からは `data-i18n…` の属性で引く
+- キーは「場所.中身」で、小文字の英字・数字・`_` だけ。デイリーの場所は `daily` の 1 つで、
+  中身の先頭に画面の場所を書く（`daily.hint_locked`・`daily.result_time`）。タグを含む文は `_html` で終える
+- 数字や記号が入る文は、文を丸ごと持って `{名前}` の印で置き換える。単数・複数で変わる文は
+  `{one:…, other:…}` の形で持ち、`n` を渡す
+- **`ja` が正**。キーを足すときは必ず `ja` と `en` の両方に入れる
+- 辞書に入れないもの: 数字と記号だけの表示（時間の `1:42`・`k/N`・記録が無いときの「—」）、`console` の文
+- ページの `<title>` も辞書から入れる（`<title data-i18n="daily.page_title">`。`applyI18n()` がそのまま流し込む）
+
+### 16-3. 英語の決まり
+本編の GAME-SPEC 13-8 に合わせる。
+
+- **ヒントのラベルは、英語ではコロンを付けない**（`Uses`・`Solution`）。ラベルと中身の間は、文字（空白）ではなく
+  CSS の余白で空ける。値は本編の `HINT_TEXT.labelGap`（日本語 0・**英語 6px**）と同じにする
+  （日本語は全角の「：」が空きを持つ）
+- **英語の文に全角の空白を入れない。** 文の中の区切りは、日本語が全角の空白、英語が「 · 」
+  （半角の空白・中点・半角の空白）。例: 上のバーは `#23　10月7日（水）` / `#23 · Wed, Oct 7`
+  - **共有文は、この決まりの対象外**（画面の外に出る文なので）。英語の共有文の区切りはダッシュ（` — `）にする
+- **日付と曜日は `Intl.DateTimeFormat` で言語ごとに整える**（辞書に月や曜日の名前を持たない）
+  - **月日（`{md}`）と曜日（`{wd}`）を別々に整え、辞書の文 `daily.top_date` で組む**（並びと括弧は辞書が持つ）
+    - 日本語: 月日は `{month:"long", day:"numeric"}` で `10月7日`、曜日は `{weekday:"short"}` で `水`。
+      文は `#{no}　{md}（{wd}）` → `#23　10月7日（水）`（**全角の括弧**）
+    - 英語: 月日は `{month:"short", day:"numeric"}` で `Oct 7`、曜日は `{weekday:"short"}` で `Wed`。
+      文は `#{no} · {wd}, {md}` → `#23 · Wed, Oct 7`
+    - 別々に整えるのは、日本語を 1 回で整えると `10月7日(水)` と**半角の括弧**になるため
+      （`month:"numeric"` だと `10/7(水)`）。上の 4 つの値とあわせて Chrome で実測した
+  - `Intl` に渡す言語は `ja` / `en` の 2 つだけにする（端末の言語をそのまま渡すと、
+    `en-GB` では月日の並びが変わる。1 回で整えた場合の実測は `Wed 7 Oct`）
+- 置き換えの印は、日本語と英語で同じ名前・同じ数にする
+- 書体は本編と同じ（今の書体のまま。英語のときだけ別の書体にはしない）
+- 単位の訳は本編に揃える（秒は `s`）。「正解」は `Solved!`
+- 統計の単位「日」は複数形の仕組みで持つ（`daily.unit_day`。英語は `1 day` / `2 days` / `0 days`）
+
+### 16-4. 言葉の表
+元は `make10_daily_strings.xlsx` のシート「画面の言葉」（34 行）。16-2・16-3 に合わせて直した（直した所は 16-5）。
+
+**上のバー・制約・読み出し行**
+
+| キー | 場所 | 日本語 | 英語 | 印 |
+|---|---|---|---|---|
+| `daily.page_title` | ページの `<title>` | Make10 デイリー | Make10 Daily | 足 |
+| `daily.top_date` | 上のバーの中央 | `#{no}　{md}（{wd}）` | `#{no} · {wd}, {md}` | 決（月日と曜日は `Intl`。16-3） |
+| `daily.btn_help` | 「?」の名前（`title`・`aria-label`） | 遊び方 | How to play | 足 |
+| `daily.btn_giveup` | ギブアップの入口の名前 | ギブアップ | Give up | 足 |
+| `daily.btn_stats` | 統計の入口の名前 | 統計 | Stats | 足 |
+| `daily.btn_share` | 共有ボタンの名前（上のバー・解いた後） | 共有 | Share | 足 |
+| `read.banned` | 制約がある日の 1 行（13-2） | {op} は使えません | {op} isn't allowed | ◎ 決 |
+| `read.solved` | 解いた後の「正解」 | 正解 | Solved! | ◎ |
+| `read.paren_mismatch` | 注意 | 括弧が対応していません | Parentheses don't match | ◎ |
+| （`read.` のほかのキー） | 読み出し行の注意 | 本編と同じ | 本編と同じ | ◎ |
+| `btn.clear`・`btn.hint` | 丸ボタンの名前 | 全部消す・ヒント | Clear all・Hint | ◎ |
+| `field.trash` | 記号を外へ出すとき | ここで離すと外れます | Release here to remove | ◎ |
+
+**ギブアップ**
+
+| キー | 場所 | 日本語 | 英語 | 印 |
+|---|---|---|---|---|
+| `daily.giveup_confirm` | ギブアップの確認 | ギブアップしますか？ | Give up? | |
+| `daily.yes` | ギブアップの確認 | はい | Yes | |
+| `daily.no` | ギブアップの確認 | いいえ | No | |
+| `daily.giveup_label` | ギブアップの後（「10」の場所） | ギブアップ | Gave up | |
+
+**ヒント**
+
+| キー | 場所 | 日本語 | 英語 | 印 |
+|---|---|---|---|---|
+| `daily.hint_locked` | ヒントをもらう前に押したとき | 友達に出題するとヒントがもらえます | Share with a friend to unlock a hint | |
+| `daily.hint_share` | その箱の中の共有の入口 | 共有する | Share | 足 |
+| `daily.hint_label_ops` | ヒントのラベル | 使う演算： | Uses | 直した（コロン） |
+| `daily.hint_paren_yes` | ヒント 2 回目（括弧を使う） | 括弧：使う | with ( ) | 決 |
+| `daily.hint_paren_no` | ヒント 2 回目（括弧を使わない） | 括弧：使わない | no ( ) | 決 |
+| `daily.hint_sep` | ヒント 2 回目の 2 つの間 | `　`（全角の空白） | ` · ` | 決 |
+| `daily.hint_no_other` | 演算が 1 種類だけのとき | ほかの演算は使わない | No other operations | |
+| `daily.hint_sr_left` | ヒントの丸ボタンの読み上げ | ヒント（残り {n} 回） | Hint ({n} left) | 足（複数形の形で持つ） |
+| `daily.hint_sr_spent` | 2 回とも見た後の読み上げ | これ以上のヒントはありません | No more hints | 足 |
+| `hint.close` | ヒントの箱の「×」 | 閉じる | Close | ◎ |
+
+- 組み上がり（日本語は 13-4 の文面のまま）
+
+| | 日本語 | 英語 |
+|---|---|---|
+| 1 回目 | `使う演算：+` | `Uses +` |
+| 2 回目（括弧を使う） | `使う演算：+ !　括弧：使う` | `Uses + ! · with ( )` |
+| 2 回目（括弧を使わない） | `使う演算：+ !　括弧：使わない` | `Uses + ! · no ( )` |
+| 演算が 1 種類だけ（括弧を使う） | `ほかの演算は使わない　括弧：使う` | `No other operations · with ( )` |
+| 演算が 1 種類だけ（括弧を使わない） | `ほかの演算は使わない　括弧：使わない` | `No other operations · no ( )` |
+
+- 英語のラベル `Uses` と中身（記号）の間は、CSS の余白 6px（16-3）。括弧の側はラベルと中身に分けず、
+  文を丸ごと持つ（英語にはラベルが無いため）
+
+**解いた後・ギブアップの後**
+
+| キー | 場所 | 日本語 | 英語 | 印 |
+|---|---|---|---|---|
+| `daily.result_time` | 結果の 3 列 | 時間 | Time | |
+| `daily.result_hints` | 結果の 3 列 | ヒント | Hints | |
+| `daily.result_streak` | 結果の 3 列 | 連続日数 | Streak | |
+| `hint.label_example` | 全解答のラベル | 解答例： | Solution | ◎ 直した（xlsx の英語は `Solution: `） |
+| `hint.next_solution` | 全解答の式の名前（押すと次へ） | 次の解答を見る（{k}/{n} を表示中） | Next solution (showing {k}/{n}) | ◎ |
+| `daily.sols_other` | 全解答の見出し（ギブアップの後） | ほかの解き方 | Other solutions | |
+| `daily.app_link` | アプリへの導線 | もっと解きたい人はアプリで | Want more puzzles? Play Make10 | 決（矢印なし） |
+
+**統計・そのほか**
+
+| キー | 場所 | 日本語 | 英語 | 印 |
+|---|---|---|---|---|
+| `daily.stats_title` | 統計の見出し | 統計 | Stats | 足 |
+| `daily.stats_solved` | 統計 | 解いた日数 | Solved | |
+| `daily.stats_streak` | 統計 | 連続日数 | Streak | |
+| `daily.stats_max` | 統計 | 最長 | Max streak | |
+| `daily.stats_avg` | 統計 | 平均時間 | Average time | 決（本編の統計と同じ） |
+| `daily.unit_day` | 統計の単位（解いた日数・連続日数・最長） | 日 | day / days | 足（複数形の形で持つ。`one` / `other`） |
+| `daily.close` | 遊び方・統計を閉じるボタンの名前 | 閉じる | Close | 足 |
+| `daily.nopuzzle` | 問題がありません | 問題がありません | No puzzle today | 決 |
+| `daily.testmode` | テスト表示 | テスト表示（記録しません） | Test mode (not saved) | |
+| `daily.toast_copied` | トースト | コピーしました | Copied! | |
+| `daily.toast_copy_failed` | トースト（コピーできなかったとき） | コピーできません | Couldn't copy | 足 |
+
+**共有文**（画面の外。言語ごとに持つ。URL は後ろに付ける）
+
+| キー | 場所 | 日本語 | 英語 | 印 |
+|---|---|---|---|---|
+| `daily.share_before` | 解く前 | Make10 #{no} 解ける？ | Make10 #{no} — Can you make 10? | 決（ダッシュのまま） |
+| `daily.share_after` | 解いた後 | Make10 #{no} ⏱{time} 💡{hints} 🔥{streak} | 日本語と同じ | |
+| `daily.share_giveup` | ギブアップの後 | Make10 #{no} ギブアップ | Make10 #{no} — Gave up | 決（ダッシュのまま） |
+
+- ⏱ 💡 🔥 の行（`daily.share_after`）は、どちらの言語でも同じ文にする
+- 共有文は画面の外に出る文なので、英語の区切り「 · 」の決まりの対象外（16-3）
+
+**遊び方**
+
+| キー | 日本語 | 英語 | 印 |
+|---|---|---|---|
+| `daily.help_title` | 遊び方 | How to play | |
+| `daily.help_1` | 4 つの数字を順番どおりに全部使って 10 を作ります。 | Make 10 using all four numbers in order. | |
+| `daily.help_2` | 数字のあいだに演算と括弧を置きます。 | Add operations and parentheses between them. | |
+| `daily.help_3` | 使える演算：+ − × ÷ ^ ! | Operations: + − × ÷ ^ ! | 直した |
+| `daily.help_pow_html` | **^ は累乗**です（`2 ^ 3 = 8`） | **^ is power** (`2 ^ 3 = 8`) | 直した（本編 `help.r_pow_html` と同じ文） |
+| `daily.help_fac_html` | **! は階乗**です（`3! = 6`） | **! is factorial** (`3! = 6`) | 直した（本編 `help.r_fac_html` と同じ文） |
+| `daily.help_4` | 毎日 0 時（端末の時刻）に新しい問題になります。 | A new puzzle every day at midnight, your local time. | |
+| `daily.help_keys` | キーボード | Keyboard | 足 |
+| `daily.help_key_put_html` | `+` `-` `*` `/` `^` `!` `(` `)` … 記号を置く（`x` でも ×） | `+` `-` `*` `/` `^` `!` `(` `)` … place a symbol (`x` also works for ×) | 足 |
+| `daily.help_key_digit` | 数字 … その数字の先へ進む | Number keys … move past that number | 足 |
+| `daily.help_key_arrows_html` | `←` `→` … カーソルを動かす | `←` `→` … move the cursor | 足 |
+| `daily.help_key_back_html` | `Backspace` … 左の記号を 1 つ消す | `Backspace` … delete the symbol to the left | 足 |
+| `daily.help_key_clear_html` | `Esc` `Delete` … 全部消す | `Esc` `Delete` … clear all | 足 |
+
+- 太字と `<code>` の付け方は本編の遊び方に揃える。式（`<code>`）は折り返さない（本編 7.7 と同じ）
+- **キーボードの一覧（`daily.help_keys` と `daily.help_key_…` の 6 キー）は、パソコンでだけ出す。**
+  スマホでは出さない。出すのは次のどちらかのとき
+  - 端末がマウスなどの細かい指し示しを持つ（`matchMedia("(hover:hover) and (pointer:fine)")` が真）
+  - キーを 1 回でも打った（14-3 のカーソルの印を出すのと同じ合図）
+  - 1 つ目だけだと、キーボードをつないだタブレットで出ない。2 つ目だけだと、初回に自動で出る遊び方
+    （13-1）には、まだキーを打っていないので載らない。そのため両方を見る
+
+### 16-5. xlsx から直した所と、決めた所
+**A. 16-2・16-3 に合わせて直した所**
+
+| xlsx のキー | 直し方 |
+|---|---|
+| すべて | キーを `daily.` で始まる形にした（`giveup.confirm` → `daily.giveup_confirm`、`common.yes` → `daily.yes`、`howto.1` → `daily.help_1` など） |
+| `win.solved` | `STR_CORE` の `read.solved` を使う（文は日本語・英語とも xlsx と同じ） |
+| `warn.paren` | `STR_CORE` の `read.paren_mismatch` を使う（文は xlsx と同じ） |
+| `sols.example` | `STR_CORE` の `hint.label_example` を使う。英語は `Solution: ` → `Solution`（コロンなし・余白は CSS） |
+| `rule.banned` | `STR_CORE` の `read.banned` を使う（日本語は同じ。**英語は食い違い** → B） |
+| `hint.first` | ラベル `daily.hint_label_ops` と中身（記号）に分けた。英語は `Uses: ` → `Uses`（コロンなし・余白は CSS） |
+| `hint.second`・`hint.second_no_paren` | 演算のラベル（`daily.hint_label_ops`）・括弧の文（`daily.hint_paren_yes` / `daily.hint_paren_no`）・区切り（`daily.hint_sep`）に分けた。英語の文は B |
+| `top.date` | 番号・月日・曜日を印にした。月日と曜日は `Intl.DateTimeFormat` が作る（B） |
+| `share.before`・`share.after`・`share.giveup` | 番号・時間・回数を印にした |
+| `howto.3` | 3 つに分けた ―― 演算の一覧（`daily.help_3`）と、本編 7.7 と同じ文の 2 行（`^ は累乗`・`! は階乗`）。式は `2^3` → `2 ^ 3`（本編と同じ空白） |
+| `toast.copied`・`howto.title` | 本編の `STR_APP` と同じ文だが、`STR_APP` は複製しないので `STR_DAILY` に持つ |
+
+**B. 食い違っていて、決めた所**（表の「決」）
+
+| 所 | xlsx | 決めた文 |
+|---|---|---|
+| 制約がある日の 1 行（英語） | `No − today` | `STR_CORE` の `read.banned` を使う（`{op} isn't allowed`）。デイリーのキーは作らない |
+| ヒント 2 回目（英語） | `Uses: + !　( ): Yes` / `Uses: + !　( ): No` | `Uses + ! · with ( )` / `Uses + ! · no ( )`。演算が 1 種類だけのときは `No other operations · with ( )` / `No other operations · no ( )`。日本語は xlsx のまま |
+| 上のバーの日付（日本語） | `10月7日（水）`（全角の括弧） | xlsx のまま。`Intl.DateTimeFormat` を 1 回で使うと半角の括弧になるので、月日と曜日を別々に整えて辞書の文 `{md}（{wd}）` で組む（16-3）。英語は `Wed, Oct 7` のまま |
+| 統計の「平均時間」（英語） | `Avg. time` | `Average time`（本編の統計 `stats.avg` と同じ） |
+| 共有文の区切り（英語） | 「 — 」 | xlsx のまま（ダッシュ）。画面の外の共有文は「 · 」の決まりの対象外（16-3） |
+| 「問題がありません」（英語） | `No puzzle today. Check back tomorrow!` | `No puzzle today` |
+| アプリへの導線（英語） | `Want more? Play Make10 →` | `Want more puzzles? Play Make10`（矢印なし） |
+
+**C. xlsx に無く、この章で足した文**（表の「足」。18 キー。文は決まっている）
+
+- ページの `<title>`（`daily.page_title`）
+- ボタンの名前 4 つ（`daily.btn_help`・`daily.btn_giveup`・`daily.btn_stats`・`daily.btn_share`）
+- ヒントをもらう前の箱の共有の入口（`daily.hint_share`）
+- ヒントの丸ボタンの読み上げ 2 つ（`daily.hint_sr_left`・`daily.hint_sr_spent`）
+- 統計の見出し（`daily.stats_title`）と単位（`daily.unit_day`）
+- 閉じるボタンの名前（`daily.close`）
+- コピーできなかったときのトースト（`daily.toast_copy_failed`）
+- 遊び方のキーボードの一覧 6 つ（`daily.help_keys` と `daily.help_key_…` の 5 つ）
+
+`daily.hint_paren_yes`・`daily.hint_paren_no`・`daily.hint_sep` は xlsx の 2 行を分けたもので、ここには数えていない
