@@ -24,11 +24,14 @@ from __future__ import annotations
 
 import argparse
 import collections
+import datetime
 import hashlib
 import json
+import pathlib
 import re
 import sqlite3
 import sys
+import zlib
 from fractions import Fraction
 from itertools import combinations
 from math import factorial
@@ -3372,6 +3375,419 @@ def run_blob(db_path, html_path, write=True, progress=None):
 
 
 # ---------------------------------------------------------------------------
+# デイリーの問題の列 (DAILY-SPEC 3〜6 章・11 章。D0.1)
+# ---------------------------------------------------------------------------
+# 1 日 1 問の列を作る。列は「#1 からの曜日の並び」だけで決まり (#1 は月曜)、
+# 起点日の日付は列の生成に使わない ―― 起点日を別の月曜に動かしても列は変わらない。
+#
+# 作り方 (どの段も乱数を使わず、DAILY_SEED と問題から決まる):
+#   1. 候補 = BLOB の基準を通った全 puzzle のうち、挑戦 (CHAL) の puzzle と、
+#      本編 1〜200 問目に出てくる 4 桁 (制約が違っても) を除いたもの
+#   2. 曜日の枠 (DAILY_CLASSES) ごとに、条件に合う puzzle を持つ 4 桁を集める
+#   3. 4 桁を枠に**持ち分として分ける**。「どの枠も同じ週数だけ出せる」ような分け方の
+#      うち、週数が最大のもの (daily_partition)。同じ 4 桁は 1 つの枠にしか入らないので、
+#      デイリーで同じ 4 桁が二度出ることは無い。分け方は候補だけで決まり、
+#      作る長さには依らない ―― だから列を伸ばしても、すでにある行は変わらない
+#   4. 枠ごとに、持ち分の 4 桁を順位 (ハッシュ) で 1 列に並べ、週ごとに頭から取る
+# 3 が「全曜日の必要数を満たすことの保証」にあたる (水・木の枠がいちばん少なく、
+# ほかの枠が重なる 4 桁を先に取ると足りなくなる。DAILY-SPEC 6 章)。
+
+# 起点日 (#1 の日。公開日)。**値はここ 1 か所だけに持つ** (ページへはここから埋め込む。
+# 集計のサーバーへもここから渡す。DAILY-SPEC 5 章)。月曜でなければならない。
+# 公開までは遠い未来の月曜を仮に置く (来た人には「問題がありません」が出る)
+DAILY_START = "2099-01-05"
+DAILY_WEEKS = 157            # 最初に作る長さ。3 年ぶん = 157 週 = 1,099 日
+DAILY_SEED = "make10-daily-v1"
+DAILY_COURSE_HEAD = 200      # 本編のこの位置までに出てくる 4 桁は使わない
+# 曜日の枠。(名前, 曜日 (0 = 月 … 6 = 日), 難易度の下限, 上限, 制約)。
+# 制約は "free" = なし / "con" = あり / "any" = 有無を問わない (DAILY-SPEC 4 章の表)
+DAILY_CLASSES = (
+    ("A", (0, 1), 6, 8, "free"),     # 月・火
+    ("B", (2, 3), 9, 11, "free"),    # 水・木
+    ("C", (4,), 12, 13, "any"),      # 金
+    ("D", (5,), 14, 16, "any"),      # 土
+    # 日。9〜13 ではなく 9〜11 ―― 制約ありの 12〜13 は金曜の条件にも合い、持ち分を
+    # 分けるときに金曜へ先に入るので、日曜には実際に出ない (DAILY-SPEC 4 章)
+    ("E", (6,), 9, 11, "con"),
+)
+_DAILY_RC_OP = {v: k for k, v in _BLOB_CODEOF.items()}   # "A" -> "+" …
+_DAILY_SEP = ";"             # 1 行の中で、解答を区切る文字
+
+
+def daily_start(value=None):
+    """起点日を date にして返す。月曜でなければ ValueError。"""
+    d = datetime.date.fromisoformat(DAILY_START if value is None else value)
+    if d.weekday() != 0:
+        raise ValueError("デイリーの起点日は月曜でなければならない: %s (%s)"
+                         % (d.isoformat(), "月火水木金土日"[d.weekday()]))
+    return d
+
+
+def _connect_ro(path):
+    """DB を読み取り専用で開く (mode=ro&immutable=1)。デイリーの生成は DB に書かない。"""
+    uri = pathlib.Path(path).resolve().as_uri() + "?mode=ro&immutable=1"
+    return sqlite3.connect(uri, uri=True)
+
+
+def _daily_rank(tag, pid, rc=""):
+    key = "%s:%s:%s:%s" % (DAILY_SEED, tag, pid, rc)
+    return hashlib.blake2b(key.encode(), digest_size=8).digest()
+
+
+def _daily_class_ok(cls, r):
+    _name, _days, lo, hi, con = cls
+    if not (lo <= r["d"] <= hi):
+        return False
+    return con == "any" or (con == "free") == bool(r["free"])
+
+
+def daily_candidates(sections):
+    """DAILY-SPEC 3 章の候補。3 区分の全 puzzle から、挑戦の puzzle と、
+    本編 1〜200 問目に出てくる 4 桁 (制約が違っても) を除く。"""
+    head = {r["id"] for r in sections["COURSE"][:DAILY_COURSE_HEAD]}
+    return [r for name in ("COURSE", "FREE") for r in sections[name]
+            if r["id"] not in head]
+
+
+def _daily_match(order, can, cap):
+    """4 桁を枠に割り当てる (二部グラフの、枠ごとに定員のあるマッチング)。
+    order の順に 1 つずつ入れ、枠が埋まっていたら、すでに入っている 4 桁を
+    別の枠へ玉突きで動かして席を空ける。返すのは {枠: [4 桁…]}。
+    入りきらない 4 桁は入れない (どの枠にも属さない)。"""
+    members = {c: [] for c in cap}
+
+    def place(pid, seen):
+        for c in can[pid]:
+            if c in seen:
+                continue
+            seen.add(c)
+            if len(members[c]) < cap[c]:
+                members[c].append(pid)
+                return True
+            for other in members[c]:
+                if place(other, seen):
+                    members[c].remove(other)
+                    members[c].append(pid)
+                    return True
+        return False
+
+    left = sum(cap.values())
+    for pid in order:
+        if left == 0:                # どの枠も埋まった。残りは入れない
+            break
+        if place(pid, set()):
+            left -= 1
+    return members
+
+
+def daily_partition(cand):
+    """候補の 4 桁を曜日の枠の持ち分に分ける。
+
+    どの枠も同じ週数 T だけ出せる (枠 c は「1 週に出す数 × T」個の 4 桁を持つ) ような
+    分け方のうち、T が最大のものを返す。(T, {枠: [4 桁…]}, どの枠にも入らなかった 4 桁の数)。
+    持ち分の中の順は順位 (ハッシュ) の昇順で、列はこの頭から取っていく。
+    分け方は候補だけで決まる (作る長さを見ない)。"""
+    names = [c[0] for c in DAILY_CLASSES]
+    need = {c[0]: len(c[1]) for c in DAILY_CLASSES}
+    can = {}
+    for r in cand:
+        for c in DAILY_CLASSES:
+            if _daily_class_ok(c, r):
+                s = can.setdefault(r["id"], [])
+                if c[0] not in s:
+                    s.append(c[0])
+    for pid in can:
+        can[pid].sort(key=names.index)
+    order = sorted(can, key=lambda pid: _daily_rank("own", pid))
+    have = collections.Counter(c for s in can.values() for c in s)
+
+    def fill(t):
+        cap = {c: need[c] * t for c in names}
+        mem = _daily_match(order, can, cap)
+        return mem if all(len(mem[c]) == cap[c] for c in names) else None
+
+    lo, hi = 0, min(have[c] // need[c] for c in names)
+    best = fill(0)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        got = fill(mid)
+        if got is None:
+            hi = mid - 1
+        else:
+            lo, best = mid, got
+    owned = {c: sorted(best[c], key=lambda pid, c=c: _daily_rank("q:" + c, pid))
+             for c in names}
+    return lo, owned, len(can) - sum(len(v) for v in owned.values())
+
+
+def select_daily(cand, weeks):
+    """列を作る。[{"no", "wd", "cls", "id", "rc", "d", "sol"}…] (#1 から)。
+    weeks が持ち分の週数を超えたら RuntimeError (足りないまま作らない)。"""
+    t, owned, _rest = daily_partition(cand)
+    if weeks > t:
+        raise RuntimeError("デイリー: %d 週ぶんは作れない (全曜日を満たせるのは %d 週まで)"
+                           % (weeks, t))
+    by_id = collections.defaultdict(list)
+    for r in cand:
+        by_id[r["id"]].append(r)
+    out = []
+    for w in range(weeks):
+        for cls in DAILY_CLASSES:
+            name, days = cls[0], cls[1]
+            for k, wd in enumerate(days):
+                pid = owned[name][w * len(days) + k]
+                # その 4 桁の puzzle のうち、枠の条件に合うものを順位で 1 つ選ぶ
+                r = min((x for x in by_id[pid] if _daily_class_ok(cls, x)),
+                        key=lambda x: _daily_rank("pick:" + name, x["id"], x["rc"]))
+                out.append({"no": w * 7 + wd + 1, "wd": wd, "cls": name,
+                            "id": r["id"], "rc": r["rc"], "d": r["d"],
+                            "sol": r["sol"]})
+    out.sort(key=lambda x: x["no"])
+    return out
+
+
+def _daily_sols(conn, col):
+    """列の各 puzzle の全解答 (表示文字列) を、ゲームのヒント 3 と同じ決まりで組む。
+    制約を満たす is_redundant = 0 の解を 6-3 のキーで分け、各グループから
+    _example_key 最小の 1 本を取り、_example_key の昇順に並べる (_blob_sols と同じ)。"""
+    want = {x["id"] for x in col}
+    by_pid = collections.defaultdict(list)
+    for r in conn.execute(_CONSTRAIN_SOL_COLS):
+        if r[1] in want and not r[_IDX_REDUNDANT]:
+            by_pid[r[1]].append(r)
+    out = {}
+    for x in col:
+        cand = by_pid[x["id"]]
+        decor = {r[0]: _decorations_of(r) for r in cand}
+        key = {r[0]: _example_key(r, decor) for r in cand}
+        colno = None if x["rc"] == "N" else _OP_COL[_DAILY_RC_OP[x["rc"][0]]]
+        best = {}
+        for r in cand:
+            if colno is not None and r[colno] != 0:
+                continue
+            g = (r[8] + r[5], r[9] + r[6], r[10], r[11], _paren_structure(r[14]))
+            if g not in best or key[r[0]] < key[best[g][0]]:
+                best[g] = r
+        ids = [r[0] for r in sorted(best.values(), key=lambda r: key[r[0]])]
+        disp = dict(conn.execute(
+            "SELECT id, display FROM solutions WHERE problem_id = ?", (x["id"],)))
+        out[(x["id"], x["rc"])] = [disp[i] for i in ids]
+    return out
+
+
+def _daily_line(x):
+    """1 日 1 行。`問題番号,4桁,制約,難易度,解答例;2 本目;3 本目…`
+    (式の文字列をそのまま持つ。1 本目が解答例。DAILY-SPEC 6 章)"""
+    return "%d,%s,%s,%d,%s" % (x["no"], x["id"], x["rc"], x["d"],
+                               _DAILY_SEP.join(x["sols"]))
+
+
+def _daily_build(conn, weeks, start=None, pool=None):
+    """DB から列を組む。{"start", "weeks", "rows", "text", "partition"}。
+    pool (daily_candidates の結果) を渡すと、3 区分の組み直しを省く。"""
+    day0 = daily_start(start)
+    if pool is None:
+        pool = daily_candidates(_blob_build(conn)[0])
+    col = select_daily(pool, weeks)
+    sols = _daily_sols(conn, col)
+    for x in col:
+        x["sols"] = sols[(x["id"], x["rc"])]
+    t, owned, rest = daily_partition(pool)
+    return {"start": day0.isoformat(), "weeks": weeks, "rows": col,
+            "text": "\n".join(_daily_line(x) for x in col), "pool": pool,
+            "partition": {"weeks": t, "rest": rest,
+                          "owned": {c: len(v) for c, v in owned.items()}}}
+
+
+def _daily_verify(conn, blob_text, built):
+    """列の確かめ (DAILY-SPEC 11 章)。[(名前, OK か, 詳細)…]。1 つでも落ちたら書き込まない。
+
+    **生成と独立に**書く ―― daily_candidates / daily_partition / select_daily /
+    _daily_sols / _example_key は呼ばない。範囲と全解答は、公開ページの BLOB の本文
+    (docs/index.html) から独立実装 (_plain_*) で組み直して突き合わせ、難易度・解答例は
+    DB を SQL で直接読む。曜日の表 DAILY_CLASSES は仕様の値なので共有する。"""
+    checks = []
+
+    def add(name, bad, ok_detail):
+        bad = list(bad)
+        checks.append((name, not bad,
+                       ok_detail if not bad else "%d 件: %s" % (len(bad), bad[:5])))
+
+    weeks, text = built["weeks"], built["text"]
+    rows = []
+    for ln in text.split("\n"):
+        f = ln.split(",")
+        rows.append({"no": int(f[0]), "id": f[1], "rc": f[2], "d": int(f[3]),
+                     "sols": ",".join(f[4:]).split(_DAILY_SEP), "raw": ln})
+
+    # 1. 行の形と件数
+    bad = [r["raw"][:40] for r in rows
+           if not re.fullmatch(r"\d+,\d{4},(N|[ASMDPF]0),\d+,[0-9+\-*/^!() ;]+", r["raw"])]
+    if [r["no"] for r in rows] != list(range(1, weeks * 7 + 1)):
+        bad.append("問題番号が 1〜%d の連番でない" % (weeks * 7))
+    add("1 行の形と件数", bad, "%d 行 (%d 週)・問題番号は 1 からの連番" % (len(rows), weeks))
+
+    # BLOB の本文を読む (独立実装)。3 区分の行と、全解答の区分
+    puz, shapes, solnums = _plain_sols_read(blob_text)
+    in_blob = {(pid, rc) for _sec, pid, rc, _sol in puz}
+    chal = {(pid, rc) for sec, pid, rc, _sol in puz if sec == "CHAL"}
+    head = {p[1] for p in [p for p in puz if p[0] == "COURSE"][:DAILY_COURSE_HEAD]}
+
+    # 2. 出題の範囲 (3 章)
+    bad = [(r["no"], r["id"], r["rc"]) for r in rows
+           if (r["id"], r["rc"]) not in in_blob or (r["id"], r["rc"]) in chal
+           or r["id"] in head]
+    add("2 出題の範囲", bad,
+        "全行が BLOB にあり、挑戦 %d 問と本編 1〜%d 問目の 4 桁 %d 種類に入らない"
+        % (len(chal), DAILY_COURSE_HEAD, len(head)))
+
+    # 3. 同じ 4 桁が二度出ない
+    seen = collections.Counter(r["id"] for r in rows)
+    add("3 同じ 4 桁は一度", [p for p, n in seen.items() if n > 1],
+        "4 桁 %d 種類 / %d 行" % (len(seen), len(rows)))
+
+    # 4. 曜日と難易度 (4 章)。難易度と制約は DB の puzzles を直接読む
+    by_wd = {wd: c for c in DAILY_CLASSES for wd in c[1]}
+    bad, per_wd = [], collections.Counter()
+    for r in rows:
+        wd = (r["no"] - 1) % 7
+        per_wd[wd] += 1
+        rules = "" if r["rc"] == "N" else _DAILY_RC_OP[r["rc"][0]] + "=0"
+        got = conn.execute("SELECT min_score FROM puzzles WHERE problem_id = ? "
+                           "AND rules = ?", (r["id"], rules)).fetchall()
+        _n, _days, lo, hi, con = by_wd[wd]
+        ok = (len(got) == 1 and got[0][0] == r["d"] and lo <= r["d"] <= hi
+              and (con == "any" or (con == "free") == (rules == "")))
+        if not ok:
+            bad.append((r["no"], "月火水木金土日"[wd], r["id"], r["rc"], r["d"]))
+    add("4 曜日と難易度", bad, "全行が曜日の表に合い、難易度が DB の min_score と一致")
+
+    # 5. 曜日ごとの件数
+    add("5 曜日ごとの件数", ["%s %d" % ("月火水木金土日"[wd], per_wd[wd])
+                             for wd in range(7) if per_wd[wd] != weeks],
+        "どの曜日も %d 問" % weeks)
+
+    # 6. 解答例 (1 本目) が DB の解答例と同じで、値が 10、制約を満たす
+    # 7. 全解答が、BLOB から組み直した一覧と本数・順とも同じで、どれも DB にある
+    bad6, bad7, total = [], [], 0
+    for r in rows:
+        digits = [int(ch) for ch in r["id"]]
+        ban = "" if r["rc"] == "N" else _DAILY_RC_OP[r["rc"][0]]
+        rules = ban + "=0" if ban else ""
+        ex = conn.execute(
+            "SELECT s.display FROM puzzles p JOIN solutions s "
+            "ON s.id = p.example_solution_id WHERE p.problem_id = ? AND p.rules = ?",
+            (r["id"], rules)).fetchall()
+        if len(ex) != 1 or ex[0][0] != r["sols"][0]:
+            bad6.append((r["no"], r["id"], r["rc"], r["sols"][0]))
+        want = [_plain_shape_display(cs, r["id"]) for cs in _plain_sols_list(
+            [shapes[n] for n in solnums.get(r["id"], [])], ban)]
+        if want != r["sols"] or len(set(r["sols"])) != len(r["sols"]):
+            bad7.append((r["no"], r["id"], r["rc"], len(r["sols"]), len(want)))
+        indb = dict(conn.execute(
+            "SELECT display, is_redundant FROM solutions WHERE problem_id = ?",
+            (r["id"],)))
+        for k, disp in enumerate(r["sols"]):
+            total += 1
+            try:
+                ten = _plain_eval(parse_tree(disp), digits) == 10
+            except Exception:
+                ten = False
+            if not (ten and indb.get(disp) == 0 and (not ban or ban not in disp)):
+                (bad6 if k == 0 else bad7).append((r["no"], r["id"], r["rc"], disp))
+    add("6 解答例", bad6, "全 %d 行が DB の解答例と同じ・値が 10・制約を満たす" % len(rows))
+    add("7 全解答", bad7,
+        "全 %d 本が BLOB から組み直した一覧と本数・順とも同じ・DB にあり値が 10" % total)
+
+    # 8. 再現性 (DB から読み直してもう一度作る)
+    again = _daily_build(conn, weeks, built["start"])
+    add("8 再現性", [] if again["text"] == text else ["2 回目が違う"],
+        "もう一度作って %d 文字が一致" % len(text))
+
+    # 9. 起点日を別の月曜にしても列が変わらない。月曜でなければ作れない
+    bad = []
+    day0 = datetime.date.fromisoformat(built["start"])
+    for shift in (7, -7, 364):
+        other = (day0 + datetime.timedelta(days=shift)).isoformat()
+        if _daily_build(conn, weeks, other, built["pool"])["text"] != text:
+            bad.append("起点日 %s で列が変わる" % other)
+    try:
+        _daily_build(conn, weeks, (day0 + datetime.timedelta(days=1)).isoformat(),
+                     built["pool"])
+        bad.append("月曜でない起点日で作れてしまう")
+    except ValueError:
+        pass
+    add("9 起点日に依らない", bad, "別の月曜 3 通りで列が同じ・火曜の起点日は断る")
+
+    # 10. 列を伸ばしても、すでにある行が変わらない (縮めたものが頭に一致することも見る)
+    bad, limit = [], built["partition"]["weeks"]
+    longer = min(limit, weeks + 52)
+    lines = text.split("\n")
+    if longer > weeks:
+        more = _daily_build(conn, longer, built["start"], built["pool"])["text"].split("\n")
+        if more[:len(lines)] != lines:
+            bad.append("%d 週に伸ばすと既存の行が変わる" % longer)
+    if weeks > 1:
+        less = _daily_build(conn, weeks - 1, built["start"],
+                            built["pool"])["text"].split("\n")
+        if less != lines[:len(less)]:
+            bad.append("%d 週で作ったものが頭に一致しない" % (weeks - 1))
+    add("10 伸ばしても不変", bad,
+        "%d 週に伸ばしても頭の %d 行が同じ・%d 週の列が頭に一致"
+        % (longer, len(lines), weeks - 1))
+
+    # 11. 埋め込みの安全性 (JS のテンプレート文字列に入れても壊れない)
+    add("11 埋め込みの安全性",
+        [ch for ch in ("`", "${", "\r", "\\", "</") if ch in text],
+        "` ${ \\ </ を含まない")
+    return checks
+
+
+def run_daily(db_path, html_path, weeks=DAILY_WEEKS, write=False, progress=None):
+    """デイリーの問題の列を作って確かめる。DB は読み取り専用で開く。
+
+    D0.1 ではページへ書き込まない (埋め込みは次の版)。write=True は断る。
+    確かめが 1 つでも落ちたら、書き込みに進まない。"""
+    if write:
+        raise NotImplementedError(
+            "デイリーのページへの埋め込みはまだ無い (--dry-run を付けて使う)")
+    with open(html_path, encoding="utf-8", newline="") as f:
+        html = f.read()
+    i = html.index(_BLOB_MARK_BEGIN) + len(_BLOB_MARK_BEGIN)
+    # 改行は LF に揃えて読む (Git の設定で CRLF になっている作業ツリーでも同じ結果にする)
+    blob_text = html[i:html.index(_BLOB_MARK_END, i)].replace("\r\n", "\n")
+    conn = _connect_ro(db_path)
+    try:
+        built = _daily_build(conn, weeks)
+        checks = _daily_verify(conn, blob_text, built)
+    finally:
+        conn.close()
+    rows = built["rows"]
+    stats = {
+        "start": built["start"], "weeks": weeks, "days": len(rows),
+        "chars": len(built["text"]), "bytes": len(built["text"].encode("utf-8")),
+        "gzip": len(zlib.compress(built["text"].encode("utf-8"), 9)),
+        "candidates": len(built["pool"]),
+        "candidate_ids": len({r["id"] for r in built["pool"]}),
+        "partition": built["partition"],
+        "per_class": {c[0]: sum(1 for x in rows if x["cls"] == c[0])
+                      for c in DAILY_CLASSES},
+        "rc": dict(collections.Counter(x["rc"] for x in rows)),
+        "rc_by_class": {c[0]: dict(collections.Counter(
+            "N" if x["rc"] == "N" else "con" for x in rows if x["cls"] == c[0]))
+            for c in DAILY_CLASSES},
+        "d": dict(sorted(collections.Counter(x["d"] for x in rows).items())),
+        "sols": sorted(len(x["sols"]) for x in rows),
+        "rows": rows, "text": built["text"],
+        "checks": checks, "failed": sum(1 for c in checks if not c[1]),
+        "wrote": False,
+    }
+    if progress:
+        progress(stats)
+    return stats
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 def _cmd_generate(args):
@@ -3466,6 +3882,48 @@ def _cmd_verify(args):
     print("OK: every display string evaluates to exactly 10")
 
 
+def _cmd_daily(args):
+    if not args.dry_run:
+        raise SystemExit("daily: ページへの埋め込みはまだ無い。--dry-run を付けて使う")
+    if args.weeks < 1:
+        raise SystemExit("--weeks must be >= 1")
+    s = run_daily(args.db, args.html, weeks=args.weeks, write=False)
+    wd = "月火水木金土日"
+    p = s["partition"]
+    print("daily: %d 週 = %d 問  (起点日 %s・月曜。#1 からの曜日の並びだけで決まる)"
+          % (s["weeks"], s["days"], s["start"]))
+    print("  候補: %d 問 / 4 桁 %d 種類" % (s["candidates"], s["candidate_ids"]))
+    print("  持ち分: どの曜日も %d 週まで出せる (4 桁 %s / どの枠にも入らない 4 桁 %d)"
+          % (p["weeks"], " ".join("%s=%d" % kv for kv in p["owned"].items()),
+             p["rest"]))
+    for c in DAILY_CLASSES:
+        name, days = c[0], c[1]
+        used = s["per_class"][name]
+        left = p["owned"][name] - used
+        rc = s["rc_by_class"][name]
+        print("  %s %-3s 難易度 %2d〜%2d: %4d 問 (制約なし %d / あり %d)  残り %4d = あと %d 週"
+              % (name, "・".join(wd[k] for k in days), c[2], c[3], used,
+                 rc.get("N", 0), rc.get("con", 0), left, left // len(days)))
+    print("  制約の内訳: %s" % " ".join(
+        "%s=%d" % (k, s["rc"].get(k, 0)) for k in BLOB_RCS))
+    print("  難易度の内訳: %s" % " ".join("%d:%d" % kv for kv in s["d"].items()))
+    n = s["sols"]
+    print("  全解答: 計 %d 本 / 1 本だけ %d 問 / 中央値 %d / 最大 %d"
+          % (sum(n), n.count(1), n[len(n) // 2], n[-1]))
+    print("  大きさ: %d 文字 (UTF-8 %d バイト / gzip %d バイト)"
+          % (s["chars"], s["bytes"], s["gzip"]))
+    for x in s["rows"][:max(0, args.show)]:
+        print("  #%-4d %s %s %-2s 難易度 %2d  %-28s (全 %d 本)"
+              % (x["no"], wd[x["wd"]], x["id"], x["rc"], x["d"], x["sol"],
+                 len(x["sols"])))
+    for name, ok, detail in s["checks"]:
+        print("  [%s] %-20s %s" % ("OK" if ok else "NG", name, detail))
+    if s["failed"]:
+        raise SystemExit("daily: 確かめ %d 項目が落ちた (何も書き込んでいない)"
+                         % s["failed"])
+    print("  --dry-run: 書き込んでいない")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="make10.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -3506,6 +3964,18 @@ def main(argv=None):
     v = sub.add_parser("verify", help="re-check every display string == 10")
     v.add_argument("--db", default=DB_DEFAULT)
     v.set_defaults(func=_cmd_verify)
+
+    d = sub.add_parser("daily", help="build the daily puzzle sequence (DAILY-SPEC)")
+    d.add_argument("--db", default=DB_DEFAULT)
+    d.add_argument("--html", default=BLOB_HTML_DEFAULT,
+                   help="本編の index.html (BLOB を読んで範囲と全解答を突き合わせる。書き換えない)")
+    d.add_argument("--weeks", type=int, default=DAILY_WEEKS,
+                   help="作る長さ (週)。既定は 3 年ぶんの %d 週" % DAILY_WEEKS)
+    d.add_argument("--show", type=int, default=14,
+                   help="頭から何問を表に出すか (既定 14 = 2 週ぶん)")
+    d.add_argument("--dry-run", action="store_true",
+                   help="作って確かめて集計を出すだけ (D0.1 ではこれだけが使える)")
+    d.set_defaults(func=_cmd_daily)
 
     args = ap.parse_args(argv)
     args.func(args)

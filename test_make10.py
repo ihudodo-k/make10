@@ -1831,5 +1831,137 @@ class BlobSols(unittest.TestCase):
                     pass
 
 
+class DailyColumn(unittest.TestCase):
+    """デイリーの問題の列 (DAILY-SPEC 3〜6 章。D0.1)。
+
+    候補は手で組んだ小さい集合を使う (4 桁と解答例は見た目だけで、DB には当てない。
+    DB と突き合わせる確かめは `make10.py daily` の中にある)。"""
+
+    @staticmethod
+    def row(pid, d, rc="N"):
+        return {"id": "%04d" % pid, "rc": rc, "d": d, "free": rc == "N",
+                "sol": "1 + 2 + 3 + 4"}
+
+    def pool(self, weeks, extra_e=0):
+        """どの枠もちょうど weeks 週ぶんの 4 桁を持つ候補。4 桁は枠ごとに別の番号帯。"""
+        out = []
+        for i in range(2 * weeks):
+            out.append(self.row(1000 + i, 6 + i % 3))            # A 月・火
+            out.append(self.row(2000 + i, 9 + i % 3))            # B 水・木
+        for i in range(weeks):
+            out.append(self.row(3000 + i, 12 + i % 2, "N" if i % 2 else "A0"))   # C 金
+            out.append(self.row(4000 + i, 14 + i % 3, "N" if i % 2 else "M0"))   # D 土
+        for i in range(weeks + extra_e):
+            out.append(self.row(5000 + i, 9 + i % 3, "S0"))       # E 日
+        return out
+
+    def test_start_must_be_monday(self):
+        self.assertEqual(m.daily_start().weekday(), 0)           # 置いてある値が月曜
+        self.assertEqual(m.daily_start("2099-01-05").isoformat(), "2099-01-05")
+        for bad in ("2099-01-04", "2099-01-06", "2099-01-11"):   # 日・火・日
+            with self.assertRaises(ValueError):
+                m.daily_start(bad)
+
+    def test_classes_are_the_spec_table(self):
+        # DAILY-SPEC 4 章の表そのもの。曜日は 0 = 月 … 6 = 日で、7 日を 1 回ずつ覆う
+        self.assertEqual(m.DAILY_CLASSES, (
+            ("A", (0, 1), 6, 8, "free"), ("B", (2, 3), 9, 11, "free"),
+            ("C", (4,), 12, 13, "any"), ("D", (5,), 14, 16, "any"),
+            ("E", (6,), 9, 11, "con")))
+        self.assertEqual(sorted(wd for c in m.DAILY_CLASSES for wd in c[1]),
+                         list(range(7)))
+
+    def test_candidates_drop_chal_and_course_head(self):
+        course = [self.row(i, 8) for i in range(201)]            # 201 問目 = 0200
+        free = [self.row(5, 12, "A0"),      # 本編 6 問目と同じ 4 桁 (制約が違う) -> 除く
+                self.row(200, 12, "A0"),    # 本編 201 問目と同じ 4 桁 -> 残す
+                self.row(7000, 10)]
+        chal = [self.row(8000, 17), self.row(7000, 20, "M0")]    # 挑戦の puzzle -> 除く
+        got = m.daily_candidates({"COURSE": course, "FREE": free, "CHAL": chal})
+        self.assertEqual(sorted((r["id"], r["rc"]) for r in got),
+                         [("0200", "A0"), ("0200", "N"), ("7000", "N")])
+
+    def test_rows_fit_weekday_table_and_never_repeat(self):
+        col = m.select_daily(self.pool(6), 6)
+        self.assertEqual([x["no"] for x in col], list(range(1, 43)))
+        self.assertEqual(len({x["id"] for x in col}), 42)        # 同じ 4 桁は一度
+        table = {wd: c for c in m.DAILY_CLASSES for wd in c[1]}
+        for x in col:
+            wd = (x["no"] - 1) % 7                               # #1 は月曜
+            _name, _days, lo, hi, con = table[wd]
+            self.assertEqual(x["wd"], wd)
+            self.assertTrue(lo <= x["d"] <= hi, x)
+            if con != "any":
+                self.assertEqual(x["rc"] == "N", con == "free", x)
+
+    def test_scarce_class_gets_its_ids(self):
+        """水・木 (B) の 4 桁が、ぜんぶ日曜 (E) にも使えるとき。日曜が先に取ると
+        水・木が足りなくなるが、持ち分の分け方は B に全部を回す。"""
+        weeks = 5
+        pool = self.pool(weeks)
+        for i in range(2 * weeks):                # B の 4 桁に、日曜に使える puzzle も持たせる
+            pool.append(self.row(2000 + i, 10, "D0"))
+        t, owned, rest = m.daily_partition(pool)
+        self.assertEqual(t, weeks)
+        self.assertEqual(sorted(owned["B"]), ["%04d" % (2000 + i) for i in range(10)])
+        self.assertEqual(rest, 0)
+        col = m.select_daily(pool, weeks)
+        self.assertEqual(len(col), 35)
+        for x in col:                             # 水・木に出るのは制約なしのほう
+            if x["wd"] in (2, 3):
+                self.assertEqual((x["id"][0], x["rc"]), ("2", "N"))
+
+    def test_ids_are_moved_to_make_room(self):
+        """日曜 (E) に使える 4 桁が、どれも金曜 (C) にも使える (同じ 4 桁が、日曜向きの
+        問題と金曜向きの問題を両方持つ)。先に金曜へ入った 4 桁を日曜へ動かさないと、
+        日曜が足りなくなる。"""
+        weeks = 6
+        pool = [r for r in self.pool(weeks) if r["id"][0] not in "35"]
+        for i in range(weeks):
+            pool.append(self.row(3000 + i, 12))            # 金曜にしか使えない (制約なし)
+            pool.append(self.row(5000 + i, 10, "S0"))      # 日曜に使える問題と、
+            pool.append(self.row(5000 + i, 13, "A0"))      # 金曜に使える問題を持つ 4 桁
+        t, owned, rest = m.daily_partition(pool)
+        self.assertEqual((t, rest), (weeks, 0))
+        self.assertEqual(sorted(owned["C"]), ["%04d" % (3000 + i) for i in range(weeks)])
+        self.assertEqual(sorted(owned["E"]), ["%04d" % (5000 + i) for i in range(weeks)])
+        self.assertEqual(len(m.select_daily(pool, weeks)), weeks * 7)
+
+    def test_same_input_same_column_and_input_order_is_ignored(self):
+        pool = self.pool(8, extra_e=5)
+        a = m.select_daily(pool, 8)
+        self.assertEqual(a, m.select_daily(pool, 8))
+        self.assertEqual(a, m.select_daily(list(reversed(pool)), 8))
+
+    def test_extending_keeps_existing_rows(self):
+        pool = self.pool(8, extra_e=5)
+        long = m.select_daily(pool, 8)
+        for weeks in (1, 3, 7):
+            self.assertEqual(m.select_daily(pool, weeks), long[:weeks * 7])
+
+    def test_refuses_more_weeks_than_every_weekday_can_fill(self):
+        pool = self.pool(4)
+        self.assertEqual(m.daily_partition(pool)[0], 4)
+        m.select_daily(pool, 4)
+        with self.assertRaises(RuntimeError):
+            m.select_daily(pool, 5)
+        # 金曜の 4 桁を 1 つ減らすと、ほかの曜日が余っていても 3 週までになる
+        short = [r for r in pool if r["id"] != "3000"]
+        self.assertEqual(m.daily_partition(short)[0], 3)
+
+    def test_line_format(self):
+        x = {"no": 12, "id": "5671", "rc": "N", "d": 12,
+             "sols": ["5! / ( 6 + 7 - 1 )", "( 5 + 6 - 1 ) * 7 / 7"]}
+        self.assertEqual(m._daily_line(x),
+                         "12,5671,N,12,5! / ( 6 + 7 - 1 );( 5 + 6 - 1 ) * 7 / 7")
+
+    def test_cli_refuses_to_write(self):
+        # D0.1 ではページへ書き込まない。--dry-run 無しは断る
+        with self.assertRaises(SystemExit):
+            m.main(["daily"])
+        with self.assertRaises(NotImplementedError):
+            m.run_daily("nothing.db", "nothing.html", write=True)
+
+
 if __name__ == "__main__":
     unittest.main()
