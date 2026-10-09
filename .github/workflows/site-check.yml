@@ -1,0 +1,35 @@
+# 公開中のサイトの見守り（DAILY-SPEC 20 章）。
+# 1 日 2 回、check_site.py を公開サイトに当てる。1 つでも落ちたら失敗になり、GitHub の標準の通知（メール）が届く。
+# 確かめるのは読むだけ（ページの GET と、集計のサーバーの GET）。リポジトリにも、集計にも、何も書かない。
+name: site-check
+
+on:
+  schedule:
+    # UTC。毎時 0 分は混んで遅れやすいので、17 分にずらしてある
+    - cron: "17 15 * * *"   # 日本の 0:17（日本で日付が変わった直後）
+    - cron: "17 3 * * *"    # 日本の 12:17
+  # 手で流す入口（Actions の画面の「Run workflow」）
+  workflow_dispatch:
+    inputs:
+      fail:
+        description: "わざと落とす（通知が届くことの確かめ用）"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 公開サイトを確かめる
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python3 check_site.py ${{ inputs.fail && '--fail' || '' }}

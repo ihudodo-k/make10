@@ -205,10 +205,12 @@ def split_css(src, prefix=""):
 
 
 # ── ページに埋め込んである起点日と列を読む ────────────────────────────
-def page_data():
-    """(起点日 date, 行 [{"no","id","rc","d","sol","sols"}…])。ソースの文字列から読む（ページの JS は通さない）"""
+def page_data(html=None):
+    """(起点日 date, 行 [{"no","id","rc","d","sol","sols"}…])。ソースの文字列から読む（ページの JS は通さない）。
+    html を渡すと、その文字列から読む（公開ページの HTML を読む check_site.py が使う）。省くと手元のページ"""
     import datetime
-    html = read(DAILY_HTML)
+    if html is None:
+        html = read(DAILY_HTML)
     start = re.search(r'const DAILY_START="(\d{4})-(\d{2})-(\d{2})"', html)
     text = re.search(r"const DAILY=`([^`]*)`", html).group(1)
     rows = []
