@@ -1980,12 +1980,93 @@ class DailyColumn(unittest.TestCase):
         self.assertEqual(m._daily_line(x),
                          "12,5671,N,12,5! / ( 6 + 7 - 1 );( 5 + 6 - 1 ) * 7 / 7")
 
-    def test_cli_refuses_to_write(self):
-        # D0.1 ではページへ書き込まない。--dry-run 無しは断る
-        with self.assertRaises(SystemExit):
-            m.main(["daily"])
-        with self.assertRaises(NotImplementedError):
-            m.run_daily("nothing.db", "nothing.html", write=True)
+    # ── ページへの埋め込み (D0.2) ──
+    PAGE = ('<script>\nconst DAILY_VERSION="0.2";\nconst DAILY_START="2099-01-05";\n'
+            'const DAILY=`%s`;\nconst REST=1;\n</script>\n')
+
+    def test_page_read_and_write(self):
+        html = self.PAGE % ""
+        self.assertEqual(m.daily_page_read(html), ("2099-01-05", []))
+        text = "1,3915,N,8,3! + 9 - 1 * 5;3! + 9 * 1 - 5\n2,9730,N,7,9 + 7 - 3! + 0"
+        new = m.daily_page_write(html, "2099-01-12", text)
+        self.assertEqual(m.daily_page_read(new), ("2099-01-12", text.split("\n")))
+        # 印の間のほかは 1 文字も変わらない
+        self.assertEqual(new, (self.PAGE % text).replace("2099-01-05", "2099-01-12"))
+        # 同じ中身をもう一度書いても変わらない。ファイルが CRLF なら CRLF で書く
+        self.assertEqual(m.daily_page_write(new, "2099-01-12", text), new)
+        crlf = m.daily_page_write(html.replace("\n", "\r\n"), "2099-01-05", text)
+        self.assertNotIn("\n", crlf.replace("\r\n", ""))
+        self.assertEqual(m.daily_page_read(crlf)[1], text.split("\n"))
+        # 印が無い・2 か所あるページには書かない
+        for bad in (html.replace("const DAILY=`", "const DAILIES=`"),
+                    html + 'const DAILY_START="2099-01-05";'):
+            with self.assertRaises(ValueError):
+                m.daily_page_write(bad, "2099-01-05", text)
+
+    def build(self, pool, weeks, keep=None):
+        """DB を使わずに _daily_build を回す (全解答は解答例 1 本にする)"""
+        orig = m._daily_sols
+        m._daily_sols = lambda conn, col: {(x["id"], x["rc"]): [x["sol"]] for x in col}
+        try:
+            return m._daily_build(None, weeks, pool=pool, keep=keep)
+        finally:
+            m._daily_sols = orig
+
+    def test_rows_already_on_the_page_are_never_changed(self):
+        pool = self.pool(8, extra_e=5)
+        page = self.build(pool, 3)["text"].split("\n")            # ページに 3 週ぶんある
+        # DB が同じなら、作り直した列の頭はページと同じ。続きが足されるだけ
+        b = self.build(pool, 5, keep=page)
+        self.assertEqual((b["frozen"], b["diff"]), (0, []))
+        self.assertEqual(b["text"], self.build(pool, 5)["text"])
+        self.assertEqual(b["text"].split("\n")[:21], page)
+        # DB を作り直して、ページの 2 行目の問題が候補から消えた場合
+        gone = page[1].split(",")[1]
+        changed = [r for r in pool if r["id"] != gone]
+        self.assertNotEqual(self.build(changed, 5)["text"].split("\n")[:21], page)
+        b = self.build(changed, 5, keep=page)
+        lines = b["text"].split("\n")
+        self.assertEqual(lines[:21], page)                        # ページの行は 1 文字も変えない
+        self.assertEqual(b["frozen"], 21)
+        self.assertIn(2, b["diff"])                               # 食い違いを報告する
+        self.assertEqual([int(ln.split(",")[0]) for ln in lines], list(range(1, 36)))
+        ids = [ln.split(",")[1] for ln in lines]
+        self.assertEqual(len(set(ids)), 35)                       # 続きは、ページに出た 4 桁を使わない
+        table = {wd: c for c in m.DAILY_CLASSES for wd in c[1]}
+        for x in b["rows"][21:]:                                  # 続きも曜日の表に合う
+            _n, _d, lo, hi, _c = table[(x["no"] - 1) % 7]
+            self.assertTrue(lo <= x["d"] <= hi, x)
+        # もう一度伸ばしても、前に足した行は変わらない
+        again = self.build(changed, 6, keep=lines)
+        self.assertEqual(again["text"].split("\n")[:35], lines)
+        # ページの長さちょうどなら、何も足さない
+        self.assertEqual(self.build(changed, 3, keep=page)["text"].split("\n"), page)
+
+    def test_page_rows_must_be_whole_weeks_and_not_longer_than_asked(self):
+        pool = self.pool(8, extra_e=5)
+        page = self.build(pool, 3)["text"].split("\n")
+        with self.assertRaises(ValueError):
+            self.build(pool, 5, keep=page[:20])                   # 週の単位でない
+        with self.assertRaises(ValueError):
+            self.build(pool, 2, keep=page)                        # ページより短くは作れない
+
+    def test_rebuild_is_refused_once_published(self):
+        """--rebuild (ページの行を捨てて作り直す) は、起点日が今日以前なら断る。"""
+        import datetime
+        here = os.path.dirname(os.path.abspath(__file__))
+        fd, page = tempfile.mkstemp(suffix=".html")
+        os.close(fd)
+        try:
+            rows = "\n".join("%d,%04d,N,7,1 + 2 + 3 + 4" % (i + 1, 1000 + i) for i in range(7))
+            with open(page, "w", encoding="utf-8", newline="") as f:
+                f.write(self.PAGE % rows)
+            with self.assertRaises(ValueError):
+                m.run_daily("nothing.db", os.path.join(here, "docs", "index.html"), page,
+                            write=True, rebuild=True, today=m.daily_start())
+            with open(page, encoding="utf-8", newline="") as f:
+                self.assertEqual(f.read(), self.PAGE % rows)     # ページは変わっていない
+        finally:
+            os.unlink(page)
 
 
 if __name__ == "__main__":

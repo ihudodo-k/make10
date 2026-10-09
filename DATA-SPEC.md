@@ -231,11 +231,12 @@ python make10.py constrain  # 演算子の使用回数による制約付き問�
 python make10.py verify     # 独立パーサで全件を再検証
 python make10.py export     # ゲーム用 JSON を出力
 python make10.py blob       # docs/index.html の BLOB を組み直す（第8-B章）
-python make10.py daily --dry-run  # デイリーの問題の列を作って確かめる（DAILY-SPEC 6-1。D0.1 では書き込まない）
+python make10.py daily      # デイリーの問題の列を作って確かめ、docs/daily/index.html に埋め込む（DAILY-SPEC 6-1）
 python make10.py dump TABLE # 人間確認用に CSV を吐く（Excel用）
 ```
 
-`daily` は DB を読み取り専用（`mode=ro&immutable=1`）で開き、DB に何も書かない。列の作り方・確かめ・実測値は
+`daily` は DB を読み取り専用（`mode=ro&immutable=1`）で開き、DB に何も書かない（書くのはデイリーのページだけ。
+`--dry-run` を付けるとページも書き換えない）。列の作り方・確かめ・実測値は
 DAILY-SPEC 6 章と 11 章に書く（この文書には書かない）。
 
 各サブコマンドは冪等であること。2回実行しても結果が変わらない。

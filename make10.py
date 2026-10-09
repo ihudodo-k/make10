@@ -3587,19 +3587,68 @@ def _daily_line(x):
                                _DAILY_SEP.join(x["sols"]))
 
 
-def _daily_build(conn, weeks, start=None, pool=None):
-    """DB から列を組む。{"start", "weeks", "rows", "text", "partition"}。
-    pool (daily_candidates の結果) を渡すと、3 区分の組み直しを省く。"""
+def _daily_rows(text):
+    """埋め込む文字列を、行ごとの dict に戻す。"""
+    by_wd = {wd: c[0] for c in DAILY_CLASSES for wd in c[1]}
+    out = []
+    for ln in text.split("\n"):
+        f = ln.split(",")
+        sols = ",".join(f[4:]).split(_DAILY_SEP)
+        no = int(f[0])
+        out.append({"no": no, "wd": (no - 1) % 7, "cls": by_wd[(no - 1) % 7],
+                    "id": f[1], "rc": f[2], "d": int(f[3]), "sol": sols[0],
+                    "sols": sols})
+    return out
+
+
+def _daily_build(conn, weeks, start=None, pool=None, keep=None):
+    """DB から列を組む。{"start", "weeks", "rows", "text", "partition", "frozen", "diff"…}。
+    pool (daily_candidates の結果) を渡すと、3 区分の組み直しを省く。
+
+    keep = ページにすでにある行 (#1 からの文字列の並び。週の単位)。**渡された行は変えない。**
+      - 作り直した列の頭が keep と同じなら、作り直した列をそのまま使う (続きが足される)
+      - 食い違ったら (DB を作り直した後など)、keep を 1 文字も変えずに残し、続きだけを
+        「keep に出ていない 4 桁」から作って足す。frozen = 残した行の数、
+        diff = 食い違っていた問題番号。食い違いが無ければ frozen は 0"""
     day0 = daily_start(start)
     if pool is None:
         pool = daily_candidates(_blob_build(conn)[0])
-    col = select_daily(pool, weeks)
-    sols = _daily_sols(conn, col)
-    for x in col:
-        x["sols"] = sols[(x["id"], x["rc"])]
+    keep = list(keep or [])
+    if len(keep) % 7:
+        raise ValueError("デイリー: ページの行が週の単位でない (%d 行)" % len(keep))
+    if weeks * 7 < len(keep):
+        raise ValueError("デイリー: ページにある %d 週より短くは作れない (%d 週)"
+                         % (len(keep) // 7, weeks))
+
+    def lines_of(cand, n_weeks, offset):
+        col = select_daily(cand, n_weeks)
+        sols = _daily_sols(conn, col)
+        for x in col:
+            x["no"] += offset
+            x["sols"] = sols[(x["id"], x["rc"])]
+        return [_daily_line(x) for x in col]
+
+    frozen, diff = 0, []
+    scratch = None
+    try:
+        scratch = lines_of(pool, weeks, 0)
+    except RuntimeError:
+        if not keep:
+            raise                 # 残す行が無いのに作れない = 長さが持ち分を超えている
+    if keep and (scratch is None or scratch[:len(keep)] != keep):
+        frozen = len(keep)
+        diff = [i + 1 for i, ln in enumerate(keep)
+                if scratch is None or scratch[i] != ln]
+        used = {ln.split(",")[1] for ln in keep}
+        more = weeks - frozen // 7
+        lines = keep + (lines_of([r for r in pool if r["id"] not in used],
+                                 more, frozen) if more else [])
+    else:
+        lines = scratch
+    text = "\n".join(lines)
     t, owned, rest = daily_partition(pool)
-    return {"start": day0.isoformat(), "weeks": weeks, "rows": col,
-            "text": "\n".join(_daily_line(x) for x in col), "pool": pool,
+    return {"start": day0.isoformat(), "weeks": weeks, "rows": _daily_rows(text),
+            "text": text, "pool": pool, "keep": keep, "frozen": frozen, "diff": diff,
             "partition": {"weeks": t, "rest": rest,
                           "owned": {c: len(v) for c, v in owned.items()}}}
 
@@ -3619,6 +3668,18 @@ def _daily_verify(conn, blob_text, built):
                        ok_detail if not bad else "%d 件: %s" % (len(bad), bad[:5])))
 
     weeks, text = built["weeks"], built["text"]
+    keep, frozen = built.get("keep") or [], built.get("frozen", 0)
+
+    def add_rows(name, bad, ok_detail):
+        """行ごとの確かめ。ページに残した行 (frozen。DB と食い違っていた行) の分は、
+        落とさずに件数を報告するだけにする (DAILY-SPEC 3 章・6-5)。bad の先頭は問題番号"""
+        strict = [b for b in bad if b[0] > frozen]
+        loose = [b for b in bad if b[0] <= frozen]
+        detail = ok_detail if not strict else "%d 件: %s" % (len(strict), strict[:5])
+        if loose:
+            detail += " / ページに残した行の %d 件は報告だけ: %s" % (len(loose), loose[:3])
+        checks.append((name, not strict, detail))
+
     rows = []
     for ln in text.split("\n"):
         f = ln.split(",")
@@ -3642,7 +3703,7 @@ def _daily_verify(conn, blob_text, built):
     bad = [(r["no"], r["id"], r["rc"]) for r in rows
            if (r["id"], r["rc"]) not in in_blob or (r["id"], r["rc"]) in chal
            or r["id"] in head]
-    add("2 出題の範囲", bad,
+    add_rows("2 出題の範囲", bad,
         "全行が BLOB にあり、挑戦 %d 問と本編 1〜%d 問目の 4 桁 %d 種類に入らない"
         % (len(chal), DAILY_COURSE_HEAD, len(head)))
 
@@ -3665,7 +3726,7 @@ def _daily_verify(conn, blob_text, built):
               and (con == "any" or (con == "free") == (rules == "")))
         if not ok:
             bad.append((r["no"], "月火水木金土日"[wd], r["id"], r["rc"], r["d"]))
-    add("4 曜日と難易度", bad, "全行が曜日の表に合い、難易度が DB の min_score と一致")
+    add_rows("4 曜日と難易度", bad, "全行が曜日の表に合い、難易度が DB の min_score と一致")
 
     # 5. 曜日ごとの件数
     add("5 曜日ごとの件数", ["%s %d" % ("月火水木金土日"[wd], per_wd[wd])
@@ -3700,12 +3761,12 @@ def _daily_verify(conn, blob_text, built):
                 ten = False
             if not (ten and indb.get(disp) == 0 and (not ban or ban not in disp)):
                 (bad6 if k == 0 else bad7).append((r["no"], r["id"], r["rc"], disp))
-    add("6 解答例", bad6, "全 %d 行が DB の解答例と同じ・値が 10・制約を満たす" % len(rows))
-    add("7 全解答", bad7,
+    add_rows("6 解答例", bad6, "全 %d 行が DB の解答例と同じ・値が 10・制約を満たす" % len(rows))
+    add_rows("7 全解答", bad7,
         "全 %d 本が BLOB から組み直した一覧と本数・順とも同じ・DB にあり値が 10" % total)
 
     # 8. 再現性 (DB から読み直してもう一度作る)
-    again = _daily_build(conn, weeks, built["start"])
+    again = _daily_build(conn, weeks, built["start"], keep=keep)
     add("8 再現性", [] if again["text"] == text else ["2 回目が違う"],
         "もう一度作って %d 文字が一致" % len(text))
 
@@ -3714,11 +3775,11 @@ def _daily_verify(conn, blob_text, built):
     day0 = datetime.date.fromisoformat(built["start"])
     for shift in (7, -7, 364):
         other = (day0 + datetime.timedelta(days=shift)).isoformat()
-        if _daily_build(conn, weeks, other, built["pool"])["text"] != text:
+        if _daily_build(conn, weeks, other, built["pool"], keep)["text"] != text:
             bad.append("起点日 %s で列が変わる" % other)
     try:
         _daily_build(conn, weeks, (day0 + datetime.timedelta(days=1)).isoformat(),
-                     built["pool"])
+                     built["pool"], keep)
         bad.append("月曜でない起点日で作れてしまう")
     except ValueError:
         pass
@@ -3726,20 +3787,30 @@ def _daily_verify(conn, blob_text, built):
 
     # 10. 列を伸ばしても、すでにある行が変わらない (縮めたものが頭に一致することも見る)
     bad, limit = [], built["partition"]["weeks"]
-    longer = min(limit, weeks + 52)
     lines = text.split("\n")
+    # ページの行を残したとき (frozen) は、残りの候補で何週まで作れるかが変わるので 1 週だけ伸ばす
+    longer = weeks + 1 if frozen else min(limit, weeks + 52)
+    done = []
     if longer > weeks:
-        more = _daily_build(conn, longer, built["start"], built["pool"])["text"].split("\n")
-        if more[:len(lines)] != lines:
-            bad.append("%d 週に伸ばすと既存の行が変わる" % longer)
-    if weeks > 1:
-        less = _daily_build(conn, weeks - 1, built["start"],
-                            built["pool"])["text"].split("\n")
+        try:
+            more = _daily_build(conn, longer, built["start"], built["pool"],
+                                keep)["text"].split("\n")
+            done.append("%d 週に伸ばしても頭の %d 行が同じ" % (longer, len(lines)))
+            if more[:len(lines)] != lines:
+                bad.append("%d 週に伸ばすと既存の行が変わる" % longer)
+        except RuntimeError:
+            done.append("%d 週には伸ばせない (持ち分が尽きる)" % longer)
+    if weeks > 1 and (weeks - 1) * 7 >= len(keep):
+        less = _daily_build(conn, weeks - 1, built["start"], built["pool"],
+                            keep)["text"].split("\n")
+        done.append("%d 週の列が頭に一致" % (weeks - 1))
         if less != lines[:len(less)]:
             bad.append("%d 週で作ったものが頭に一致しない" % (weeks - 1))
-    add("10 伸ばしても不変", bad,
-        "%d 週に伸ばしても頭の %d 行が同じ・%d 週の列が頭に一致"
-        % (longer, len(lines), weeks - 1))
+    if keep and lines[:len(keep)] != keep:
+        bad.append("ページにあった %d 行が変わっている" % len(keep))
+    elif keep:
+        done.append("ページにあった %d 行はそのまま" % len(keep))
+    add("10 伸ばしても不変", bad, "・".join(done))
 
     # 11. 埋め込みの安全性 (JS のテンプレート文字列に入れても壊れない)
     add("11 埋め込みの安全性",
@@ -3764,30 +3835,86 @@ def _daily_verify(conn, blob_text, built):
                 break
         else:
             n_fac += any("!" in e for e in ex)
-    add("12 月・火は 0! なし", bad,
+    add_rows("12 月・火は 0! なし", bad,
         "月・火 %d 問の解答例に 0! が無い (ほかの階乗を使うのは %d 問)" % (n_mt, n_fac))
     return checks
 
 
-def run_daily(db_path, html_path, weeks=DAILY_WEEKS, write=False, progress=None):
-    """デイリーの問題の列を作って確かめる。DB は読み取り専用で開く。
+DAILY_PAGE_DEFAULT = "docs/daily/index.html"
+_DAILY_MARK_START = 'const DAILY_START="'
+_DAILY_MARK_ROWS = "const DAILY=`"
 
-    D0.1 ではページへ書き込まない (埋め込みは次の版)。write=True は断る。
-    確かめが 1 つでも落ちたら、書き込みに進まない。"""
-    if write:
-        raise NotImplementedError(
-            "デイリーのページへの埋め込みはまだ無い (--dry-run を付けて使う)")
+
+def daily_page_read(html):
+    """デイリーのページから (起点日, すでにある行 [文字列…]) を読む。"""
+    for mark in (_DAILY_MARK_START, _DAILY_MARK_ROWS):
+        if html.count(mark) != 1:
+            raise ValueError("デイリーのページに印 %r が %d か所ある (1 か所のはず)"
+                             % (mark, html.count(mark)))
+    i = html.index(_DAILY_MARK_START) + len(_DAILY_MARK_START)
+    a = html.index(_DAILY_MARK_ROWS) + len(_DAILY_MARK_ROWS)
+    text = html[a:html.index("`", a)].replace("\r\n", "\n")
+    return html[i:html.index('"', i)], [ln for ln in text.split("\n") if ln]
+
+
+def daily_page_write(html, start, text):
+    """ページの 2 つの印の間 (起点日と列) を書き換えた HTML を返す。ほかは 1 文字も変えない。"""
+    daily_page_read(html)                      # 印が 1 か所ずつあることを確かめる
+    if "\r\n" in html:                         # ファイルの改行に合わせる
+        text = text.replace("\n", "\r\n")
+    i = html.index(_DAILY_MARK_START) + len(_DAILY_MARK_START)
+    html = html[:i] + start + html[html.index('"', i):]
+    a = html.index(_DAILY_MARK_ROWS) + len(_DAILY_MARK_ROWS)
+    return html[:a] + text + html[html.index("`", a):]
+
+
+def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
+              write=False, rebuild=False, today=None, progress=None):
+    """デイリーの問題の列を作って確かめ、ページ (docs/daily/index.html) に埋め込む。
+
+    DB は読み取り専用で開く。本編の index.html (html_path) は BLOB を読むだけ。
+    - **ページにすでにある行は変えない。** 作り直した列と食い違っていても残し、続きだけを足す
+      (食い違いは stats["diff"] に入れて報告する)
+    - rebuild=True は、ページの行を捨てて頭から作り直す。**公開前だけ**使える
+      (起点日が今日以前なら断る ―― 公開した行を変えないため)
+    - weeks を省くと、DAILY_WEEKS とページの長さの長いほう
+    - 確かめが 1 つでも落ちたら書き込まない。write=False (--dry-run) は確かめるだけ"""
     with open(html_path, encoding="utf-8", newline="") as f:
         html = f.read()
     i = html.index(_BLOB_MARK_BEGIN) + len(_BLOB_MARK_BEGIN)
     # 改行は LF に揃えて読む (Git の設定で CRLF になっている作業ツリーでも同じ結果にする)
     blob_text = html[i:html.index(_BLOB_MARK_END, i)].replace("\r\n", "\n")
+    page, page_start, page_rows = None, None, []
+    try:
+        with open(page_path, encoding="utf-8", newline="") as f:
+            page = f.read()
+    except FileNotFoundError:
+        if write:
+            raise
+    if page is not None:
+        page_start, page_rows = daily_page_read(page)
+    keep = page_rows
+    if rebuild:
+        if page_rows and daily_start() <= (today or datetime.date.today()):
+            raise ValueError("デイリー: 起点日 %s は今日以前 (公開済み)。ページの行は作り直せない"
+                             % DAILY_START)
+        keep = []
+    if weeks is None:
+        weeks = max(DAILY_WEEKS, len(keep) // 7)
     conn = _connect_ro(db_path)
     try:
-        built = _daily_build(conn, weeks)
+        built = _daily_build(conn, weeks, keep=keep)
         checks = _daily_verify(conn, blob_text, built)
     finally:
         conn.close()
+    failed = sum(1 for c in checks if not c[1])
+    wrote = False
+    if write and not failed:
+        new = daily_page_write(page, built["start"], built["text"])
+        if new != page:
+            with open(page_path, "w", encoding="utf-8", newline="") as f:
+                f.write(new)
+        wrote = True
     rows = built["rows"]
     stats = {
         "start": built["start"], "weeks": weeks, "days": len(rows),
@@ -3805,8 +3932,9 @@ def run_daily(db_path, html_path, weeks=DAILY_WEEKS, write=False, progress=None)
         "d": dict(sorted(collections.Counter(x["d"] for x in rows).items())),
         "sols": sorted(len(x["sols"]) for x in rows),
         "rows": rows, "text": built["text"],
-        "checks": checks, "failed": sum(1 for c in checks if not c[1]),
-        "wrote": False,
+        "checks": checks, "failed": failed, "wrote": wrote, "page": page_path,
+        "page_start": page_start, "page_rows": len(page_rows), "kept": len(keep),
+        "frozen": built["frozen"], "diff": built["diff"], "rebuild": rebuild,
     }
     if progress:
         progress(stats)
@@ -3909,11 +4037,13 @@ def _cmd_verify(args):
 
 
 def _cmd_daily(args):
-    if not args.dry_run:
-        raise SystemExit("daily: ページへの埋め込みはまだ無い。--dry-run を付けて使う")
-    if args.weeks < 1:
+    if args.weeks is not None and args.weeks < 1:
         raise SystemExit("--weeks must be >= 1")
-    s = run_daily(args.db, args.html, weeks=args.weeks, write=False)
+    try:
+        s = run_daily(args.db, args.html, args.page, weeks=args.weeks,
+                      write=not args.dry_run, rebuild=args.rebuild)
+    except (ValueError, RuntimeError, FileNotFoundError) as e:
+        raise SystemExit("daily: %s" % e)
     wd = "月火水木金土日"
     p = s["partition"]
     print("daily: %d 週 = %d 問  (起点日 %s・月曜。#1 からの曜日の並びだけで決まる)"
@@ -3944,10 +4074,25 @@ def _cmd_daily(args):
                  len(x["sols"])))
     for name, ok, detail in s["checks"]:
         print("  [%s] %-20s %s" % ("OK" if ok else "NG", name, detail))
+    print("  ページ %s: 今ある行 %d (起点日 %s)%s"
+          % (s["page"], s["page_rows"], s["page_start"],
+             " -> 捨てて頭から作り直す (--rebuild)" if s["rebuild"] else ""))
+    if s["frozen"]:
+        print("  ** 作り直した列と食い違う行が %d 行ある (問題番号 %s%s)。"
+              % (len(s["diff"]), ", ".join("#%d" % n for n in s["diff"][:8]),
+                 " …" if len(s["diff"]) > 8 else ""))
+        print("     ページの %d 行は 1 文字も変えずに残し、続きの %d 行だけを足した"
+              % (s["frozen"], s["days"] - s["frozen"]))
+    elif s["kept"]:
+        print("  ページの %d 行は作り直した列の頭と同じ (足したのは %d 行)"
+              % (s["kept"], s["days"] - s["kept"]))
     if s["failed"]:
         raise SystemExit("daily: 確かめ %d 項目が落ちた (何も書き込んでいない)"
                          % s["failed"])
-    print("  --dry-run: 書き込んでいない")
+    if s["wrote"]:
+        print("  %s に起点日 %s と %d 行を書き込んだ" % (s["page"], s["start"], s["days"]))
+    else:
+        print("  --dry-run: 書き込んでいない")
 
 
 def main(argv=None):
@@ -3995,12 +4140,17 @@ def main(argv=None):
     d.add_argument("--db", default=DB_DEFAULT)
     d.add_argument("--html", default=BLOB_HTML_DEFAULT,
                    help="本編の index.html (BLOB を読んで範囲と全解答を突き合わせる。書き換えない)")
-    d.add_argument("--weeks", type=int, default=DAILY_WEEKS,
-                   help="作る長さ (週)。既定は 3 年ぶんの %d 週" % DAILY_WEEKS)
+    d.add_argument("--page", default=DAILY_PAGE_DEFAULT,
+                   help="デイリーのページ (起点日と列を、印の間に埋め込む)")
+    d.add_argument("--weeks", type=int, default=None,
+                   help="作る長さ (週)。既定は %d 週 (3 年ぶん) とページの長さの長いほう"
+                        % DAILY_WEEKS)
+    d.add_argument("--rebuild", action="store_true",
+                   help="ページの行を捨てて頭から作り直す (公開前だけ。起点日が今日以前なら断る)")
     d.add_argument("--show", type=int, default=14,
                    help="頭から何問を表に出すか (既定 14 = 2 週ぶん)")
     d.add_argument("--dry-run", action="store_true",
-                   help="作って確かめて集計を出すだけ (D0.1 ではこれだけが使える)")
+                   help="作って確かめて集計を出すだけ (ページを書き換えない)")
     d.set_defaults(func=_cmd_daily)
 
     args = ap.parse_args(argv)
