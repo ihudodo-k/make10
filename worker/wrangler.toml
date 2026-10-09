@@ -1,0 +1,27 @@
+# Make10 デイリーの集計（Cloudflare Workers + D1）。仕様は DAILY-SPEC.md 17 章、置き方は worker/README.md。
+name = "make10-daily-api"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# *.workers.dev の URL は開けない。入口は api.make10.app だけにする
+workers_dev = false
+preview_urls = false
+
+# 送り先 api.make10.app（Workers の Custom Domain）。`wrangler deploy` が DNS のレコードと証明書を作る。
+# make10.app のゾーンが、ログインした Cloudflare のアカウントにあること
+routes = [
+  { pattern = "api.make10.app", custom_domain = true }
+]
+
+[vars]
+# 起点日（#1 の日。月曜）。**手で書き換えない** ―― `python make10.py daily` が、ページ（docs/daily/index.html）と
+# 同じ値をここへ書く（DAILY-SPEC 5 章）。食い違いは verify_daily.py のケース server が赤にする
+DAILY_START = "2099-01-05"
+# 受け付ける Origin（デイリーのページ）
+ALLOW_ORIGIN = "https://make10.app"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "make10-daily"
+# `npx wrangler d1 create make10-daily` が出す id に書き換える（手元の試しは、このままで動く）
+database_id = "00000000-0000-0000-0000-000000000000"

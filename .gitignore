@@ -3,3 +3,5 @@ make10.db
 make10_backup_*.db
 make10*.db-shm
 make10*.db-wal
+node_modules/
+.wrangler/

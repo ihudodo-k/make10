@@ -3868,8 +3868,29 @@ def daily_page_write(html, start, text):
     return html[:a] + text + html[html.index("`", a):]
 
 
+DAILY_WORKER_DEFAULT = "worker/wrangler.toml"
+_DAILY_MARK_WORKER = 'DAILY_START = "'
+
+
+def daily_worker_read(text):
+    """集計のサーバーの設定 (worker/wrangler.toml) から起点日を読む。"""
+    if text.count(_DAILY_MARK_WORKER) != 1:
+        raise ValueError("サーバーの設定に印 %r が %d か所ある (1 か所のはず)"
+                         % (_DAILY_MARK_WORKER, text.count(_DAILY_MARK_WORKER)))
+    i = text.index(_DAILY_MARK_WORKER) + len(_DAILY_MARK_WORKER)
+    return text[i:text.index('"', i)]
+
+
+def daily_worker_write(text, start):
+    """サーバーの設定の起点日だけを書き換えた文字列を返す。ほかは 1 文字も変えない。"""
+    daily_worker_read(text)
+    i = text.index(_DAILY_MARK_WORKER) + len(_DAILY_MARK_WORKER)
+    return text[:i] + start + text[text.index('"', i):]
+
+
 def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
-              write=False, rebuild=False, today=None, progress=None):
+              write=False, rebuild=False, today=None, progress=None,
+              worker_path=None):
     """デイリーの問題の列を作って確かめ、ページ (docs/daily/index.html) に埋め込む。
 
     DB は読み取り専用で開く。本編の index.html (html_path) は BLOB を読むだけ。
@@ -3878,7 +3899,9 @@ def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
     - rebuild=True は、ページの行を捨てて頭から作り直す。**公開前だけ**使える
       (起点日が今日以前なら断る ―― 公開した行を変えないため)
     - weeks を省くと、DAILY_WEEKS とページの長さの長いほう
-    - 確かめが 1 つでも落ちたら書き込まない。write=False (--dry-run) は確かめるだけ"""
+    - 確かめが 1 つでも落ちたら書き込まない。write=False (--dry-run) は確かめるだけ
+    - worker_path を渡すと、集計のサーバーの設定 (worker/wrangler.toml) の起点日も、
+      ページと同じ値に書く (DAILY-SPEC 5 章・17-3。ファイルが無ければ何もしない)"""
     with open(html_path, encoding="utf-8", newline="") as f:
         html = f.read()
     i = html.index(_BLOB_MARK_BEGIN) + len(_BLOB_MARK_BEGIN)
@@ -3908,12 +3931,23 @@ def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
     finally:
         conn.close()
     failed = sum(1 for c in checks if not c[1])
+    worker, worker_start = None, None
+    if worker_path:
+        try:
+            with open(worker_path, encoding="utf-8", newline="") as f:
+                worker = f.read()
+            worker_start = daily_worker_read(worker)
+        except FileNotFoundError:
+            pass
     wrote = False
     if write and not failed:
         new = daily_page_write(page, built["start"], built["text"])
         if new != page:
             with open(page_path, "w", encoding="utf-8", newline="") as f:
                 f.write(new)
+        if worker is not None and worker_start != built["start"]:
+            with open(worker_path, "w", encoding="utf-8", newline="") as f:
+                f.write(daily_worker_write(worker, built["start"]))
         wrote = True
     rows = built["rows"]
     stats = {
@@ -3935,6 +3969,7 @@ def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
         "checks": checks, "failed": failed, "wrote": wrote, "page": page_path,
         "page_start": page_start, "page_rows": len(page_rows), "kept": len(keep),
         "frozen": built["frozen"], "diff": built["diff"], "rebuild": rebuild,
+        "worker": worker_path if worker is not None else None, "worker_start": worker_start,
     }
     if progress:
         progress(stats)
@@ -4041,7 +4076,8 @@ def _cmd_daily(args):
         raise SystemExit("--weeks must be >= 1")
     try:
         s = run_daily(args.db, args.html, args.page, weeks=args.weeks,
-                      write=not args.dry_run, rebuild=args.rebuild)
+                      write=not args.dry_run, rebuild=args.rebuild,
+                      worker_path=args.worker)
     except (ValueError, RuntimeError, FileNotFoundError) as e:
         raise SystemExit("daily: %s" % e)
     wd = "月火水木金土日"
@@ -4086,6 +4122,12 @@ def _cmd_daily(args):
     elif s["kept"]:
         print("  ページの %d 行は作り直した列の頭と同じ (足したのは %d 行)"
               % (s["kept"], s["days"] - s["kept"]))
+    if s["worker"]:
+        same = s["worker_start"] == s["start"]
+        print("  サーバーの設定 %s: 起点日 %s%s"
+              % (s["worker"], s["worker_start"],
+                 "" if same else (" -> %s に書き換えた" % s["start"] if s["wrote"]
+                                  else " ** ページと違う (書き込むと %s になる)" % s["start"])))
     if s["failed"]:
         raise SystemExit("daily: 確かめ %d 項目が落ちた (何も書き込んでいない)"
                          % s["failed"])
@@ -4142,6 +4184,8 @@ def main(argv=None):
                    help="本編の index.html (BLOB を読んで範囲と全解答を突き合わせる。書き換えない)")
     d.add_argument("--page", default=DAILY_PAGE_DEFAULT,
                    help="デイリーのページ (起点日と列を、印の間に埋め込む)")
+    d.add_argument("--worker", default=DAILY_WORKER_DEFAULT,
+                   help="集計のサーバーの設定 (起点日を、ページと同じ値に書く。無ければ何もしない)")
     d.add_argument("--weeks", type=int, default=None,
                    help="作る長さ (週)。既定は %d 週 (3 年ぶん) とページの長さの長いほう"
                         % DAILY_WEEKS)

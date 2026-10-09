@@ -2068,6 +2068,56 @@ class DailyColumn(unittest.TestCase):
         finally:
             os.unlink(page)
 
+    def test_worker_config_start_read_and_write(self):
+        """集計のサーバーの設定 (worker/wrangler.toml) の起点日だけを書き換える。ほかは 1 文字も変えない。"""
+        import inspect
+        text = '# c\n[vars]\nDAILY_START = "2099-01-05"\nALLOW_ORIGIN = "https://make10.app"\n'
+        self.assertEqual(m.daily_worker_read(text), "2099-01-05")
+        new = m.daily_worker_write(text, "2026-11-02")
+        self.assertEqual(new, text.replace("2099-01-05", "2026-11-02"))
+        self.assertEqual(m.daily_worker_read(new), "2026-11-02")
+        self.assertEqual(m.daily_worker_write(new, "2026-11-02"), new)          # 同じ値なら変わらない
+        crlf = text.replace("\n", "\r\n")
+        self.assertEqual(m.daily_worker_write(crlf, "2026-11-02"),
+                         crlf.replace("2099-01-05", "2026-11-02"))              # 改行はそのまま
+        for bad in (text.replace("DAILY_START", "START"), text + 'DAILY_START = "2000-01-03"\n'):
+            with self.assertRaises(ValueError):
+                m.daily_worker_read(bad)
+            with self.assertRaises(ValueError):
+                m.daily_worker_write(bad, "2026-11-02")
+        # run_daily() は、渡されたときだけサーバーの設定に触る (テストが本物のファイルを書き換えない)
+        self.assertIsNone(inspect.signature(m.run_daily).parameters["worker_path"].default)
+
+    def test_worker_config_in_the_repo_has_the_start_date_of_the_code(self):
+        """リポジトリの worker/wrangler.toml の起点日は、DAILY_START と同じ。"""
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "worker", "wrangler.toml"), encoding="utf-8", newline="") as f:
+            self.assertEqual(m.daily_worker_read(f.read()), m.DAILY_START)
+
+    def test_run_daily_leaves_the_worker_config_alone_when_it_stops(self):
+        """run_daily() が途中で止まったときは、サーバーの設定を書き換えない。"""
+        here = os.path.dirname(os.path.abspath(__file__))
+        fd, cfg = tempfile.mkstemp(suffix=".toml")
+        os.close(fd)
+        fd, page = tempfile.mkstemp(suffix=".html")
+        os.close(fd)
+        try:
+            text = '[vars]\nDAILY_START = "2000-01-03"\n'
+            with open(cfg, "w", encoding="utf-8", newline="") as f:
+                f.write(text)
+            rows = "\n".join("%d,%04d,N,7,1 + 2 + 3 + 4" % (i + 1, 1000 + i) for i in range(7))
+            with open(page, "w", encoding="utf-8", newline="") as f:
+                f.write(self.PAGE % rows)
+            # 公開後の --rebuild は断られる (DB を開く前に止まる)。サーバーの設定は変わらない
+            with self.assertRaises(ValueError):
+                m.run_daily("nothing.db", os.path.join(here, "docs", "index.html"), page,
+                            write=True, rebuild=True, today=m.daily_start(), worker_path=cfg)
+            with open(cfg, encoding="utf-8", newline="") as f:
+                self.assertEqual(f.read(), text)
+        finally:
+            os.unlink(cfg)
+            os.unlink(page)
+
 
 if __name__ == "__main__":
     unittest.main()

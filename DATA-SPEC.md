@@ -235,7 +235,7 @@ python make10.py daily      # デイリーの問題の列を作って確かめ�
 python make10.py dump TABLE # 人間確認用に CSV を吐く（Excel用）
 ```
 
-`daily` は DB を読み取り専用（`mode=ro&immutable=1`）で開き、DB に何も書かない（書くのはデイリーのページだけ。
+`daily` は DB を読み取り専用（`mode=ro&immutable=1`）で開き、DB に何も書かない（書くのはデイリーのページと、集計のサーバーの設定 `worker/wrangler.toml` の起点日だけ。D0.7。
 `--dry-run` を付けるとページも書き換えない）。列の作り方・確かめ・実測値は
 DAILY-SPEC 6 章と 11 章に書く（この文書には書かない）。
 
