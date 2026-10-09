@@ -225,6 +225,59 @@ NEXT_HITS = ("(()=>{const b=$('wnext').getBoundingClientRect(),c=$('clear').getB
              "at(h.left+2,'hint'),at((b.left+b.right)/2,'wnext')]})()")
 
 
+def _touch(ui, typ, pts):
+    ui.c.ws.call("Input.dispatchTouchEvent",
+                 {"type": typ, "touchPoints": [{"x": x, "y": y, "id": i} for i, (x, y) in enumerate(pts)]})
+
+
+def next_is_easy_to_press(ui):
+    """「つぎへ」の押しやすさ（8.0。「押す場所が分かりにくい・小さい」という報告）。「つぎへ」が出ている状態で呼ぶ"""
+    ui.check("つぎへ: 文字は 17px の太字で、右に › が付く。箱の中央に 1 行で並ぶ",
+             ui.ev("(()=>{const b=$('wnext'),s=getComputedStyle(b),t=b.querySelector('span'),v=b.querySelector('svg.chev'),"
+                   "tr=t.getBoundingClientRect(),vr=v.getBoundingClientRect(),br=b.getBoundingClientRect();"
+                   "return [b.textContent,s.fontSize,s.fontWeight,vr.left>=tr.right,Math.abs((tr.left+vr.right)/2-(br.left+br.right)/2)<1,"
+                   "Math.abs((vr.top+vr.bottom)/2-(tr.top+tr.bottom)/2)<1.5,tr.height<30,getComputedStyle(v).stroke]})()"),
+             ["つぎへ", "17px", "700", True, True, True, True, ui.ev("getComputedStyle($('wnext')).color")])
+    ui.check("つぎへ: 金の下線は、箱と同じ幅（200px）",
+             ui.ev("(()=>{const s=getComputedStyle($('wnext'));return [s.borderBottomWidth,Math.round($('wnext').getBoundingClientRect().width)]})()"),
+             ["1px", 200])
+    # 押せる範囲は、見えている箱より上へ 8px 広い（上の浮かせ表示との隙間）。下（トレイ）と左右へは広げない
+    ui.check("つぎへ: 押せる範囲は、箱の上 6px まで「つぎへ」。上 10px・下 3px・左右 3px 外は「つぎへ」ではない",
+             ui.ev("(()=>{const b=$('wnext').getBoundingClientRect(),x=(b.left+b.right)/2,y=(b.top+b.bottom)/2,"
+                   "at=(px,py)=>{const e=document.elementFromPoint(px,py);return !!e&&e.closest('#wnext')!==null};"
+                   "return [at(x,b.top-6),at(b.left+3,b.top-6),at(b.right-3,b.top-6),at(x,b.top-10),at(x,b.bottom+3),"
+                   "at(b.left-3,y),at(b.right+3,y),NEXT_BTN.up]})()"),
+             [True, True, True, False, False, False, False, 8])
+    ui.check("つぎへ: 上へ広げた範囲は、式にも読み出し行にも重ならない",
+             ui.ev("(()=>{const b=$('wnext').getBoundingClientRect(),e=$('exprwrap').getBoundingClientRect();"
+                   "return b.top-NEXT_BTN.up>=e.bottom})()"), True)
+    # 押した瞬間の手応え: 指が触れた瞬間に薄くなり、離すと戻る（本物のタッチ。離す前に動かして、進ませない）
+    ui.c.ws.call("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
+    try:
+        got = []
+        for el in ("wnext", "clear"):
+            x, y = ui.ev("(()=>{const b=$(%r).getBoundingClientRect();return [(b.left+b.right)/2,(b.top+b.bottom)/2]})()" % el)
+            look = "[$(%r).classList.contains('pressed'),getComputedStyle($(%r)).opacity]" % (el, el)
+            before = ui.ev(look)
+            _touch(ui, "touchStart", [(x, y)])
+            time.sleep(0.08)
+            down = ui.ev(look)
+            _touch(ui, "touchMove", [(x, y - 80)])          # 大きく動かして、押したことにしない
+            time.sleep(0.05)
+            _touch(ui, "touchEnd", [])
+            time.sleep(0.15)
+            got.append([before, down, ui.ev(look)])
+        ui.check("つぎへ・全部消す: 指が触れた瞬間に薄くなり（50%）、離すと戻る",
+                 got, [[[False, "1"], [True, "0.5"], [False, "1"]]] * 2)
+        ui.check("押したことにしなかったので、まだ「つぎへ」が出ている（進んでいない）", ui.visible("wnext"), True)
+        ui.check("押せないボタンには、印を付けない",
+                 ui.ev("(()=>{const b=document.createElement('button');b.disabled=true;document.body.appendChild(b);"
+                       "b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));const r=b.classList.contains('pressed');"
+                       "b.remove();return r})()"), False)
+    finally:
+        ui.c.ws.call("Emulation.setTouchEmulationEnabled", {"enabled": False})
+
+
 def win_display(ui):
     """正解まわりの表示（6.5。GAME-SPEC 8 章）。判定は画面に見える値で取る。"""
     # ── 点数表示オフ（既定）: 「正解」は読み出し行だけ・カードは「つぎへ」だけ ──
@@ -249,10 +302,11 @@ def win_display(ui):
     ui.check("オフ: 点数のカードは出ない", ui.visible("win"), False)
     ui.check("オフ: 「つぎへ」は .foot の中に置いてある",
              ui.ev("$('wnext').parentElement.classList.contains('foot')"), True)
-    ui.check("オフ: 「つぎへ」は #clear と #hint の間の中央・同じ縦位置と高さ・幅 160px・両側に隙間",
-             ui.ev(NEXT_IN_FOOT), [True, True, True, 160, True, True])
+    ui.check("オフ: 「つぎへ」は #clear と #hint の間の中央・同じ縦位置と高さ・幅 200px・両側に隙間",
+             ui.ev(NEXT_IN_FOOT), [True, True, True, 200, True, True])
     ui.check("オフ: 当たりが #clear / #hint と重ならない（端を押しても各自に当たる）",
              ui.ev(NEXT_HITS), [True, True, True, True, True])
+    next_is_easy_to_press(ui)
     ui.check("オフ: 式・トレイ・.foot・読み出し行が解く前と同じ位置", ui.ev(RECTS), before)
     ui.check("オフ: 問題画面はスクロールしない", ui.scrolls(), False)
     check_wnext_colors(ui, "オフ")
@@ -276,7 +330,7 @@ def win_display(ui):
     ui.ev("G.dev=true; devPanelShow(true)")
     ui.check("10: 開発者パネルに倍率のスライダー", ui.text("dv-tenScale-v"), "1.8倍")
     ui.check("つぎへ: 幅のスライダーは外した（固定値 NEXT_BTN.w）",
-             ui.ev("[!!$('dv-nextW'),'nextW' in DEV_DEFAULT,NEXT_BTN.w]"), [False, False, 160])
+             ui.ev("[!!$('dv-nextW'),'nextW' in DEV_DEFAULT,NEXT_BTN.w]"), [False, False, 200])
     ui.ev("(()=>{const r=$('dv-tenScale');r.value='2.2';r.dispatchEvent(new Event('input'))})()")
     time.sleep(0.6)
     ui.check("10: スライダーを 2.2 にすると見えている大きさも 2.2", ui.ev(scale), 2.2)
@@ -304,7 +358,7 @@ def win_display(ui):
              [ui.ev("$('win').contains($('wnext'))"), ui.ev("/つぎへ/.test($('win').innerText)")],
              [False, False])
     ui.check("オン: 「つぎへ」はオフと同じ .foot の中央",
-             ui.ev(NEXT_IN_FOOT), [True, True, True, 160, True, True])
+             ui.ev(NEXT_IN_FOOT), [True, True, True, 200, True, True])
     ui.check("オン: 当たりが #clear / #hint と重ならない", ui.ev(NEXT_HITS), [True, True, True, True, True])
     ui.check("オン: 点数だけ（星は出さない）", ui.ev(r"/^\d+ 点$/.test($('wpts').innerText.trim())"), True)
     ui.check("オン: カードのどこにも星（★☆）が無い", ui.ev("/[★☆]/.test($('win').innerText)"), False)
@@ -338,7 +392,7 @@ def win_display(ui):
     ui.click("navback")
     ui.check("オン → 設定でオフ → 戻るとカードは消えて「つぎへ」だけ",
              [ui.visible("win"), ui.visible("wnext")], [False, True])
-    ui.check("切り替えても「つぎへ」の場所は同じ", ui.ev(NEXT_IN_FOOT), [True, True, True, 160, True, True])
+    ui.check("切り替えても「つぎへ」の場所は同じ", ui.ev(NEXT_IN_FOOT), [True, True, True, 200, True, True])
     ui.check("戻っても「正解」は 1 つだけ", ui.ev(WORDS), [1, 0])
 
     win_levels(ui)

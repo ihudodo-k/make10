@@ -546,10 +546,18 @@ body.rings #hint::before{border-color:var(--ring)}
 /* 「つぎへ」は面を持たず、金の下線 1 本（7.3。金を使う 3 か所の 1 つ。7.2 まではトレイと同じ面と枠）。
    上と左右の枠は透明にして残す（大きさを変えない）。文字は記号 .chip と同じ --paper、押したときは
    .chip:active と同じく地を変えず薄くするだけ（button:active の --edge の地を打ち消す）*/
-#wnext{flex:0 0 auto;width:var(--nextW);height:var(--btnW);padding:0;
- font-size:15px;font-weight:700;letter-spacing:.04em;border-radius:0;
+#wnext{flex:0 0 auto;width:var(--nextW);height:var(--btnW);padding:0;position:relative;
+ display:flex;align-items:center;justify-content:center;gap:4px;
+ font-size:17px;font-weight:700;letter-spacing:.04em;border-radius:0;
  border:1px solid transparent;border-bottom-color:var(--gold);color:var(--paper);background:none}
 #wnext:active{background:none;opacity:.5}
+#wnext .chev{color:var(--paper)}                 /* › は文字と同じ色（.chev の既定は副次色）*/
+/* 押せる範囲を、見えている箱より上へ広げる（8.0。見えない ::after。上の浮かせ表示との隙間のぶん）。
+   下はトレイなので広げない。大きさは JS の NEXT_BTN.up → --nextUp */
+#wnext::after{content:"";position:absolute;left:-1px;right:-1px;bottom:-1px;top:calc(-1px - var(--nextUp))}
+/* 押した瞬間の手応え（8.0）。指が触れた瞬間に薄くし、離すと戻す。:active は、タッチでは出ない・出るのが
+   遅い端末があるので、pointerdown で付ける印（.pressed）でも同じ見た目にする */
+button.pressed,[role="button"].pressed{opacity:.5}
 #toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%) translateY(12px);
  background:var(--panel);border:1px solid var(--edge);color:var(--paper);
  padding:11px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:80;
@@ -677,7 +685,7 @@ body.rings #hint::before{border-color:var(--ring)}
           </svg>
         </button>
         <!-- 正解したら出る「つぎへ」（6.5）。.foot の中央。点数表示のオン・オフで場所は変わらない -->
-        <button id="wnext" class="hide" data-i18n="play.next"></button>
+        <button id="wnext" class="hide"><span data-i18n="play.next"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         <button id="alt" class="hide" data-i18n="play.skip"></button>
         <button id="hint" class="iconbtn" data-i18n-label="btn.hint">
           <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
@@ -828,7 +836,7 @@ body.rings #hint::before{border-color:var(--ring)}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="7.9";
+const APP_VERSION="8.0";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -40129,6 +40137,7 @@ function applyMetrics(){
   s.setProperty("--hintBtnW",HINT_ROW.btnW+"px");
   s.setProperty("--shareGap",SHARE_BTN.gap+"px");
   s.setProperty("--nextW",NEXT_BTN.w+"px");
+  s.setProperty("--nextUp",NEXT_BTN.up+"px");
   s.setProperty("--hintBtnH",HINT_ROW.btnH+"px");
   s.setProperty("--hintGap",HINT_ROW.gap+"px");
   s.setProperty("--hintIcW",HINT_ROW.icW+"px");
@@ -41235,6 +41244,18 @@ $("share").onclick=async()=>{
    読むと、押したことで無効になったボタン（3 に届いた #hint）まで振動しなくなる。
    aria-disabled（3 まで到達済みで開いているときの #hint）も押しても何も起きないので振動しない */
 const btnOf=e=>e.target.closest?.("button,[role=button]");
+/* 押した瞬間の手応え（8.0）。ボタンに指が触れた瞬間に .pressed を付け、離す・取り消されると外す。
+   見た目は CSS（薄くする）。押せないボタン（disabled・aria-disabled）には付けない */
+let pressedBtn=null;
+const pressOff=()=>{if(pressedBtn){pressedBtn.classList.remove("pressed");pressedBtn=null}};
+document.addEventListener("pointerdown",e=>{
+  pressOff();
+  const b=btnOf(e);
+  if(!b||b.disabled||b.getAttribute("aria-disabled")==="true")return;
+  pressedBtn=b;b.classList.add("pressed");
+},true);
+document.addEventListener("pointerup",pressOff,true);
+document.addEventListener("pointercancel",pressOff,true);
 let btnOff=false;
 document.addEventListener("click",e=>{
   const b=btnOf(e);
@@ -41409,10 +41430,12 @@ function hintExprScale(ex){
 /* 共有ボタンと .top の下端との間隔（6.4）。.top の gap 9px に近い値。CSS へは --shareGap で渡す */
 const SHARE_BTN={gap:8};
 /* 「つぎへ」#wnext の幅（6.5）。.foot の中央の隙間（normal 290 / compact 236px）に置く。
-   両側に normal 65 / compact 38px の余白が残り、当たりが #clear / #hint と重ならない。
    高さは隣の丸ボタンと同じ --btnW（normal 52 / compact 44px）。6.5 の途中で開発者パネルの
-   スライダー（devVars.nextW）で試したが、置き場所を .foot に移したので固定値にした */
-const NEXT_BTN={w:160};
+   スライダー（devVars.nextW）で試したが、置き場所を .foot に移したので固定値にした。
+   **8.0 で 160 → 200px に広げた**（「押す場所が分かりにくい・小さい」という報告。金の下線も同じ幅に伸びる）。
+   両側に normal 45 / compact 18px の余白が残り、当たりが #clear / #hint と重ならない。
+   up は、押せる範囲を上へ広げる量（.foot と、その上の浮かせ表示との隙間 8px のぶん）*/
+const NEXT_BTN={w:200,up:8};
 /* ヒント行の操作は SVG（4.9）。文字の ‹ › × は書体の中で上下位置が揃わず、
    ‹ › が × より 1.13px 低く、3 つとも本文より約 5〜6px 高い位置に描かれていた。
    設定画面の .chev が「文字の › は書体で位置・太さが揃わないのでインライン SVG に」
