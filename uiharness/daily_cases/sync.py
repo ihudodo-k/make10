@@ -17,14 +17,14 @@ from uiharness import daily_ui as dui
 NAME = "本編との同期の照合"
 STATIC = True
 
-# 1 文字も変えずに複製するもの（DAILY-SPEC 18-3）。D0.2 の時点
+# 1 文字も変えずに複製するもの（DAILY-SPEC 18-3）。D0.3 の時点
 REQUIRED_JS = """STR_CORE LANGS LANG_URL LANG PLURAL pickLang t applyI18n OPOF conOf MODE solved
 gd R add ml isInt fct pwr TOKEN_METRICS COMPACT_MQ ZONE_BASE ZONE_MIN MET applyMetrics tokensWidth
 GLYPH NEST TRAY S $ T canPut insSeq livePositions put dropTok match parse ev same deadParens segValues
 curExprScale MIN_SCALE applyScale scaleFor fit zoneCalc devSnap layoutZones closeSet afterInsert afterRemove
 captureCloseSet showZones hideZones DEV_CATCH DEV_SWAP buzz lastHot ghost gmove startDrag nearest nearZone
 nearSwap tgt onMove onUp clearAll DEV_DEFAULT btnOf btnOff HINT_ROW HINT_GLYPH HINT_TEXT hintExprW
-hintExprScale SHARE_BTN NEXT_BTN""".split()
+hintExprScale SHARE_BTN NEXT_BTN pretty ICON_HCLOSE""".split()
 REQUIRED_JS_ANON = [
     '@document.body.appendChild(ghost);',
     '@$("tray").addEventListener("pointerdown",e=>{',
@@ -42,6 +42,14 @@ REQUIRED_CSS = [
     ".tok.lp,.tok.rp", ".tok.lone", ".tok.dead", ".tok.lift", ".tok.swap", "@keyframes glow", ".tok.shine",
     ".zone", ".zone.snap", ".zone.live", ".zone.hot", ".tray", ".chip", ".chip:active", ".chip.sel",
     ".chip.off", ".chip .stock", "@keyframes shake", ".chip.shake", ".foot", "#ghost",
+    # D0.3: 上のバーのボタン・確認と全解答の箱・統計の 2 列・導線の ›
+    ".plainbtn", ".plainbtn:active", ".chev", ".top .info b", ".overlays", ".overlays>*",
+    ".hintbox", ".hintbox.show", ".hintbox code", ".hintbox .hbin code", ".hintrow",
+    ".hintrow .hbody", ".hintrow .hbody>.hbin", ".hintrow .hbody::-webkit-scrollbar",
+    ".hintrow .hbody.two", ".hintrow .hsub", ".hintrow .hsub b", ".hintrow .hbody.tap",
+    "#statlist", ".stat", ".stat .sv", ".stat .sv b,.stat .sv .none", ".stat .sv .none",
+    ".stat .sv .su", ".stat .sk",
+    MEDIA + ".stat", MEDIA + ".stat .sv b,.stat .sv .none",
     MEDIA + ".readout", MEDIA + ".eq", MEDIA + ".eq.idle", MEDIA + ".eq.part", MEDIA + ".chip",
     MEDIA + ".foot", MEDIA + ".top", MEDIA + ".field",
     "@media (prefers-reduced-motion:reduce) || *",
@@ -102,4 +110,13 @@ def run(ui):
              [k for k in dui.CSS_EXCLUDE if k not in main_sel], [])
     # デイリーだけの規則。ここが変わったら、複製した規則のセレクタを書き換えていないかを見る
     ui.check("CSS: デイリーだけの規則", sorted(own),
-             sorted(["body.daily", "#app.daily", ".topslot", "#banline", "#nopuzzle", "#dfoot"]))
+             sorted(["body.daily", "#app.daily", ".topslot", "#banline", "#nopuzzle", "#dfoot",
+                     # D0.3
+                     "#dinfo span", "#dgiveup", "#gubox .gurow", "#gubox .gutext", "#gubox button",
+                     "#gubox button:active", "#play.dplay", "#play.done .bottom",
+                     "#play.done #expr,#play.locked #expr,#play.locked #tray", "#play.done #dgiveup",
+                     ".eq.gaveup", "#result", ".rcols", ".rcol .rv", ".rcol .rv b", ".rcol .rv b.none",
+                     ".rcol .rv .ru", ".rcol .rn", "#solbox", "#solbox .hintrow", ".applink",
+                     ".applink:active", "#app.daily.scrolly", "#dstatsheet", "#dstatsheet .shead",
+                     "#dstatsheet h2", MEDIA + "#dfoot", MEDIA + ".rcol .rv", MEDIA + ".rcol .rv b",
+                     MEDIA + ".applink"]))

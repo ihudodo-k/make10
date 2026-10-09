@@ -63,7 +63,9 @@ def check_version(chrome, url, want):
     helper.open()
     shown = helper.visible("dver")
     text = helper.text("dver")
-    return shown and text == want, shown, text
+    # 言語に依らないよう、文（「デイリー 0.3」）ではなく版の数字だけを突き合わせる
+    nums = re.findall(r"\d+(?:\.\d+)+", text or "")
+    return shown and nums == [want], shown, text
 
 
 def safe_output():

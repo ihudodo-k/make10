@@ -242,9 +242,20 @@ addEventListener("unhandledrejection",e=>__ERRS.push("reject: "+String(e.reason)
   // 辞書に無いキーを引くと t() が console.warn を出す。それも拾う
   console.warn=function(){__ERRS.push("console.warn: "+[].join.call(arguments," "));w.apply(console,arguments)};
 })();
-try{localStorage.clear()}catch(e){}
+%(store)s
 %(nav)s
 %(clock)s
+"""
+SAVE_KEY = "make10.daily.v1"          # デイリーの保存のキー（本編は make10.progress.v4）
+# 経過時間の時計（performance.now）を、ケースから進められるものに差し替える。__perf がミリ秒
+PERF = r"""
+window.__perf=0;
+performance.now=()=>window.__perf;
+"""
+# 保存できない環境（プライベートブラウズなど）のまね。読むのも書くのも例外にする
+NO_STORAGE = r"""
+Storage.prototype.getItem=function(){throw new Error("storage blocked")};
+Storage.prototype.setItem=function(){throw new Error("storage blocked")};
 """
 # 端末の時計を固定する（Date の「今」だけを差し替える。時間帯は CDP が決める）
 CLOCK = r"""
@@ -287,17 +298,34 @@ class UI:
         self._seed_id = None
         self._tz = None
 
-    def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra=""):
+    def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
+             store=None, perf=False):
         """ページを開く。
 
         date … ?date=YYYY-MM-DD（テスト表示）。None なら付けない
         lang … ?lang= で固定する。既定は日本語（ケースの期待値は日本語で書く）。None なら付けない
         nav  … navigator.language を差し替える
         now  … 端末の時計（UTC の ms）。None なら本物の時計
-        tz   … 時間帯（"Asia/Tokyo" など）。None なら変えない"""
-        if self._seed_id:
-            self.c.remove_on_new_document(self._seed_id)
-        self._seed_id = self.c.on_new_document(SEED % {
+        tz   … 時間帯（"Asia/Tokyo" など）。None なら変えない
+        store … 保存データ。None なら空にしてから開く／dict ならその中身を仕込む／
+                "keep" なら前に開いたときのまま／"blocked" なら保存できない環境にする
+        perf … True なら、経過時間の時計を差し替える（tick() で進める）"""
+        # 読み込みの前に走る仕込みは、Chrome に 1 つだけ残す。UI はケースごとに作り直されるので、
+        # 前の UI が仕込んだもの（保存データを消す処理など）を Chrome の側で覚えて外す。
+        # 外し忘れると、store="keep" で開いても、残っていた仕込みが保存データを消してしまう
+        old = getattr(self.c, "_daily_seed", None)
+        if old:
+            self.c.remove_on_new_document(old)
+        if store == "keep":
+            st = ""
+        elif store == "blocked":
+            st = NO_STORAGE
+        else:
+            st = "try{localStorage.clear();%s}catch(e){}" % (
+                "" if store is None else "localStorage.setItem(%s,%s)" % (
+                    json.dumps(SAVE_KEY), json.dumps(json.dumps(store, ensure_ascii=False))))
+        self.c._daily_seed = self._seed_id = self.c.on_new_document(SEED % {
+            "store": st + (PERF if perf else ""),
             "nav": "" if nav is None else
             "Object.defineProperty(navigator,'language',{get:()=>%s,configurable:true});"
             % json.dumps(nav),
@@ -312,6 +340,20 @@ class UI:
             q.append("lang=" + lang)
         self.c.goto(self.base + ("?" + "&".join(q) if q else "") + extra, ready=READY)
         self.c.ev(SOLVE)
+
+    def tick(self, ms):
+        """経過時間の時計を進める（open(perf=True) のとき）"""
+        self.c.ev("window.__perf+=%d" % ms)
+
+    def visibility(self, state):
+        """画面が隠れた（"hidden"）・見えた（"visible"）ことにする"""
+        self.c.ev("Object.defineProperty(document,'visibilityState',{get:()=>%s,configurable:true});"
+                  "document.dispatchEvent(new Event('visibilitychange'))" % json.dumps(state))
+
+    def saved(self):
+        """保存データ（無ければ None）"""
+        raw = self.c.ev("localStorage.getItem(%s)" % json.dumps(SAVE_KEY))
+        return json.loads(raw) if raw else None
 
     def resize(self, w, h):
         """画面の大きさを変える（開き直す前に呼ぶ）。終わったら restore() で戻す"""

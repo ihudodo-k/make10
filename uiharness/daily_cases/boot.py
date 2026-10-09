@@ -26,7 +26,7 @@ def run(ui):
     ui.check("ページの題名", ui.ev("document.title"), "Make10 デイリー")
     ui.check("<html lang> は日本語", ui.ev("document.documentElement.lang"), "ja")
     ui.check("版が画面のいちばん下に見えている",
-             [ui.visible("dver"), ui.text("dver")], [True, ui.ev("DAILY_VERSION")])
+             [ui.visible("dver"), ui.text("dver")], [True, "デイリー " + ui.ev("DAILY_VERSION")])
     ui.check("?date= のときは「テスト表示（記録しません）」",
              [ui.visible("dtest"), ui.text("dtest")], [True, "テスト表示（記録しません）"])
     ui.check("盤に 4 つの数字が並ぶ",
@@ -49,9 +49,13 @@ def run(ui):
     ui.check("上のバーの文字は画面の左右の中央",
              ui.ev("(function(){const r=dinfo.getBoundingClientRect(),a=app.getBoundingClientRect();"
                    "return Math.abs((r.left+r.right)/2-(a.left+a.right)/2)<1})()"), True)
-    # この版では置かないもの（?・統計・共有・ギブアップ・ヒント）。押せるものは「全部消す」だけ
-    ui.check("ボタンは「全部消す」だけ",
-             ui.ev("[...document.querySelectorAll('button')].map(b=>b.id).join(' ')"), "clear")
+    # まだ置いていないもの（?・共有・ヒント）。見えているボタンは、統計・ギブアップ・全部消す
+    ui.check("見えているボタンは、統計・ギブアップ・全部消す",
+             ui.ev("[...document.querySelectorAll('button')].filter(b=>b.offsetHeight>0"
+                   "&&getComputedStyle(b).visibility!=='hidden').map(b=>b.id).join(' ')"),
+             "dstats dgiveup clear")
+    ui.check("ボタンの名前",
+             ui.ev("[dstats,dgiveup].map(b=>b.getAttribute('aria-label')).join(' ')"), "統計 ギブアップ")
     ui.check("「全部消す」の名前", ui.ev("clear.getAttribute('aria-label')"), "全部消す")
     ui.check("画面に、辞書の印やキーがそのまま出ていない",
              ui.ev("/\\{\\w+\\}|daily\\.|read\\.|btn\\./.test(document.body.innerText)"), False)
