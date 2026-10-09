@@ -35,6 +35,17 @@ def run(ui):
              [re.findall(r'pattern\s*=\s*"([^"]+)"\s*,\s*custom_domain\s*=\s*true', live),
               re.findall(r"^\s*workers_dev\s*=\s*(\w+)", live, re.M)],
              [["api.make10.app"], ["false"]])
+    # ページとサーバーで同じでなければならない値（D0.8）
+    nums = lambda t: [int(x) for x in re.findall(r"[0-9]+", t)]                                       # noqa: E731
+    ui.check("時間の帯の区切りは、ページ（AGG_BANDS）とサーバー（BANDS）で同じ",
+             [nums(x) for x in re.findall(r"const AGG_BANDS=\[([^\]]*)\]", page)],
+             [nums(x) for x in re.findall(r"^const BANDS = \[([^\]]*)\]", js, re.M)] or [None])
+    ui.check("時間の上限は、ページ（AGG_T_MAX）とサーバー（T_MAX）で同じ",
+             re.findall(r"const AGG_T_MAX=([0-9]+)", page), re.findall(r"^const T_MAX = ([0-9]+)", js, re.M) or [None])
+    ui.check("ページの送り先（AGG_URL）は、サーバーの入口のドメインと、本体のパス",
+             re.findall(r'const AGG_URL="([^"]+)"', page),
+             ["https://%s%s" % (d, p) for d in re.findall(r'pattern\s*=\s*"([^"]+)"', live)
+              for p in re.findall(r'url\.pathname !== "([^"]+)"', js)])
     ui.check("D1 のつなぎ先の名前は DB（Worker の本体が読む名前と同じ）",
              [var("binding"), "env.DB." in js], [["DB"], True])
     ui.check("足すのは 1 文（ON CONFLICT … DO UPDATE SET s=s+…）。読んでから書く形にしない",

@@ -249,6 +249,39 @@ addEventListener("unhandledrejection",e=>__ERRS.push("reject: "+String(e.reason)
 %(store)s
 %(nav)s
 %(clock)s
+%(api)s
+"""
+# 集計の送り先（api.make10.app）の差し替え（D0.8）。ページの fetch を、読み込みより先に差し替える。
+# **本物の集計へは 1 回も送らない**（ページの側に、送り先を切り替える入口は作らない）。
+#   __API     = 出た要求の記録 [{url, method, headers, body, keys（fetch に渡した項目の名前）}…]
+#   __APIMODE = 返事の決め方 {mode, agg, delay}
+#     mode: "fail" 通信そのものが失敗（既定）／"ok" 200 で agg を返す（n は要求の問題番号）／"500"／
+#           "range" 400 {"e":"range"}／"value" 400 {"e":"value"}／"badjson" 200 だが JSON でない／
+#           "badshape" 200 だが形が違う／"hang" 返事が来ない（打ち切りを待つ）
+API = r"""
+window.__API=[];window.__APIMODE=%s;
+(function(){const real=window.fetch;
+  window.fetch=function(u,o){
+    const url=String(u&&u.url||u);
+    if(!/^https:\/\/api\.make10\.app(\/|$)/.test(url))return real.apply(this,arguments);
+    o=o||{};const m=window.__APIMODE;
+    let n=null;try{n=o.body?JSON.parse(o.body).n:+new URL(url).searchParams.get("n")}catch(e){}
+    __API.push({url,method:o.method||"GET",headers:o.headers||{},body:o.body===undefined?null:o.body,
+      keys:Object.keys(o).sort()});
+    const res=(st,obj)=>new Response(typeof obj==="string"?obj:JSON.stringify(obj),
+      {status:st,headers:{"Content-Type":"application/json"}});
+    return new Promise((ok,ng)=>{
+      if(o.signal)o.signal.addEventListener("abort",()=>ng(new DOMException("aborted","AbortError")));
+      setTimeout(()=>{
+        if(m.mode==="ok")ok(res(200,Object.assign({n},m.agg)));
+        else if(m.mode==="500")ok(res(500,{e:"x"}));
+        else if(m.mode==="range")ok(res(400,{e:"range"}));
+        else if(m.mode==="value")ok(res(400,{e:"value"}));
+        else if(m.mode==="badjson")ok(res(200,"<html>"));
+        else if(m.mode==="badshape")ok(res(200,{n,s:1}));
+        else if(m.mode==="hang"){}
+        else ng(new TypeError("Failed to fetch"));
+      },m.delay||0)})}})();
 """
 SAVE_KEY = "make10.daily.v1"          # デイリーの保存のキー（本編は make10.progress.v4）
 # 経過時間の時計（performance.now）を、ケースから進められるものに差し替える。__perf がミリ秒
@@ -303,7 +336,7 @@ class UI:
         self._tz = None
 
     def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
-             store=None, perf=False, first=False):
+             store=None, perf=False, first=False, api=None):
         """ページを開く。
 
         date … ?date=YYYY-MM-DD（テスト表示）。None なら付けない
@@ -316,7 +349,9 @@ class UI:
         perf … True なら、経過時間の時計を差し替える（tick() で進める）
         first … True なら、初めて来た人として開く（遊び方が自動で出る）。既定は False ――
                 保存データに「遊び方を見た」の印（help:1）を仕込んでおき、遊び方が盤を覆わないようにする。
-                store="keep"・"blocked" のときは仕込まない"""
+                store="keep"・"blocked" のときは仕込まない
+        api … 集計の送り先の返事の決め方（上の API の __APIMODE）。None なら {"mode": "fail"}（通信できない）。
+              出た要求は api_calls() で読む"""
         # 読み込みの前に走る仕込みは、Chrome に 1 つだけ残す。UI はケースごとに作り直されるので、
         # 前の UI が仕込んだもの（保存データを消す処理など）を Chrome の側で覚えて外す。
         # 外し忘れると、store="keep" で開いても、残っていた仕込みが保存データを消してしまう
@@ -339,7 +374,8 @@ class UI:
             "nav": "" if nav is None else
             "Object.defineProperty(navigator,'language',{get:()=>%s,configurable:true});"
             % json.dumps(nav),
-            "clock": "" if now is None else CLOCK % {"ms": now}})
+            "clock": "" if now is None else CLOCK % {"ms": now},
+            "api": API % json.dumps(api or {"mode": "fail"})})
         if tz != self._tz:
             self.c.ws.call("Emulation.setTimezoneOverride", {"timezoneId": tz or ""})
             self._tz = tz
@@ -359,6 +395,10 @@ class UI:
         """画面が隠れた（"hidden"）・見えた（"visible"）ことにする"""
         self.c.ev("Object.defineProperty(document,'visibilityState',{get:()=>%s,configurable:true});"
                   "document.dispatchEvent(new Event('visibilitychange'))" % json.dumps(state))
+
+    def api_calls(self):
+        """集計の送り先へ出た要求の記録（差し替えた fetch が覚えたもの）"""
+        return self.c.ev("window.__API")
 
     def saved(self, raw=False):
         """保存データ（無ければ None）。

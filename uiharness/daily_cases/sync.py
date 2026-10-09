@@ -130,4 +130,9 @@ def run(ui):
                      # D0.5
                      ".rcol .rv .ru:empty", "#dhelpbody", "#dhelpbody p", "#dhelpbody code",
                      # D0.6
-                     "#dhelpbody .hlink", "#dhelpbody .hlink a"]))
+                     "#dhelpbody .hlink", "#dhelpbody .hlink a",
+                     # D0.8（みんなの結果）
+                     "#aggbox", "#aggbox .at", "#aggbox .ap", "#aggbox .ar", "#aggbox .ac", "#aggbox .ac b",
+                     "#aggbox .ac span", "#aggbox .ab", "#aggbox .bar", "#aggbox .bar i", "#aggbox .bar span",
+                     "#aggbox .bar.me i", "#aggbox .bar.me span", "#aggbox.tight", "#aggbox.tight .at",
+                     "#aggbox.tight .ar", "#aggbox.tight .ac b", "#aggbox.tight .ac span,#aggbox.tight .bar span"]))

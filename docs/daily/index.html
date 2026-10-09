@@ -7,7 +7,8 @@
 <!-- Make10 デイリー（1 日 1 問）。仕様は DAILY-SPEC.md。
      エンジン（有理数・構文解析・評価・盤の操作）と CSS は本編 docs/index.html から 1 文字も変えずに複製してある。
      複製したものと除外の一覧は DAILY-SPEC 18-3、照合は verify_daily.py のケース sync。
-     外部から読むのはフォントだけ（計測は集計の版で足す。DAILY-SPEC 2 章・17-1） -->
+     外部から読むのはフォントと、計測の 1 本だけ（計測は、合い言葉 WA_TOKEN があり、ホスト名が make10.app のときだけ。17-1）。
+     外部へ送るのは、計測と、みんなの結果の集計（api.make10.app。17-2）の 2 つだけ（DAILY-SPEC 2 章） -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
@@ -180,6 +181,28 @@ body.daily{align-items:center}
 .applink{align-self:center;display:flex;align-items:center;gap:2px;height:48px;padding:0 12px;
  font-size:13px;font-weight:500;color:var(--dim);text-decoration:none}
 .applink:active{opacity:.6}
+/* みんなの結果（17-4。集計が読めたときだけ出す。全解答の下）。囲まない ―― 見出しの小さい字と、1 行の数字。
+   左に 2 つの割合（正解率・ヒントなし）、右に時間の分布（5 本の棒。自分のいる帯だけ明るい）。金は使わない */
+#aggbox{margin:0 12px;text-align:center;--aggH:26px}
+#aggbox .at{font-size:11.5px;line-height:17px;color:var(--dim);letter-spacing:.08em}
+#aggbox .ap{font-size:12.5px;line-height:20px;color:var(--dim);margin-top:2px}
+#aggbox .ar{display:flex;align-items:flex-end;justify-content:center;margin-top:4px}
+#aggbox .ac{flex:0 0 auto;width:68px}
+#aggbox .ac b{display:block;font-size:20px;font-weight:700;line-height:var(--aggH);font-variant-numeric:tabular-nums}
+#aggbox .ac span{display:block;font-size:11px;line-height:15px;color:var(--dim);white-space:nowrap}
+#aggbox .ab{flex:0 0 auto;display:flex;align-items:flex-end;gap:2px;margin-left:8px}
+#aggbox .bar{width:32px}
+#aggbox .bar i{display:block;margin:0 auto;width:14px;height:calc(var(--aggH)*var(--k));min-height:2px;
+ background:var(--dim);opacity:.4}
+#aggbox .bar span{display:block;font-size:10px;line-height:15px;color:var(--dim);white-space:nowrap}
+#aggbox .bar.me i{background:var(--paper);opacity:1}
+#aggbox .bar.me span{color:var(--paper)}
+/* 詰めた形（並びが版の行に届くときだけ。layoutResult が付ける）: 見出しを出さず、数字と棒を低くする */
+#aggbox.tight{--aggH:20px}
+#aggbox.tight .at{display:none}
+#aggbox.tight .ar{margin-top:0}
+#aggbox.tight .ac b{font-size:18px}
+#aggbox.tight .ac span,#aggbox.tight .bar span{line-height:14px}
 /* それでも収まらない低い画面だけ、列の中を縦に動かせるようにする（13-5）*/
 #app.daily.scrolly{overflow-y:auto}
 /* 統計と遊び方。列の中に重ねる 1 枚の画面（× か Esc で閉じる）。
@@ -263,6 +286,8 @@ body.daily{align-items:center}
       </div>
       <button id="rshare" class="rshare"><span id="rshare-ic"></span><span data-i18n="daily.share_result"></span></button>
       <div class="hintbox" id="solbox"></div>
+      <!-- みんなの結果（集計が読めたときだけ出す）-->
+      <div id="aggbox" class="hide"></div>
       <a class="applink" id="applink" href="https://make10.app/"><span data-i18n="daily.app_link"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
     </div>
   </div>
@@ -293,7 +318,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.7";
+const DAILY_VERSION="0.8";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -402,7 +427,12 @@ const STR_DAILY={ja:{
   "daily.help_fac_html":"<b>! は階乗</b>です（<code>3! = 6</code>）",
   "daily.help_zero_fac_html":"<b>0! は 1</b> です（<code>0! = 1</code>）",
   "daily.help_4":"毎日 0 時（端末の時刻）に新しい問題になります。",
-  "daily.help_privacy":"プライバシーポリシー"
+  "daily.help_privacy":"プライバシーポリシー",
+  "daily.agg_title":"みんなの結果",
+  "daily.agg_pending":"集計中",
+  "daily.agg_rate":"正解率",
+  "daily.agg_nohint":"ヒントなし",
+  "daily.agg_you":"あなた"
 },
 en:{
   "daily.page_title":"Make10 Daily",
@@ -456,7 +486,12 @@ en:{
   "daily.help_fac_html":"<b>! is factorial</b> (<code>3! = 6</code>)",
   "daily.help_zero_fac_html":"<b>0! is 1</b> (<code>0! = 1</code>)",
   "daily.help_4":"A new puzzle every day at midnight, your local time.",
-  "daily.help_privacy":"Privacy Policy"
+  "daily.help_privacy":"Privacy Policy",
+  "daily.agg_title":"Everyone's results",
+  "daily.agg_pending":"Collecting results",
+  "daily.agg_rate":"Solve rate",
+  "daily.agg_nohint":"No hints",
+  "daily.agg_you":"You"
 }};
 const LANGS=["ja","en"];
 const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");
@@ -2152,6 +2187,7 @@ function applyLang(){
                   sh:共有の回数, e:解いた式（解いたときだけ。開き直したときに盤へ戻す）}
      cur = {no:問題番号, ms:見ていた間の時間（ミリ秒）, h:使ったヒントの回数, sh:共有の回数}
      help = 遊び方を自動で出したら 1（初回だけ出すための印。D0.5）
+     days[…].sent = 集計へ送れたら 1（送り直さないための印。D0.8。17-2）
    ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる。
    公開までは保存の形の互換を気にしない（古い形の記録は読めなくてよい。移行の処理は作らない。10 章）*/
 const DAILY_KEY="make10.daily.v1";
@@ -2244,6 +2280,7 @@ function dailySolved(){
   watch(false);
   DATA.days[PUZZLE.no]={r:"s",t:Math.max(1,Math.round(seenMs/1000)),h:hintUsed,sh:shareCount,e:exprOf()};
   DATA.cur=null;saveDaily();
+  aggSend(PUZZLE.no);
   document.querySelectorAll(".num").forEach((n,i)=>
     setTimeout(()=>{n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop")},i*70));
   if(G.vib)navigator.vibrate?.(16);
@@ -2254,6 +2291,7 @@ function giveUp(){
   watch(false);
   DATA.days[PUZZLE.no]={r:"g",t:null,h:hintUsed,sh:shareCount};
   DATA.cur=null;saveDaily();
+  aggSend(PUZZLE.no);
   showResult(true);
 }
 /* 結果の画面にする。redraw = 盤を組み直す（開き直したとき・ギブアップしたとき）。
@@ -2276,6 +2314,7 @@ function showResult(redraw){
   $("r-streak").textContent=st;$("r-streak-u").textContent=t("daily.unit_day",{n:st});
   $("result").classList.remove("hide");
   solAt=0;drawSols();
+  drawAgg();
   layoutResult();
 }
 /* 全解答の箱（本編 7.1 と同じ見せ方: 1 本ずつ・下に k/N・押すと次へ）。
@@ -2311,7 +2350,8 @@ function drawSols(){
   }
 }
 /* 結果の並びを、式の下に置く。間隔は normal 24px・compact 16px から始め、版の行に届くなら
-   12 → 8px と詰める。それでも収まらない低い画面だけ、列の中を縦に動かせるようにする（13-5）。
+   12 → 8px と詰める。それでも届くなら、みんなの結果を詰めた形（見出しなし・低い棒）にして 12 → 8px。
+   それでも収まらない低い画面だけ、列の中を縦に動かせるようにする（13-5）。
    式と 3 列のあいだだけは、間隔より 8px 広い（Figma「20 デイリー」）*/
 function layoutResult(){
   const play=$("play"), res=$("result");
@@ -2321,15 +2361,98 @@ function layoutResult(){
   // Figma は、導線の押せる範囲を版の文字のすぐ上まで使っている
   const limit=Math.min(...[$("dtest"),$("dver")].filter(e=>e.offsetHeight>0).map(e=>e.getBoundingClientRect().top));
   const first=matchMedia(COMPACT_MQ).matches?16:24;
+  const agg=$("aggbox"), canTight=!!agg.querySelector(".ar");      // 数字が出ているときだけ、詰めた形がある
   let fits=false;
-  for(const g of [24,16,12,8]){
-    if(g>first)continue;
+  for(const [tight,g] of [[0,24],[0,16],[0,12],[0,8],[1,12],[1,8]]){
+    if(g>first||(tight&&!canTight))continue;
+    agg.classList.toggle("tight",!!tight);
     res.style.setProperty("--resGap",g+"px");
     res.style.setProperty("--resTop",(top+g+8)+"px");
     if(res.getBoundingClientRect().bottom<=limit+.5){fits=true;break}
   }
   $("app").classList.toggle("scrolly",!fits);
 }
+
+/* ═══ みんなの結果（17 章）═══
+   解いた瞬間とギブアップの瞬間に、問題番号・結果・時間（秒）・ヒントの回数の 4 つだけを送る（1 端末 1 日 1 回）。
+   返事にその日の集計が載るので、全解答の下に出す。開き直したときは読み直す。
+   ?date=（テスト表示）では送らないし読まない。数秒で打ち切り、通信できなければ何も出さない（知らせもしない）*/
+const AGG_URL="https://api.make10.app/r";
+const AGG_TIMEOUT=4000;                    // 打ち切るまでの時間（ミリ秒）
+const AGG_MIN=30;                          // 件数がこれより少ない間は「集計中」
+const AGG_BANDS=[30,60,120,300];           // 時間の帯の区切り（秒）。サーバー（worker/src/index.js の BANDS）と同じ値
+const AGG_LABELS=["<0:30","<1:00","<2:00","<5:00","5:00+"];
+const AGG_T_MAX=86400;                     // 送る時間の上限（秒）。サーバーの T_MAX と同じ値
+let aggData=null;                          // 今日の集計（読めたときだけ）
+const aggBusy=new Set();                   // 送っている途中の問題番号（二重に送らない）
+const aggBand=t=>{let i=0;while(i<AGG_BANDS.length&&t>=AGG_BANDS[i])i++;return i};
+const aggOk=(j,no)=>!!j&&j.n===no&&[j.s,j.g,j.s0].every(x=>Number.isInteger(x)&&x>=0)
+  &&Array.isArray(j.b)&&j.b.length===AGG_LABELS.length&&j.b.every(x=>Number.isInteger(x)&&x>=0);
+function aggFetch(url,opt){
+  const c=new AbortController(), tm=setTimeout(()=>c.abort(),AGG_TIMEOUT);
+  return fetch(url,{...opt,signal:c.signal}).finally(()=>clearTimeout(tm));
+}
+function aggShow(no,j){
+  if(!PUZZLE||no!==PUZZLE.no)return;
+  aggData=aggOk(j,no)?j:null;
+  drawAgg();layoutResult();
+}
+/* 送る。送れたら（か、サーバーが「もう受け取らない日」と断ったら）印を付けて、送り直さない */
+async function aggSend(no){
+  const rec=DATA.days[no];
+  if(TEST_MODE||!rec||rec.sent||aggBusy.has(no))return;
+  aggBusy.add(no);
+  let j=null, done=false;
+  try{
+    // Content-Type が text/plain の単純な POST（事前確認の OPTIONS が出ない形）
+    const r=await aggFetch(AGG_URL,{method:"POST",headers:{"Content-Type":"text/plain"},
+      body:JSON.stringify({n:no,r:rec.r,t:rec.r==="s"?Math.min(AGG_T_MAX,Math.max(1,rec.t)):null,h:rec.h})});
+    if(r.ok){j=await r.json();done=true}
+    else if(r.status===400){const e=await r.json().catch(()=>null);done=!!e&&e.e==="range"}
+  }catch(e){}
+  aggBusy.delete(no);
+  if(done){rec.sent=1;saveDaily()}
+  aggShow(no,j);
+}
+/* 読む（開き直したとき）*/
+async function aggRead(no){
+  if(TEST_MODE)return;
+  let j=null;
+  try{const r=await aggFetch(AGG_URL+"?n="+no,{});if(r.ok)j=await r.json()}catch(e){}
+  aggShow(no,j);
+}
+function drawAgg(){
+  const box=$("aggbox"), rec=dayRecord(), a=aggData;
+  if(!a||!rec){box.classList.add("hide");box.innerHTML="";return}
+  const total=a.s+a.g;
+  let h=`<div class="at">${t("daily.agg_title")}</div>`;
+  if(total<AGG_MIN)h+=`<div class="ap">${t("daily.agg_pending")}</div>`;
+  else{
+    const pct=(x,y)=>y?Math.round(x*100/y)+"%":"—";
+    const mine=rec.r==="s"?aggBand(rec.t):-1, max=Math.max(1,...a.b);
+    h+=`<div class="ar"><div class="ac"><b>${pct(a.s,total)}</b><span>${t("daily.agg_rate")}</span></div>`+
+      `<div class="ac"><b>${pct(a.s0,a.s)}</b><span>${t("daily.agg_nohint")}</span></div><div class="ab">`+
+      a.b.map((c,i)=>`<div class="bar${i===mine?" me":""}"${i===mine?` aria-label="${t("daily.agg_you")}"`:""}>`+
+        `<i style="--k:${Math.round(c*1000/max)/1000}"></i><span>${AGG_LABELS[i]}</span></div>`).join("")+
+      `</div></div>`;
+  }
+  box.innerHTML=h;box.classList.remove("hide");
+  box.setAttribute("aria-label",t("daily.agg_title"));     // 詰めた形では見出しを出さないので、名前としても持つ
+}
+
+/* ═══ 来た人数の計測（17-1。Cloudflare Web Analytics）═══
+   合い言葉（WA_TOKEN）が空なら読み込まない。ホスト名が make10.app のときだけ読み込む
+   （127.0.0.1 での検証や、手元で開いたときは読み込まない）。HTML には直に書かない */
+const WA_TOKEN="";
+function waStart(token,host){
+  if(!token||host!=="make10.app")return false;
+  const s=document.createElement("script");
+  s.defer=true;s.src="https://static.cloudflareinsights.com/beacon.min.js";
+  s.setAttribute("data-cf-beacon",JSON.stringify({token}));
+  document.head.appendChild(s);
+  return true;
+}
+waStart(WA_TOKEN,location.hostname);
 
 /* ═══ ヒント（8 章・13-4）═══
    共有するたびに 1 回もらえる（1 日 2 回まで）。中身は解答例 1 本から出す。
@@ -2524,6 +2647,19 @@ if(PUZZLE){
   }
 }
 else $("nopuzzle").classList.remove("hide");
+// みんなの結果: 送れていない日を送り直し、今日の分は読み直す（17-2）。?date= では何もしない
+if(!TEST_MODE){
+  let marked=false;
+  for(const k of Object.keys(DATA.days)){
+    const no=+k, rec=DATA.days[k];
+    if(!rec||rec.sent)continue;
+    // 3 日より前の分は、サーバーが必ず断る（受け付けるのは、サーバーの今日の前後 1 日）。送らずに印を付ける
+    if(no<DAILY_NO-2){rec.sent=1;marked=true}
+    else aggSend(no);
+  }
+  if(marked)saveDaily();
+  if(PUZZLE&&dayRecord()&&dayRecord().sent)aggRead(PUZZLE.no);
+}
 </script>
 </body>
 </html>
