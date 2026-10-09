@@ -318,7 +318,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.8";
+const DAILY_VERSION="0.9";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -1759,6 +1759,15 @@ function put(kind,p){
   T().splice(p,0,tk);
 }
 const dropTok=id=>{S.toks=T().filter(x=>x.id!==id)};
+/* 記号を外した・運んだ後に「! !」が並んで残っていたら、後ろの ! も外す（7.9。GAME-SPEC 4-2）。
+   置くときは canPut が !! を作らせないが、「数字 ! ) !」の ) を外すと ! が隣り合ってしまう。
+   **運ぶときは、運び終えた後に呼ぶ**（外した直後に呼ぶと、元の場所へ戻しただけで ! が消える）。
+   返すのは、外した分だけ位置を詰める関数（captureCloseSet に渡す対応づけに重ねる。何も外さなければそのまま返す）*/
+function dropFacRun(){
+  const cut=[];
+  for(let i=1;i<T().length;)if(T()[i].t==="fac"&&T()[i-1].t==="fac"){cut.push(i);T().splice(i,1)}else i++;
+  return i=>{if(i==null)return i;for(const k of cut)if(i>k)i--;return i};
+}
 function match(){const st=[],m={};
   for(const t of T()){if(t.t==="lp")st.push(t);
     else if(t.t==="rp"){if(st.length){const o=st.pop();m[o.id]=t.id;m[t.id]=o.id}else m[t.id]=null}}
@@ -1770,7 +1779,8 @@ function parse(list){let i=0;const pk=()=>list[i]&&list[i].t;
     while(pk()==="op"&&"*/".includes(list[i].v)){const o=list[i++].v,r=po();if(!r)return null;v={o,l:v,r}}return v}
   function po(){const b=ps();if(!b)return null;
     if(pk()==="op"&&list[i].v==="^"){i++;const e=po();if(!e)return null;return{o:"^",l:b,r:e}}return b}
-  function ps(){let v=at();if(!v)return null;while(pk()==="fac"){i++;v={f:v}}return v}
+  // ! は 1 つまで。「3 ! !」は式として読まない（( 3! )! と書く。7.9。GAME-SPEC 2-4）
+  function ps(){let v=at();if(!v)return null;if(pk()==="fac"){i++;v={f:v}}return v}
   function at(){if(pk()==="lp"){i++;const v=ex();if(!v||pk()!=="rp")return null;i++;return v}
     if(pk()==="num")return{v:list[i++].v};return null}
   const v=ex();return(v&&i===list.length)?v:null}
@@ -2025,8 +2035,9 @@ function onUp(e){
   const t=tgt(e);
   if(t&&t.z){const p=+t.z.dataset.p;
     if(d.id){const was=T().findIndex(x=>x.id===d.id);const ins=was<p?p-1:p;
-      captureCloseSet(i=>afterInsert(ins)(afterRemove(was)(i)));
-      dropTok(d.id);put(d.op,ins)}
+      dropTok(d.id);put(d.op,ins);
+      const fx=dropFacRun();                 // 運び終えた後に !! が残っていたら、後ろの ! も外す（手数には数えない）
+      captureCloseSet(i=>fx(afterInsert(ins)(afterRemove(was)(i))))}
     else{captureCloseSet(afterInsert(p));put(d.op,p)}
     moves++;buzz("vibDrop");render(d.op);return}
   if(t&&t.swap){const id=+t.swap.dataset.id;
@@ -2043,7 +2054,8 @@ function onUp(e){
   const r=$("field").getBoundingClientRect();
   const out=e.clientY<r.top||e.clientY>r.bottom||e.clientX<r.left||e.clientX>r.right;
   if(d.id&&out){const was=T().findIndex(x=>x.id===d.id);
-    captureCloseSet(afterRemove(was));dropTok(d.id);render(d.op);return}
+    dropTok(d.id);const fx=dropFacRun();
+    captureCloseSet(i=>fx(afterRemove(was)(i)));render(d.op);return}
   captureCloseSet(i=>i);
   render(d.op)}
 $("tray").addEventListener("pointerdown",e=>{
@@ -2062,7 +2074,7 @@ $("expr").addEventListener("pointerdown",e=>{
       // 確定している場面で、しかもこの消去は手数に残らず後から追えない。
       // 消したいときはトレイの同じチップをもう一度押して選択を解いてからにする
       if(held)return;
-      dropTok(id);render();return}
+      dropTok(id);dropFacRun();render();return}
     startDrag(e,{op:tk.t==="op"?tk.v:tk.t==="fac"?"!":tk.t,el:t,id});return}
   const z=e.target.closest(".zone");
   // .live な枠は livePositions(held) の位置（canPut かつ重複しない）だけ
