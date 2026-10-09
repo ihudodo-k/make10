@@ -134,8 +134,6 @@ button:active{background:var(--edge)}
 /* パソコン: 列は幅 430・高さ最大 900 で、画面の上下左右の中央（DAILY-SPEC 14-1）。列の外は地の色だけ */
 body.daily{align-items:center}
 #app.daily{max-height:900px}
-/* 上のバーの左右の席。「?」・統計・共有・ギブアップは後の版で置く。今は幅だけ取って、中央の文字を画面の軸に乗せる */
-.topslot{width:var(--btnW);height:var(--btnW);flex:0 0 auto}
 /* 制約がある日の 1 行（13-2）。無い日も高さを取り、式の位置を日によって変えない */
 #banline{min-height:18px;font-size:12.5px;line-height:18px;color:var(--dim);text-align:center}
 /* 「問題がありません」 */
@@ -172,6 +170,8 @@ body.daily{align-items:center}
 .rcol .rv b{font-size:26px;font-weight:700;line-height:36px;font-variant-numeric:tabular-nums}
 .rcol .rv b.none{color:var(--dim)}
 .rcol .rv .ru{font-size:12px;color:var(--dim);margin-left:4px}
+/* 単位を出さない言語（英語のヒントの回数）では、空の箱の余白で数字が中央からずれないようにする */
+.rcol .rv .ru:empty{display:none}
 .rcol .rn{font-size:11.5px;line-height:17px;color:var(--dim)}
 /* 全解答の箱（本編のヒント 3 の箱と同じ様式。‹ › × と段階表示は持たない）。行の高さは本編のボタンの高さ */
 #solbox{margin:0 12px}
@@ -182,12 +182,18 @@ body.daily{align-items:center}
 .applink:active{opacity:.6}
 /* それでも収まらない低い画面だけ、列の中を縦に動かせるようにする（13-5）*/
 #app.daily.scrolly{overflow-y:auto}
-/* 統計。列の中に重ねる 1 枚の画面（× で閉じる）。中の 4 項目は本編の統計の 2 列（#statlist・.stat）*/
-#dstatsheet{position:absolute;inset:0;z-index:20;background:var(--ink);
+/* 統計と遊び方。列の中に重ねる 1 枚の画面（× か Esc で閉じる）。
+   統計の中の 4 項目は本編の統計の 2 列（#statlist・.stat）*/
+.dsheet{position:absolute;inset:0;z-index:20;background:var(--ink);
  padding:12px 12px calc(var(--bannerGap) + var(--bannerH));display:flex;flex-direction:column}
-#dstatsheet .shead{display:flex;align-items:center;justify-content:space-between;height:var(--btnW);
+.dsheet .shead{display:flex;align-items:center;justify-content:space-between;height:var(--btnW);
  flex:0 0 auto;margin-bottom:8px}
-#dstatsheet h2{font-size:17px;font-weight:700;margin:0;padding-left:15px}
+.dsheet h2{font-size:17px;font-weight:700;margin:0;padding-left:15px}
+/* 遊び方の文（本編の遊び方の文と同じ大きさ・行間・明るさ）。式は折り返さない（本編 7.7 と同じ）。
+   低い画面で収まらなければ、この中だけ縦に動く */
+#dhelpbody{flex:1 1 0;min-height:0;overflow-y:auto;padding:0 15px}
+#dhelpbody p{margin:0 0 6px;font-size:13px;line-height:1.75;color:var(--paper);opacity:.85}
+#dhelpbody code{font-family:inherit;font-weight:700;white-space:nowrap}
 /* 解いた後の並びの共有ボタン「結果を共有」（3 列の下）。面も枠も持たない。絵柄 20px と文字（Figma「20 デイリー」）*/
 .rshare{align-self:center;width:168px;height:var(--btnW);padding:0;display:flex;align-items:center;justify-content:center;
  gap:8px;font-size:15px;font-weight:700;letter-spacing:.04em;background:none;border:0;border-radius:0;color:var(--paper)}
@@ -208,8 +214,8 @@ body.daily{align-items:center}
 <div id="app" class="daily">
   <div id="play" class="hide dplay" style="flex:1;display:flex;flex-direction:column">
     <div class="top">
-      <!-- 左の席は「?」（遊び方）。言語と遊び方の版で置く。今は幅だけ取る -->
-      <span class="topslot"></span>
+      <!-- 左の席は「?」（遊び方）-->
+      <button id="dhelp" class="plainbtn" data-i18n-label="daily.btn_help"></button>
       <div class="info" id="dinfo"></div>
       <button id="dstats" class="plainbtn" data-i18n-label="daily.btn_stats">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19.5v-7"/><path d="M12 19.5v-15"/><path d="M17.5 19.5v-10"/></svg>
@@ -259,16 +265,32 @@ body.daily{align-items:center}
   </div>
   <div id="nopuzzle" class="hide" data-i18n="daily.nopuzzle"></div>
   <!-- 統計（列の中に重ねる 1 枚の画面）-->
-  <div id="dstatsheet" class="hide">
+  <div id="dstatsheet" class="dsheet hide">
     <div class="shead"><h2 data-i18n="daily.stats_title"></h2>
       <button id="dstats-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
     <div id="statlist"></div>
+  </div>
+  <!-- 遊び方（列の中に重ねる 1 枚の画面。初回だけ自動で出し、以後は「?」から）-->
+  <div id="dhelpsheet" class="dsheet hide">
+    <div class="shead"><h2 data-i18n="daily.help_title"></h2>
+      <button id="dhelp-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
+    <div id="dhelpbody">
+      <p data-i18n="daily.help_1"></p>
+      <p data-i18n="daily.help_2"></p>
+      <p data-i18n="daily.help_3"></p>
+      <p data-i18n-html="daily.help_pow_html"></p>
+      <p data-i18n-html="daily.help_fac_html"></p>
+      <p data-i18n-html="daily.help_zero_fac_html"></p>
+      <p data-i18n="daily.help_4"></p>
+      <!-- この下に、キーボードの一覧（パソコンでだけ。公開の後）と、
+           プライバシーポリシーへのリンク（集計の版。いちばん下）を置く -->
+    </div>
   </div>
   <div id="dfoot"><span id="dtest" class="hide" data-i18n="daily.testmode"></span><span id="dver"></span></div>
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.4";
+const DAILY_VERSION="0.5";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -333,6 +355,7 @@ const STR_DAILY={ja:{
   "daily.nopuzzle":"問題がありません",
   "daily.testmode":"テスト表示（記録しません）",
   "daily.version":"デイリー {v}",
+  "daily.btn_help":"遊び方",
   "daily.btn_giveup":"ギブアップ",
   "daily.btn_stats":"統計",
   "daily.btn_share":"共有",
@@ -367,9 +390,69 @@ const STR_DAILY={ja:{
   "daily.share_after":"Make10 #{no} ⏱{time} 💡{hints} 🔥{streak}",
   "daily.share_giveup":"Make10 #{no} ギブアップ",
   "daily.toast_copied":"コピーしました",
-  "daily.toast_copy_failed":"コピーできません"
+  "daily.toast_copy_failed":"コピーできません",
+  "daily.help_title":"遊び方",
+  "daily.help_1":"4 つの数字を順番どおりに全部使って 10 を作ります。",
+  "daily.help_2":"数字のあいだに演算と括弧を置きます。",
+  "daily.help_3":"使える演算：+ − × ÷ ^ !",
+  "daily.help_pow_html":"<b>^ は累乗</b>です（<code>2 ^ 3 = 8</code>）",
+  "daily.help_fac_html":"<b>! は階乗</b>です（<code>3! = 6</code>）",
+  "daily.help_zero_fac_html":"<b>0! は 1</b> です（<code>0! = 1</code>）",
+  "daily.help_4":"毎日 0 時（端末の時刻）に新しい問題になります。"
 },
-en:{}};
+en:{
+  "daily.page_title":"Make10 Daily",
+  "daily.top_date_html":"<b>#{no}</b><span> · {wd}, {md}</span>",
+  "daily.nopuzzle":"No puzzle today",
+  "daily.testmode":"Test mode (not saved)",
+  "daily.version":"Daily {v}",
+  "daily.btn_help":"How to play",
+  "daily.btn_giveup":"Give up",
+  "daily.btn_stats":"Stats",
+  "daily.btn_share":"Share",
+  "daily.giveup_confirm":"Give up?",
+  "daily.yes":"Yes",
+  "daily.no":"No",
+  "daily.giveup_label":"Gave up",
+  "daily.result_time":"Time",
+  "daily.result_hints":"Hints",
+  "daily.result_streak":"Streak",
+  "daily.sols_other":"Other solutions",
+  "daily.app_link":"Want more puzzles? Play Make10",
+  "daily.stats_title":"Stats",
+  "daily.stats_solved":"Solved",
+  "daily.stats_streak":"Streak",
+  "daily.stats_max":"Max streak",
+  "daily.stats_avg":"Average time",
+  "daily.unit_day":{one:"day",other:"days"},
+  "daily.unit_times":{one:"",other:""},                 // 英語は単位を出さない（列の名前が Hints なので数字だけ）
+  "daily.close":"Close",
+  "daily.hint_locked":"Share with a friend to unlock a hint",
+  "daily.hint_share":"Share",
+  "daily.hint_label_ops":"Uses",
+  // 太字は「with」「no」（日本語の「使う／使わない」と、強調する場所を揃える）。
+  // <code> ではなく <b> ―― 英語の <code> には、ラベルとの間の余白（--hintLabelGap）が付くため
+  "daily.hint_paren_yes_html":"<b>with</b> ( )",
+  "daily.hint_paren_no_html":"<b>no</b> ( )",
+  "daily.hint_sep":" · ",
+  "daily.hint_no_other":"No other operations",
+  "daily.hint_sr_left":{one:"Hint ({n} left)",other:"Hint ({n} left)"},
+  "daily.hint_sr_spent":"No more hints",
+  "daily.share_result":"Share result",
+  "daily.share_before":"Make10 #{no} — Can you make 10?",
+  "daily.share_after":"Make10 #{no} ⏱{time} 💡{hints} 🔥{streak}",
+  "daily.share_giveup":"Make10 #{no} — Gave up",
+  "daily.toast_copied":"Copied!",
+  "daily.toast_copy_failed":"Couldn't copy",
+  "daily.help_title":"How to play",
+  "daily.help_1":"Make 10 using all four numbers in order.",
+  "daily.help_2":"Add operations and parentheses between them.",
+  "daily.help_3":"Operations: + − × ÷ ^ !",
+  "daily.help_pow_html":"<b>^ is power</b> (<code>2 ^ 3 = 8</code>)",
+  "daily.help_fac_html":"<b>! is factorial</b> (<code>3! = 6</code>)",
+  "daily.help_zero_fac_html":"<b>0! is 1</b> (<code>0! = 1</code>)",
+  "daily.help_4":"A new puzzle every day at midnight, your local time."
+}};
 const LANGS=["ja","en"];
 const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");
   return LANGS.includes(q)?q:null}catch(e){return null}})();
@@ -2063,16 +2146,17 @@ function applyLang(){
      days[番号] = {r:"s"（解いた）/"g"（ギブアップ）, t:時間（秒。ギブアップは null）, h:使ったヒントの回数,
                   sh:共有の回数, e:解いた式（解いたときだけ。開き直したときに盤へ戻す）}
      cur = {no:問題番号, ms:見ていた間の時間（ミリ秒）, h:使ったヒントの回数, sh:共有の回数}
+     help = 遊び方を自動で出したら 1（初回だけ出すための印。D0.5）
    ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる。
    公開までは保存の形の互換を気にしない（古い形の記録は読めなくてよい。移行の処理は作らない。10 章）*/
 const DAILY_KEY="make10.daily.v1";
-let DATA={v:1,days:{},cur:null};
+let DATA={v:1,days:{},cur:null,help:0};
 function loadDaily(){
   if(TEST_MODE)return;
   try{
     const x=JSON.parse(localStorage.getItem(DAILY_KEY)||"null");
     if(x&&typeof x==="object"&&x.days&&typeof x.days==="object")
-      DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null};
+      DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null,help:x.help?1:0};
   }catch(e){}
 }
 function saveDaily(){
@@ -2087,9 +2171,10 @@ const playing=()=>!!PUZZLE&&!dayRecord();
    画面を見ている間だけ数える。隠れたら止め、見えたら続きから。途中で閉じて開き直したら、
    保存してある時間の続きから数える（保存できない環境では 0 から）*/
 let seenMs=0, seenFrom=null;       // 見ていた間の合計と、いま見ている区間の始まり（見ていなければ null）
+let helpHold=false;                // 初回に自動で出た遊び方を読んでいる間。閉じるまで時間を数え始めない（13-10）
 const seenNow=()=>seenMs+(seenFrom===null?0:performance.now()-seenFrom);
 function watch(on){
-  if(on){if(seenFrom===null)seenFrom=performance.now()}
+  if(on){if(seenFrom===null&&!helpHold)seenFrom=performance.now()}
   else if(seenFrom!==null){seenMs+=performance.now()-seenFrom;seenFrom=null}
 }
 /* 解いている途中の、使ったヒントの回数と共有の回数（その日の分。解いた・ギブアップした時点で記録へ移す）*/
@@ -2191,7 +2276,7 @@ function showResult(redraw){
 /* 全解答の箱（本編 7.1 と同じ見せ方: 1 本ずつ・下に k/N・押すと次へ）。
    解いた後は「解答例：」で全部、ギブアップの後は「ほかの解き方：」で 2 本目から（無ければ箱を出さない）*/
 let solAt=0;
-const SOL_LABEL_EM={example:HINT_TEXT.labelEm,other:{ja:7,en:7.4}};   // ラベルの幅（em）。英語は言語の版で測り直す
+const SOL_LABEL_EM={example:HINT_TEXT.labelEm,other:{ja:7,en:6.73}};   // ラベルの幅（em）。英語は実測（Other solutions は 84.11px）
 /* 箱の式の縮小率。本編の hintExprScale() と同じ決め方だが、使える幅はデイリーの箱で数える
    （デイリーの箱には ‹ › × と段階表示が無い）。式の幅は本編の hintExprW()（文字ごとの幅の表）*/
 function dailySolScale(ex,other){
@@ -2384,7 +2469,24 @@ $("share").innerHTML=ICON_SHARE;
 $("rshare-ic").innerHTML=ICON_SHARE;
 $("dstats").onclick=()=>{drawStats();$("dstatsheet").classList.remove("hide")};
 $("dstats-close").onclick=()=>$("dstatsheet").classList.add("hide");
-document.addEventListener("keydown",e=>{if(e.key==="Escape")$("dstatsheet").classList.add("hide")});
+
+/* ═══ 遊び方（13-10）═══
+   上のバー左の「?」から開く。初回だけは自動で出す ―― 保存データに印（help）が無いとき。
+   ?date=（テスト表示）では自動で出さない。保存できない環境では印が残らないので、開くたびに出る。
+   絵柄は Figma「20 デイリー」の D01（丸で囲んだ ?）*/
+const ICON_HELP=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.6C9.7 9.18 9.82 8.77 10.03 8.41C10.24 8.04 10.55 7.74 10.91 7.53C11.28 7.33 11.69 7.22 12.11 7.22C12.53 7.22 12.95 7.34 13.31 7.55C13.67 7.76 13.97 8.06 14.18 8.43C14.39 8.79 14.5 9.21 14.5 9.63C14.5 10.05 14.39 10.46 14.18 10.82C13.97 11.19 13.66 11.49 13.3 11.7C12.5 12.2 12 12.7 12 13.6"/><path d="M12 16.6h.01"/></svg>`;
+$("dhelp").innerHTML=ICON_HELP;
+$("dhelp-close").innerHTML=ICON_HCLOSE;
+function helpShow(){$("dhelpsheet").classList.remove("hide")}
+function helpHide(){
+  $("dhelpsheet").classList.add("hide");
+  if(helpHold){helpHold=false;if(playing())watch(document.visibilityState==="visible")}
+}
+$("dhelp").onclick=()=>helpShow();
+$("dhelp-close").onclick=()=>helpHide();
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape")return;
+  $("dstatsheet").classList.add("hide");helpHide()});
 
 window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();
   if(dayRecord()){drawSols();layoutResult()}});
@@ -2408,6 +2510,12 @@ if(PUZZLE){
     clearAll();
     drawHintBtn();
     watch(document.visibilityState==="visible");
+  }
+  // 遊び方を、初回だけ自動で出す。読んでいる間は時間を数えない（閉じたところから数え始める）
+  if(!TEST_MODE&&!DATA.help){
+    if(playing()){watch(false);helpHold=true}
+    DATA.help=1;saveDaily();
+    helpShow();
   }
 }
 else $("nopuzzle").classList.remove("hide");

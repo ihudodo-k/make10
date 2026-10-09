@@ -115,15 +115,17 @@ def run(ui):
              [k for k in dui.CSS_EXCLUDE if k not in main_sel], [])
     # デイリーだけの規則。ここが変わったら、複製した規則のセレクタを書き換えていないかを見る
     ui.check("CSS: デイリーだけの規則", sorted(own),
-             sorted(["body.daily", "#app.daily", ".topslot", "#banline", "#nopuzzle", "#dfoot",
+             sorted(["body.daily", "#app.daily", "#banline", "#nopuzzle", "#dfoot",
                      # D0.3
                      "#dinfo span", "#dgiveup", "#gubox .gurow", "#gubox .gutext", "#gubox button",
                      "#gubox button:active", "#play.dplay", "#play.done .bottom",
                      "#play.done #expr,#play.locked #expr,#play.locked #tray", "#play.done #dgiveup",
                      ".eq.gaveup", "#result", ".rcols", ".rcol .rv", ".rcol .rv b", ".rcol .rv b.none",
                      ".rcol .rv .ru", ".rcol .rn", "#solbox", "#solbox .hintrow", ".applink",
-                     ".applink:active", "#app.daily.scrolly", "#dstatsheet", "#dstatsheet .shead",
-                     "#dstatsheet h2", MEDIA + "#dfoot", MEDIA + ".rcol .rv", MEDIA + ".rcol .rv b",
+                     ".applink:active", "#app.daily.scrolly", ".dsheet", ".dsheet .shead",
+                     ".dsheet h2", MEDIA + "#dfoot", MEDIA + ".rcol .rv", MEDIA + ".rcol .rv b",
                      MEDIA + ".applink",
                      # D0.4
-                     ".rshare", ".rshare:active", ".rshare .ic"]))
+                     ".rshare", ".rshare:active", ".rshare .ic",
+                     # D0.5
+                     ".rcol .rv .ru:empty", "#dhelpbody", "#dhelpbody p", "#dhelpbody code"]))

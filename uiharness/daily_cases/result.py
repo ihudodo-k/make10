@@ -177,7 +177,7 @@ def run(ui):
     # ══ ギブアップ ══
     ui.open(now=at(no), tz=TZ, perf=True)
     ui.check("ギブアップの入口は、上のバー左の席の真下（間隔 8px・同じ大きさ）",
-             ui.ev("(function(){const g=dgiveup.getBoundingClientRect(),s=document.querySelector('.topslot')"
+             ui.ev("(function(){const g=dgiveup.getBoundingClientRect(),s=dhelp"
                    ".getBoundingClientRect(),b=dstats.getBoundingClientRect();"
                    "return [g.left-s.left,g.top-s.bottom,g.width-s.width,g.height-b.height]})()"), [0, 8, 0, 0])
     ui.check("確認は、押すまで出ない", ui.ev(SEEN % "#gubox"), False)
@@ -354,6 +354,8 @@ def run(ui):
 
     # ══ 保存できない環境: 知らせずに、そのまま遊べる ══
     ui.open(now=at(no), tz=TZ, store="blocked", perf=True)
+    # 保存できない環境では、遊び方が開くたびに自動で出る（D0.5）。閉じたところから時間を数える
+    ui.ev("document.getElementById('dhelp-close').click()")
     ui.tick(15000)
     ui.visibility("hidden")
     ui.visibility("visible")

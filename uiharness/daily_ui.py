@@ -222,8 +222,12 @@ def page_data():
     return datetime.date(*map(int, start.groups())), rows
 
 
-def top_text(no, day):
-    """上のバーの中央に出るはずの文字（日本語。DAILY-SPEC 16-4 の daily.top_date）"""
+def top_text(no, day, lang="ja"):
+    """上のバーの中央に出るはずの文字（DAILY-SPEC 16-3・16-4 の daily.top_date_html）"""
+    if lang == "en":
+        return "#%d · %s, %s %d" % (no, "Mon Tue Wed Thu Fri Sat Sun".split()[day.weekday()],
+                                    "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()[day.month - 1],
+                                    day.day)
     return "#%d　%d月%d日（%s）" % (no, day.month, day.day, "月火水木金土日"[day.weekday()])
 
 
@@ -299,7 +303,7 @@ class UI:
         self._tz = None
 
     def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
-             store=None, perf=False):
+             store=None, perf=False, first=False):
         """ページを開く。
 
         date … ?date=YYYY-MM-DD（テスト表示）。None なら付けない
@@ -309,7 +313,10 @@ class UI:
         tz   … 時間帯（"Asia/Tokyo" など）。None なら変えない
         store … 保存データ。None なら空にしてから開く／dict ならその中身を仕込む／
                 "keep" なら前に開いたときのまま／"blocked" なら保存できない環境にする
-        perf … True なら、経過時間の時計を差し替える（tick() で進める）"""
+        perf … True なら、経過時間の時計を差し替える（tick() で進める）
+        first … True なら、初めて来た人として開く（遊び方が自動で出る）。既定は False ――
+                保存データに「遊び方を見た」の印（help:1）を仕込んでおき、遊び方が盤を覆わないようにする。
+                store="keep"・"blocked" のときは仕込まない"""
         # 読み込みの前に走る仕込みは、Chrome に 1 つだけ残す。UI はケースごとに作り直されるので、
         # 前の UI が仕込んだもの（保存データを消す処理など）を Chrome の側で覚えて外す。
         # 外し忘れると、store="keep" で開いても、残っていた仕込みが保存データを消してしまう
@@ -321,6 +328,9 @@ class UI:
         elif store == "blocked":
             st = NO_STORAGE
         else:
+            if not first:
+                store = dict(store if store is not None else {"v": 1, "days": {}, "cur": None})
+                store.setdefault("help", 1)
             st = "try{localStorage.clear();%s}catch(e){}" % (
                 "" if store is None else "localStorage.setItem(%s,%s)" % (
                     json.dumps(SAVE_KEY), json.dumps(json.dumps(store, ensure_ascii=False))))
@@ -350,10 +360,16 @@ class UI:
         self.c.ev("Object.defineProperty(document,'visibilityState',{get:()=>%s,configurable:true});"
                   "document.dispatchEvent(new Event('visibilitychange'))" % json.dumps(state))
 
-    def saved(self):
-        """保存データ（無ければ None）"""
-        raw = self.c.ev("localStorage.getItem(%s)" % json.dumps(SAVE_KEY))
-        return json.loads(raw) if raw else None
+    def saved(self, raw=False):
+        """保存データ（無ければ None）。
+        既定では「遊び方を見た」の印（help）を外して返し、ほかに何も入っていなければ None にする
+        （open() が仕込んだ印だけの状態を「まだ何も保存していない」と読むため）。raw=True でそのまま返す"""
+        text = self.c.ev("localStorage.getItem(%s)" % json.dumps(SAVE_KEY))
+        data = json.loads(text) if text else None
+        if raw or data is None:
+            return data
+        data.pop("help", None)
+        return None if data == {"v": 1, "days": {}, "cur": None} else data
 
     def resize(self, w, h):
         """画面の大きさを変える（開き直す前に呼ぶ）。終わったら restore() で戻す"""
