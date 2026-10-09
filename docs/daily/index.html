@@ -194,6 +194,9 @@ body.daily{align-items:center}
 #dhelpbody{flex:1 1 0;min-height:0;overflow-y:auto;padding:0 15px}
 #dhelpbody p{margin:0 0 6px;font-size:13px;line-height:1.75;color:var(--paper);opacity:.85}
 #dhelpbody code{font-family:inherit;font-weight:700;white-space:nowrap}
+/* 遊び方のいちばん下の、プライバシーポリシーへのリンク（副次色の小さい字・下線 1 本。17-6）*/
+#dhelpbody .hlink{margin-top:18px;font-size:12px;opacity:1}
+#dhelpbody .hlink a{color:var(--dim);text-decoration:underline;text-underline-offset:3px}
 /* 解いた後の並びの共有ボタン「結果を共有」（3 列の下）。面も枠も持たない。絵柄 20px と文字（Figma「20 デイリー」）*/
 .rshare{align-self:center;width:168px;height:var(--btnW);padding:0;display:flex;align-items:center;justify-content:center;
  gap:8px;font-size:15px;font-weight:700;letter-spacing:.04em;background:none;border:0;border-radius:0;color:var(--paper)}
@@ -282,15 +285,15 @@ body.daily{align-items:center}
       <p data-i18n-html="daily.help_fac_html"></p>
       <p data-i18n-html="daily.help_zero_fac_html"></p>
       <p data-i18n="daily.help_4"></p>
-      <!-- この下に、キーボードの一覧（パソコンでだけ。公開の後）と、
-           プライバシーポリシーへのリンク（集計の版。いちばん下）を置く -->
+      <!-- この間に、キーボードの一覧（パソコンでだけ。公開の後）を置く。リンクはいちばん下のまま -->
+      <p class="hlink"><a id="dprivacy" href="../privacy/" target="_blank" rel="noopener" data-i18n="daily.help_privacy"></a></p>
     </div>
   </div>
   <div id="dfoot"><span id="dtest" class="hide" data-i18n="daily.testmode"></span><span id="dver"></span></div>
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.5";
+const DAILY_VERSION="0.6";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -398,7 +401,8 @@ const STR_DAILY={ja:{
   "daily.help_pow_html":"<b>^ は累乗</b>です（<code>2 ^ 3 = 8</code>）",
   "daily.help_fac_html":"<b>! は階乗</b>です（<code>3! = 6</code>）",
   "daily.help_zero_fac_html":"<b>0! は 1</b> です（<code>0! = 1</code>）",
-  "daily.help_4":"毎日 0 時（端末の時刻）に新しい問題になります。"
+  "daily.help_4":"毎日 0 時（端末の時刻）に新しい問題になります。",
+  "daily.help_privacy":"プライバシーポリシー"
 },
 en:{
   "daily.page_title":"Make10 Daily",
@@ -451,7 +455,8 @@ en:{
   "daily.help_pow_html":"<b>^ is power</b> (<code>2 ^ 3 = 8</code>)",
   "daily.help_fac_html":"<b>! is factorial</b> (<code>3! = 6</code>)",
   "daily.help_zero_fac_html":"<b>0! is 1</b> (<code>0! = 1</code>)",
-  "daily.help_4":"A new puzzle every day at midnight, your local time."
+  "daily.help_4":"A new puzzle every day at midnight, your local time.",
+  "daily.help_privacy":"Privacy Policy"
 }};
 const LANGS=["ja","en"];
 const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");

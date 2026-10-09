@@ -57,14 +57,16 @@ def run(ui):
     ui.check("初回: 出した時点で、保存データに印が付く", ui.saved(raw=True), {"v": 1, "days": {}, "cur": None, "help": 1})
     ui.check("見出しと、7 つの行（^・!・0! の説明と、毎日 0 時の行を含む）",
              [ui.ev("document.querySelector('#dhelpsheet h2').textContent"),
-              ui.ev("[...document.querySelectorAll('#dhelpbody p')].map(e=>e.textContent)")],
+              ui.ev("[...document.querySelectorAll('#dhelpbody p:not(.hlink)')].map(e=>e.textContent)")],
              ["遊び方", LINES["ja"]])
     ui.check("太字と式（式は 2 ^ 3 = 8・3! = 6・0! = 1）",
              [ui.ev("[...document.querySelectorAll('#dhelpbody b')].map(e=>e.textContent)"),
               ui.ev("[...document.querySelectorAll('#dhelpbody code')].map(e=>e.textContent)")],
              [BOLD["ja"], ["2 ^ 3 = 8", "3! = 6", "0! = 1"]])
-    ui.check("キーボードの一覧とプライバシーポリシーへのリンクは、まだ無い",
-             ui.ev("document.querySelectorAll('#dhelpbody a,#dhelpbody h3').length"), 0)
+    ui.check("キーボードの一覧は、まだ無い。リンクはプライバシーポリシーの 1 つだけで、いちばん下",
+             ui.ev("[document.querySelectorAll('#dhelpbody h3').length,"
+                   "[...document.querySelectorAll('#dhelpbody a')].map(a=>a.id).join(' '),"
+                   "dhelpbody.lastElementChild.contains(dprivacy)]"), [0, "dprivacy", True])
     ui.check("遊び方は列いっぱいに重なり、盤を覆う",
              [ui.ev(RECT % "dhelpsheet") == ui.ev(RECT % "app"),
               ui.ev("(function(){const r=expr.getBoundingClientRect();"
@@ -79,7 +81,7 @@ def run(ui):
                    "ps[ps.length-1].getBoundingClientRect().bottom<=dver.getBoundingClientRect().top]})()"),
              [True, True, True, True])
     ui.check("文の大きさ・行間・明るさは本編の遊び方と同じ（13px・1.75・85%）",
-             ui.ev("(function(){const s=getComputedStyle(document.querySelector('#dhelpbody p'));"
+             ui.ev("(function(){const s=getComputedStyle(document.querySelector('#dhelpbody p:not(.hlink)'));"
                    "return [s.fontSize,Math.round(parseFloat(s.lineHeight)*100)/100,s.opacity]})()"),
              ["13px", 22.75, "0.85"])
     ui.check("式は折り返さない指定（white-space:nowrap）で、太字",
@@ -162,7 +164,7 @@ def run(ui):
     ui.open(now=at(no), tz=TZ, lang="en", first=True)
     ui.check("英語: 見出しと 7 つの行",
              [ui.ev("document.querySelector('#dhelpsheet h2').textContent"),
-              ui.ev("[...document.querySelectorAll('#dhelpbody p')].map(e=>e.textContent)"),
+              ui.ev("[...document.querySelectorAll('#dhelpbody p:not(.hlink)')].map(e=>e.textContent)"),
               ui.ev("[...document.querySelectorAll('#dhelpbody b')].map(e=>e.textContent)"),
               ui.ev("[dhelp.title,document.getElementById('dhelp-close').getAttribute('aria-label')]")],
              ["How to play", LINES["en"], BOLD["en"], ["How to play", "Close"]])

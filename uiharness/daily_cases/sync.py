@@ -128,4 +128,6 @@ def run(ui):
                      # D0.4
                      ".rshare", ".rshare:active", ".rshare .ic",
                      # D0.5
-                     ".rcol .rv .ru:empty", "#dhelpbody", "#dhelpbody p", "#dhelpbody code"]))
+                     ".rcol .rv .ru:empty", "#dhelpbody", "#dhelpbody p", "#dhelpbody code",
+                     # D0.6
+                     "#dhelpbody .hlink", "#dhelpbody .hlink a"]))

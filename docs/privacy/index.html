@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>プライバシーポリシー / Privacy Policy — Make10</title>
+<!-- Make10 のプライバシーポリシー（デイリーとアプリで 1 枚。日本語と英語を 1 ページに並べる）。
+     仕様は DAILY-SPEC.md 17-6。スクリプトは持たない。外部から読むのはフォントだけ。
+     本編の Web 版を非公開にしても、このページは残す（Google Play の掲載とアプリの中から、この URL を指す） -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* 色はデイリーの藍（DESIGN.md 1 章の値）。囲まない ―― 節は余白と細い線 1 本で区切る */
+:root{--ink:#0A1220;--edge:#24344F;--paper:#F4F1E8;--dim:#8FA3C4}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ink);color:var(--paper);
+ font-family:"Zen Kaku Gothic New",system-ui,-apple-system,"Hiragino Sans",sans-serif;font-weight:500;
+ -webkit-text-size-adjust:100%}
+main{max-width:640px;margin:0 auto;padding:28px 20px 56px}
+.brand{font-size:13px;letter-spacing:.14em;color:var(--dim);margin:0 0 20px}
+.brand a{color:inherit;text-decoration:none}
+h1{font-size:21px;font-weight:700;line-height:1.4;margin:0 0 6px}
+.date{font-size:12px;color:var(--dim);margin:0 0 20px}
+h2{font-size:14px;font-weight:700;line-height:1.5;margin:26px 0 8px}
+p,li{font-size:13.5px;line-height:1.85;margin:0 0 8px;overflow-wrap:anywhere}
+ul{margin:0 0 8px;padding-left:1.3em}
+a{color:var(--paper)}
+code{font-family:inherit;font-weight:700}
+section+section{margin-top:44px;padding-top:36px;border-top:1px solid var(--edge)}
+.jump{font-size:12px;color:var(--dim);margin:0 0 24px}
+.jump a{color:var(--dim)}
+</style>
+</head>
+<body>
+<main>
+  <p class="brand"><a href="../daily/">MAKE10</a></p>
+  <p class="jump"><a href="#ja">日本語</a> ／ <a href="#en">English</a></p>
+
+  <section id="ja" lang="ja">
+    <h1>プライバシーポリシー</h1>
+    <p class="date">最終更新: 2026年10月9日</p>
+    <p>このページは、数字パズル「Make10」（デイリーの Web ページ <a href="https://make10.app/daily/">https://make10.app/daily/</a> と、Make10 のアプリ）で、どんな情報を扱うかを説明します。Make10 は個人が開発・運営しています。</p>
+
+    <h2>1. 集めるもの（デイリー）</h2>
+    <p>デイリーの問題を解いたとき、またはギブアップしたときに、次の 4 つだけを集計のサーバーへ送ります。</p>
+    <ul>
+      <li>問題番号</li>
+      <li>結果（解いた／ギブアップ）</li>
+      <li>かかった時間（秒）</li>
+      <li>使ったヒントの回数</li>
+    </ul>
+    <p>名前・メールアドレス・位置情報などは集めません。人や端末を見分ける番号も付けません。</p>
+
+    <h2>2. 使い道と保存のしかた</h2>
+    <p>送られた 4 つは、「みんなの結果」（正解率・ヒントなしで解いた割合・時間の分布）を出すためだけに使います。サーバーには、問題ごとに<strong>足し合わせた数だけ</strong>を保存します。1 件ごとの記録は保存しないので、あとから誰のものかをたどることはできません。</p>
+
+    <h2>3. 通信の相手に届くもの</h2>
+    <p>ページを開いたり結果を送ったりするとき、通信の仕組みとして、IP アドレス・ブラウザの種類・開いた日時などが次の事業者に届きます。Make10 が、これらを使って個人を特定することはありません。</p>
+    <ul>
+      <li>Cloudflare（集計のサーバーと、来た人数の計測）</li>
+      <li>GitHub（ページの配信。GitHub Pages）</li>
+      <li>Google（文字の書体の配信。Google Fonts）</li>
+    </ul>
+
+    <h2>4. 来た人数の計測</h2>
+    <p>デイリーのページでは、Cloudflare Web Analytics で、ページが見られた回数などを数えます。<strong>クッキーは使いません。</strong>同じ人を日をまたいで追いかけることもしません。</p>
+
+    <h2>5. 端末の中にだけ保存するもの</h2>
+    <p>遊んだ記録（解いた日・時間・ヒントの回数・連続日数のもとになる記録・遊び方を見たかどうか）は、お使いのブラウザの中（localStorage）にだけ保存します。サーバーへは送りません。</p>
+    <p>消したいときは、ブラウザの設定で <code>make10.app</code> のサイトデータ（閲覧データ）を消してください。消すと、記録と連続日数は元に戻せません。</p>
+
+    <h2>6. 保存する期間</h2>
+    <p>サーバーにある足し合わせた数は、期限を決めずに保存します。個人につながる情報を持っていないため、特定の人の分だけを消すことはできません。</p>
+
+    <h2>7. 第三者への提供</h2>
+    <p>集めた情報を、売ったり、広告のために渡したりしません。3 の事業者に届くもののほかに、第三者へ渡すものはありません。</p>
+
+    <h2>8. アプリについて</h2>
+    <p>Make10 のアプリを公開するときは、アプリで扱う情報（広告など）について、このページに書き足します。</p>
+
+    <h2>9. このポリシーの変更</h2>
+    <p>内容を変えたときは、このページを書き換え、いちばん上の「最終更新」の日付を直します。</p>
+
+    <h2>10. お問い合わせ</h2>
+    <p>このポリシーについてのお問い合わせは、次のアドレスへお願いします。<br><a href="mailto:make10alfa@gmail.com">make10alfa@gmail.com</a></p>
+  </section>
+
+  <section id="en" lang="en">
+    <h1>Privacy Policy</h1>
+    <p class="date">Last updated: October 9, 2026</p>
+    <p>This page explains what information is handled by the number puzzle “Make10” (the Daily web page at <a href="https://make10.app/daily/">https://make10.app/daily/</a> and the Make10 app). Make10 is developed and run by an individual.</p>
+
+    <h2>1. What we collect (Daily)</h2>
+    <p>When you solve the daily puzzle or give up, only these four items are sent to our results server:</p>
+    <ul>
+      <li>Puzzle number</li>
+      <li>Result (solved / gave up)</li>
+      <li>Time taken (seconds)</li>
+      <li>Number of hints used</li>
+    </ul>
+    <p>We do not collect your name, email address, or location. No identifier for you or your device is attached.</p>
+
+    <h2>2. How it is used and stored</h2>
+    <p>These four items are used only to show “Everyone's results” (solve rate, share solved without hints, and the distribution of times). The server stores <strong>only running totals</strong> for each puzzle. Individual submissions are not stored, so they cannot be traced back to anyone.</p>
+
+    <h2>3. What reaches our service providers</h2>
+    <p>When you open the page or send a result, your IP address, browser type, and the time of the request reach the following providers as part of how the internet works. Make10 does not use these to identify you.</p>
+    <ul>
+      <li>Cloudflare (results server and visit counting)</li>
+      <li>GitHub (page hosting, GitHub Pages)</li>
+      <li>Google (font delivery, Google Fonts)</li>
+    </ul>
+
+    <h2>4. Visit counting</h2>
+    <p>The Daily page uses Cloudflare Web Analytics to count page views and similar figures. <strong>It does not use cookies</strong>, and it does not follow the same person from day to day.</p>
+
+    <h2>5. What is stored only on your device</h2>
+    <p>Your play history (days solved, times, hints used, the records behind your streak, and whether you have seen the how-to-play screen) is stored only in your browser (localStorage). It is not sent to any server.</p>
+    <p>To delete it, clear the site data for <code>make10.app</code> in your browser settings. Once deleted, your history and streak cannot be restored.</p>
+
+    <h2>6. How long data is kept</h2>
+    <p>The running totals on the server are kept with no set time limit. Because we hold nothing that is linked to a person, we cannot delete one person's part of them.</p>
+
+    <h2>7. Sharing with third parties</h2>
+    <p>We do not sell the information or pass it on for advertising. Nothing is shared with third parties beyond what reaches the providers listed in section 3.</p>
+
+    <h2>8. About the app</h2>
+    <p>When the Make10 app is released, this page will be updated to cover the information the app handles (such as advertising).</p>
+
+    <h2>9. Changes to this policy</h2>
+    <p>When this policy changes, we will update this page and the “Last updated” date at the top.</p>
+
+    <h2>10. Contact</h2>
+    <p>For questions about this policy, please contact:<br><a href="mailto:make10alfa@gmail.com">make10alfa@gmail.com</a></p>
+  </section>
+</main>
+</body>
+</html>
