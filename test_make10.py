@@ -1911,6 +1911,31 @@ class DailyColumn(unittest.TestCase):
             if x["wd"] in (2, 3):
                 self.assertEqual((x["id"][0], x["rc"]), ("2", "N"))
 
+    def test_monday_tuesday_skip_zero_factorial_examples(self):
+        """月・火は、解答例に `0!` を含む問題を使わない (`3!` などほかの階乗は使う)。
+        水〜日は `0!` を含んでいても使う。DAILY-SPEC 4 章"""
+        self.assertEqual(m.DAILY_NO_ZERO_FAC, ("A",))
+        a, b = m.DAILY_CLASSES[0], m.DAILY_CLASSES[1]
+        for sol, ok in (("0! - 9 + 6 * 3", False), ("7 - 0! - 5 + 9", False),
+                        ("( 0! + 0! ) * 5 + 0", False), ("3! + 9 - 1 * 5", True),
+                        ("( 3 - 3 )! + 9 + 0", True), ("1 + 2 + 3 + 4", True)):
+            r = dict(self.row(1234, 7), sol=sol)
+            self.assertEqual(m._daily_class_ok(a, r), ok, sol)
+            self.assertTrue(m._daily_class_ok(b, dict(r, d=10)), sol)   # 水・木は使う
+        # 列にしたとき: 月・火に使える 4 桁の半分が 0! を含むと、出せる週数は半分になり、
+        # 月・火には 0! を含まないほうだけが出る
+        weeks = 4
+        pool = self.pool(weeks)
+        for r in pool:
+            if r["id"][0] == "1" and int(r["id"]) % 2:
+                r["sol"] = "0! + 2 + 3 + 4"
+            if r["id"][0] == "2":
+                r["sol"] = "0! + 0! + 3 + 5"
+        self.assertEqual(m.daily_partition(pool)[0], weeks // 2)
+        col = m.select_daily(pool, weeks // 2)
+        for x in col:
+            self.assertEqual("0!" in x["sol"], x["wd"] in (2, 3), x)
+
     def test_ids_are_moved_to_make_room(self):
         """日曜 (E) に使える 4 桁が、どれも金曜 (C) にも使える (同じ 4 桁が、日曜向きの
         問題と金曜向きの問題を両方持つ)。先に金曜へ入った 4 桁を日曜へ動かさないと、

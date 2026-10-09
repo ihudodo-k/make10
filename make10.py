@@ -3410,6 +3410,9 @@ DAILY_CLASSES = (
     # 分けるときに金曜へ先に入るので、日曜には実際に出ない (DAILY-SPEC 4 章)
     ("E", (6,), 9, 11, "con"),
 )
+# 解答例に `0!` を含む問題を使わない枠 (月・火)。`0! = 1` は知らないと出てこない手筋なので、
+# 週のはじめのやさしい日には出さない。`3!` などほかの階乗は残す (DAILY-SPEC 4 章)
+DAILY_NO_ZERO_FAC = ("A",)
 _DAILY_RC_OP = {v: k for k, v in _BLOB_CODEOF.items()}   # "A" -> "+" …
 _DAILY_SEP = ";"             # 1 行の中で、解答を区切る文字
 
@@ -3435,8 +3438,10 @@ def _daily_rank(tag, pid, rc=""):
 
 
 def _daily_class_ok(cls, r):
-    _name, _days, lo, hi, con = cls
+    name, _days, lo, hi, con = cls
     if not (lo <= r["d"] <= hi):
+        return False
+    if name in DAILY_NO_ZERO_FAC and "0!" in r["sol"]:
         return False
     return con == "any" or (con == "free") == bool(r["free"])
 
@@ -3740,6 +3745,27 @@ def _daily_verify(conn, blob_text, built):
     add("11 埋め込みの安全性",
         [ch for ch in ("`", "${", "\r", "\\", "</") if ch in text],
         "` ${ \\ </ を含まない")
+
+    # 12. 月・火の解答例に 0! が無い (4 章)。生成の側の DAILY_NO_ZERO_FAC は見ず、
+    #     曜日は問題番号から、解答例は DB の puzzles から読み、式を字句に分けて探す
+    bad, n_mt, n_fac = [], 0, 0
+    for r in rows:
+        if (r["no"] - 1) % 7 not in (0, 1):
+            continue
+        n_mt += 1
+        rules = "" if r["rc"] == "N" else _DAILY_RC_OP[r["rc"][0]] + "=0"
+        ex = [e[0] for e in conn.execute(
+            "SELECT s.display FROM puzzles p JOIN solutions s "
+            "ON s.id = p.example_solution_id WHERE p.problem_id = ? AND p.rules = ?",
+            (r["id"], rules))]
+        for disp in ex + r["sols"][:1]:
+            if "0!" in disp.split():
+                bad.append((r["no"], r["id"], disp))
+                break
+        else:
+            n_fac += any("!" in e for e in ex)
+    add("12 月・火は 0! なし", bad,
+        "月・火 %d 問の解答例に 0! が無い (ほかの階乗を使うのは %d 問)" % (n_mt, n_fac))
     return checks
 
 
