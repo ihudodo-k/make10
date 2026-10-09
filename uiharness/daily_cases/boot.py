@@ -49,13 +49,14 @@ def run(ui):
     ui.check("上のバーの文字は画面の左右の中央",
              ui.ev("(function(){const r=dinfo.getBoundingClientRect(),a=app.getBoundingClientRect();"
                    "return Math.abs((r.left+r.right)/2-(a.left+a.right)/2)<1})()"), True)
-    # まだ置いていないもの（?・共有・ヒント）。見えているボタンは、統計・ギブアップ・全部消す
-    ui.check("見えているボタンは、統計・ギブアップ・全部消す",
+    # まだ置いていないのは「?」（遊び方）だけ。見えているボタンは、統計・共有・ギブアップ・全部消す・ヒント
+    ui.check("見えているボタンは、統計・共有・ギブアップ・全部消す・ヒント",
              ui.ev("[...document.querySelectorAll('button')].filter(b=>b.offsetHeight>0"
                    "&&getComputedStyle(b).visibility!=='hidden').map(b=>b.id).join(' ')"),
-             "dstats dgiveup clear")
+             "dstats share dgiveup clear hint")
     ui.check("ボタンの名前",
-             ui.ev("[dstats,dgiveup].map(b=>b.getAttribute('aria-label')).join(' ')"), "統計 ギブアップ")
+             ui.ev("[dstats,share,dgiveup,hint].map(b=>b.getAttribute('aria-label')).join(' ')"),
+             "統計 共有 ギブアップ ヒント")
     ui.check("「全部消す」の名前", ui.ev("clear.getAttribute('aria-label')"), "全部消す")
     ui.check("画面に、辞書の印やキーがそのまま出ていない",
              ui.ev("/\\{\\w+\\}|daily\\.|read\\.|btn\\./.test(document.body.innerText)"), False)

@@ -85,11 +85,6 @@ button:active{background:var(--edge)}
   .field{padding:6px;margin-bottom:6px;min-height:72px}
   .stat{height:66px}
   .stat .sv b,.stat .sv .none{font-size:22px}
-  /* ここから下の 4 つはデイリーだけ（低い画面の詰め）*/
-  #dfoot{height:40px}
-  .rcol .rv{height:30px}
-  .rcol .rv b{font-size:22px;line-height:30px}
-  .applink{height:44px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .plainbtn{width:var(--btnW);height:var(--btnW);padding:0;border:0;background:none;color:var(--paper); display:flex;align-items:center;justify-content:center;flex:0 0 auto;opacity:.9}
@@ -118,6 +113,22 @@ button:active{background:var(--edge)}
 .stat .sk{font-size:11.5px;color:var(--dim);white-space:nowrap}
 .top{position:relative}
 .top .info b{color:var(--paper);font-weight:700}
+.btnlabel{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%); white-space:nowrap}
+#share{position:absolute;top:calc(100% + var(--shareGap));right:0;z-index:1}
+#hint{position:relative}
+#hint{border-color:transparent}
+.stocknum{position:absolute;top:-1px;right:-3px;width:22px;height:15px; font-size:11px;font-weight:700;line-height:15px;text-align:center; color:var(--paper);font-variant-numeric:tabular-nums;pointer-events:none}
+#hint::before{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none; border:1.5px solid transparent; -webkit-mask:radial-gradient(circle 13.5px at calc(100% - 8px) 6.5px,transparent 99%,#000 100%); mask:radial-gradient(circle 13.5px at calc(100% - 8px) 6.5px,transparent 99%,#000 100%)}
+#hint[aria-disabled="true"]{color:var(--slate);opacity:.5;cursor:not-allowed}
+#hint[aria-disabled="true"]:active{background:none}
+.hintrow .hbtn{flex:0 0 auto;width:var(--hintBtnW);height:var(--hintBtnH);padding:0; display:flex;align-items:center;justify-content:center; background:none;border:0;border-radius:9px;color:var(--paper)}
+.hintrow .hbtn .ic{width:var(--hintIcW);height:var(--hintIcW)}
+.hintrow .hbtn:active:not(:disabled){background:var(--edge)}
+.hintrow .hbtn:disabled{color:var(--slate);opacity:.5;cursor:not-allowed;background:none}
+#toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%) translateY(12px); background:var(--panel);border:1px solid var(--edge);color:var(--paper); padding:11px 18px;border-radius:12px;font-size:13px;font-weight:700;z-index:80; opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap; box-shadow:0 8px 22px rgba(0,0,0,.4)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.atfoot{bottom:auto;transform:translate(-50%,-50%) translateY(12px)}
+#toast.atfoot.show{transform:translate(-50%,-50%)}
 
 /* ── デイリーだけの規則（本編に同じセレクタは無い）── */
 /* パソコン: 列は幅 430・高さ最大 900 で、画面の上下左右の中央（DAILY-SPEC 14-1）。列の外は地の色だけ */
@@ -177,6 +188,19 @@ body.daily{align-items:center}
 #dstatsheet .shead{display:flex;align-items:center;justify-content:space-between;height:var(--btnW);
  flex:0 0 auto;margin-bottom:8px}
 #dstatsheet h2{font-size:17px;font-weight:700;margin:0;padding-left:15px}
+/* 解いた後の並びの共有ボタン「結果を共有」（3 列の下）。面も枠も持たない。絵柄 20px と文字（Figma「20 デイリー」）*/
+.rshare{align-self:center;width:168px;height:var(--btnW);padding:0;display:flex;align-items:center;justify-content:center;
+ gap:8px;font-size:15px;font-weight:700;letter-spacing:.04em;background:none;border:0;border-radius:0;color:var(--paper)}
+.rshare:active{background:none;opacity:.6}
+.rshare .ic{width:20px;height:20px}
+/* 低い画面の詰め（デイリーだけの規則の分）。上の規則より後ろに置く ―― 前に置くと、同じ強さの
+   上の規則に負けて効かない（D0.3 は本編から複製した @media の中に書いていて、効いていなかった）*/
+@media (max-height:700px){
+  #dfoot{height:40px}
+  .rcol .rv{height:30px}
+  .rcol .rv b{font-size:22px;line-height:30px}
+  .applink{height:44px}
+}
 </style>
 </head>
 <body data-theme="ai" class="daily">
@@ -190,6 +214,8 @@ body.daily{align-items:center}
       <button id="dstats" class="plainbtn" data-i18n-label="daily.btn_stats">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19.5v-7"/><path d="M12 19.5v-15"/><path d="M17.5 19.5v-10"/></svg>
       </button>
+      <!-- 共有。統計の真下に重ねる（常に出す）。位置は本編の共有ボタンと同じ決め方（id も同じ）-->
+      <button id="share" class="plainbtn" data-i18n-label="daily.btn_share"></button>
       <!-- ギブアップの入口（旗。絵柄は仮・実機で決める）。左の席の真下に重ねる。解く前だけ出す -->
       <button id="dgiveup" class="plainbtn" data-i18n-label="daily.btn_giveup">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 20.5v-16"/><path d="M6.5 5h11l-2.6 3.75 2.6 3.75h-11"/></svg>
@@ -209,19 +235,24 @@ body.daily{align-items:center}
           <button id="gu-yes" data-i18n="daily.yes"></button>
           <button id="gu-no" data-i18n="daily.no"></button>
         </div></div>
+        <!-- ヒントの箱（もらう前の知らせ・1 回目・2 回目）。中身は hintBox() が組む -->
+        <div class="hintbox" id="hintbox"></div>
       </div>
       <div class="foot">
         <button id="clear" class="iconbtn" data-i18n-label="btn.clear"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"> <path d="M20.5 12a8.5 8.5 0 1 1-2.49-6.01"/> <path d="M18.4 2.2v4.2h-4.2"/> </svg></button>
+        <!-- ヒントの丸ボタン（本編と同じ絵柄・同じ id）。右肩に残り回数。読み上げは #hintlabel -->
+        <button id="hint" class="iconbtn" data-i18n-label="btn.hint"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"> <path d="M12 3.2a5.9 5.9 0 0 0-3.5 10.7c.7.5 1.1 1.3 1.1 2.1h4.8c0-.8.4-1.6 1.1-2.1A5.9 5.9 0 0 0 12 3.2Z"/> <path d="M9.9 18.6h4.2"/><path d="M10.7 21h2.6"/> </svg><span class="btnlabel" id="hintlabel"></span><span class="stocknum" id="hintstock" aria-hidden="true"></span></button>
       </div>
       <div class="tray" id="tray"></div>
     </div>
-    <!-- 解いた後・ギブアップの後の並び（13-5）。共有ボタンは 3 列の下、みんなの結果は全解答の下に、後の版で入る -->
+    <!-- 解いた後・ギブアップの後の並び（13-5）。みんなの結果は全解答の下に、集計の版で入る -->
     <div id="result" class="hide">
       <div class="rcols">
         <div class="rcol"><div class="rv"><b id="r-time"></b></div><div class="rn" data-i18n="daily.result_time"></div></div>
         <div class="rcol"><div class="rv"><b id="r-hints"></b><span class="ru" id="r-hints-u"></span></div><div class="rn" data-i18n="daily.result_hints"></div></div>
         <div class="rcol"><div class="rv"><b id="r-streak"></b><span class="ru" id="r-streak-u"></span></div><div class="rn" data-i18n="daily.result_streak"></div></div>
       </div>
+      <button id="rshare" class="rshare"><span id="rshare-ic"></span><span data-i18n="daily.share_result"></span></button>
       <div class="hintbox" id="solbox"></div>
       <a class="applink" id="applink" href="https://make10.app/"><span data-i18n="daily.app_link"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
     </div>
@@ -237,7 +268,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.3";
+const DAILY_VERSION="0.4";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -304,6 +335,7 @@ const STR_DAILY={ja:{
   "daily.version":"デイリー {v}",
   "daily.btn_giveup":"ギブアップ",
   "daily.btn_stats":"統計",
+  "daily.btn_share":"共有",
   "daily.giveup_confirm":"ギブアップしますか？",
   "daily.yes":"はい",
   "daily.no":"いいえ",
@@ -320,7 +352,22 @@ const STR_DAILY={ja:{
   "daily.stats_avg":"平均時間",
   "daily.unit_day":{other:"日"},
   "daily.unit_times":{other:"回"},
-  "daily.close":"閉じる"
+  "daily.close":"閉じる",
+  "daily.hint_locked":"友達に出題するとヒントがもらえます",
+  "daily.hint_share":"共有する",
+  "daily.hint_label_ops":"使う演算：",
+  "daily.hint_paren_yes_html":"括弧：<code>使う</code>",
+  "daily.hint_paren_no_html":"括弧：<code>使わない</code>",
+  "daily.hint_sep":"　",
+  "daily.hint_no_other":"ほかの演算は使わない",
+  "daily.hint_sr_left":{other:"ヒント（残り {n} 回）"},
+  "daily.hint_sr_spent":"これ以上のヒントはありません",
+  "daily.share_result":"結果を共有",
+  "daily.share_before":"Make10 #{no} 解ける？",
+  "daily.share_after":"Make10 #{no} ⏱{time} 💡{hints} 🔥{streak}",
+  "daily.share_giveup":"Make10 #{no} ギブアップ",
+  "daily.toast_copied":"コピーしました",
+  "daily.toast_copy_failed":"コピーできません"
 },
 en:{}};
 const LANGS=["ja","en"];
@@ -1902,6 +1949,8 @@ $("expr").addEventListener("pointerdown",e=>{
 function hideWin(){}
 const pretty=s=>s.replace(/\*/g,"×").replace(/\//g,"÷").replace(/-/g,"−");
 const ICON_HCLOSE=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10"/><path d="M17 7l-10 10"/></svg>`;
+const ICON_SHARE =`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="17" cy="5.5" r="2.5"/><circle cx="7" cy="12" r="2.5"/><circle cx="17" cy="18.5" r="2.5"/><path d="M9.2 10.8l5.6-4.1"/><path d="M9.2 13.2l5.6 4.1"/></svg>`;
+let toastT=0;
 function clearAll(){
   uid=1;S={toks:cur.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
   held=null;
@@ -2013,8 +2062,9 @@ function applyLang(){
    本編とは別のキー。days = 1 日ぶんの記録（問題番号ごと）、cur = 解いている途中の時間。
      days[番号] = {r:"s"（解いた）/"g"（ギブアップ）, t:時間（秒。ギブアップは null）, h:使ったヒントの回数,
                   sh:共有の回数, e:解いた式（解いたときだけ。開き直したときに盤へ戻す）}
-     cur = {no:問題番号, ms:見ていた間の時間（ミリ秒）}
-   ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる */
+     cur = {no:問題番号, ms:見ていた間の時間（ミリ秒）, h:使ったヒントの回数, sh:共有の回数}
+   ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる。
+   公開までは保存の形の互換を気にしない（古い形の記録は読めなくてよい。移行の処理は作らない。10 章）*/
 const DAILY_KEY="make10.daily.v1";
 let DATA={v:1,days:{},cur:null};
 function loadDaily(){
@@ -2042,9 +2092,11 @@ function watch(on){
   if(on){if(seenFrom===null)seenFrom=performance.now()}
   else if(seenFrom!==null){seenMs+=performance.now()-seenFrom;seenFrom=null}
 }
+/* 解いている途中の、使ったヒントの回数と共有の回数（その日の分。解いた・ギブアップした時点で記録へ移す）*/
+let hintUsed=0, shareCount=0;
 function keepTime(){
   if(!playing())return;
-  DATA.cur={no:PUZZLE.no,ms:Math.round(seenNow())};
+  DATA.cur={no:PUZZLE.no,ms:Math.round(seenNow()),h:hintUsed,sh:shareCount};
   saveDaily();
 }
 document.addEventListener("visibilitychange",()=>{
@@ -2100,7 +2152,7 @@ function placeExpr(expr){
 function dailySolved(){
   if(!solved||!playing())return;
   watch(false);
-  DATA.days[PUZZLE.no]={r:"s",t:Math.max(1,Math.round(seenMs/1000)),h:0,sh:0,e:exprOf()};
+  DATA.days[PUZZLE.no]={r:"s",t:Math.max(1,Math.round(seenMs/1000)),h:hintUsed,sh:shareCount,e:exprOf()};
   DATA.cur=null;saveDaily();
   document.querySelectorAll(".num").forEach((n,i)=>
     setTimeout(()=>{n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop")},i*70));
@@ -2110,7 +2162,7 @@ function dailySolved(){
 function giveUp(){
   if(!playing())return;
   watch(false);
-  DATA.days[PUZZLE.no]={r:"g",t:null,h:0,sh:0};
+  DATA.days[PUZZLE.no]={r:"g",t:null,h:hintUsed,sh:shareCount};
   DATA.cur=null;saveDaily();
   showResult(true);
 }
@@ -2119,6 +2171,7 @@ function giveUp(){
 function showResult(redraw){
   const rec=dayRecord();if(!rec)return;
   $("gubox").classList.remove("show");
+  hintBox(null);
   $("play").classList.add("done");
   if(redraw){
     solved=true;                              // render() に正解の後の処理を予約させない
@@ -2174,7 +2227,9 @@ function layoutResult(){
   const play=$("play"), res=$("result");
   if(!play.classList.contains("done"))return;
   const top=$("exprwrap").getBoundingClientRect().bottom-play.getBoundingClientRect().top;
-  const limit=$("dfoot").getBoundingClientRect().top;
+  // 上限は、版の行に見えている文字の上端（テスト表示が出ていればその上端）。箱の上端ではない ――
+  // Figma は、導線の押せる範囲を版の文字のすぐ上まで使っている
+  const limit=Math.min(...[$("dtest"),$("dver")].filter(e=>e.offsetHeight>0).map(e=>e.getBoundingClientRect().top));
   const first=matchMedia(COMPACT_MQ).matches?16:24;
   let fits=false;
   for(const g of [24,16,12,8]){
@@ -2186,8 +2241,131 @@ function layoutResult(){
   $("app").classList.toggle("scrolly",!fits);
 }
 
+/* ═══ ヒント（8 章・13-4）═══
+   共有するたびに 1 回もらえる（1 日 2 回まで）。中身は解答例 1 本から出す。
+     1 回目 = 解答例を左から読んで、最初に出てくる演算の種類
+     2 回目 = もう 1 種類（出てくる順）と、括弧を使うかどうか。演算が 1 種類だけなら「ほかの演算は使わない」
+   本編のヒント（残数・段階）とは別の仕組みで、関数の名前も別にしてある */
+/* 解答例に出てくる演算の種類（+ - * / ^ !）を、初めて出てくる順に */
+function hintKinds(sol){
+  const out=[];
+  for(const c of sol)if("+-*/^!".includes(c)&&!out.includes(c))out.push(c);
+  return out;
+}
+/* n 回目のヒントの文（HTML。記号と「使う／使わない」が太字）*/
+function hintHtml(p,n){
+  const k=hintKinds(p.sol), label=t("daily.hint_label_ops");
+  if(n===1)return `${label}<code>${GLYPH[k[0]]}</code>`;
+  const paren=t(p.sol.includes("(")?"daily.hint_paren_yes_html":"daily.hint_paren_no_html");
+  return (k.length>1?`${label}<code>${GLYPH[k[0]]} ${GLYPH[k[1]]}</code>`:t("daily.hint_no_other"))
+    +t("daily.hint_sep")+paren;
+}
+/* もらった数（共有の回数。2 回まで）から、使った数を引いた残り */
+const hintLeft=()=>Math.min(2,shareCount)-hintUsed;
+/* 箱に出しているもの。null = 閉じている / "lock" = もらう前の知らせ / 1・2 = その回のヒント */
+let hintShown=null;
+function hintBox(what){
+  hintShown=what;
+  const b=$("hintbox");
+  if(what===null){b.classList.remove("show");b.innerHTML=""}
+  else{
+    $("gubox").classList.remove("show");
+    const close=`<button class="hbtn" id="hint-close" aria-label="${t("hint.close")}">${ICON_HCLOSE}</button>`;
+    b.innerHTML=`<div class="hintrow"><span class="hbody"><span class="hbin">`+
+      (what==="lock"?t("daily.hint_locked"):hintHtml(PUZZLE,what))+`</span></span>`+
+      (what==="lock"?`<button class="hbtn" id="hint-share" aria-label="${t("daily.hint_share")}">${ICON_SHARE}</button>`:"")+
+      close+`</div>`;
+    b.classList.add("show");
+    $("hint-close").onclick=()=>hintBox(null);
+    if(what==="lock")$("hint-share").onclick=()=>doShare(true);
+  }
+  drawHintBtn();
+}
+/* 丸ボタンの右肩の残り回数（0 のときは出さない）と、読み上げの文。
+   2 回目を出している間は無効の見た目（押しても何も起きない。閉じれば、押すと読み返せる）*/
+function drawHintBtn(){
+  const left=hintLeft(), spent=hintShown===2;
+  $("hintstock").textContent=left>0?left:"";
+  $("hintlabel").textContent=spent?t("daily.hint_sr_spent"):t("daily.hint_sr_left",{n:left});
+  if(spent)$("hint").setAttribute("aria-disabled","true");else $("hint").removeAttribute("aria-disabled");
+}
+/* 次のヒントを 1 回使って出す */
+function useHint(){
+  hintUsed++;keepTime();
+  hintBox(hintUsed);
+}
+/* 丸ボタン（本編の決まりに揃えた）。
+   箱が閉じている: 見たヒントがあれば、最後のものをもう一度（使わない）。無ければ、残りがあれば 1 回目、無ければ知らせ
+   箱が開いている: 残りがあれば次のヒント。無ければ、まだ 2 回目を見ていないときだけ知らせ（知らせを出しているなら閉じる）*/
+function pressHint(){
+  if(!playing())return;
+  if(hintShown===null){
+    if(hintUsed>0)hintBox(hintUsed);
+    else if(hintLeft()>0)useHint();
+    else hintBox("lock");
+    return;
+  }
+  if(hintLeft()>0)useHint();
+  else if(hintShown==="lock")hintBox(null);
+  else if(hintUsed<2)hintBox("lock");
+}
+$("hint").addEventListener("click",pressHint);
+
+/* ═══ 共有（9 章）═══
+   共有するのはページの URL だけ（問題番号や結果を URL に入れない）。共有文に答え・演算・ヒントの中身を入れない */
+const DAILY_URL="https://make10.app/daily/";
+/* その問題番号の、今の状態の共有文（rec = 1 日ぶんの記録。まだなら undefined）*/
+function shareTextOf(no,rec,streak){
+  if(!rec)return t("daily.share_before",{no});
+  if(rec.r==="s")return t("daily.share_after",{no,time:fmtTime(rec.t),hints:rec.h,streak});
+  return t("daily.share_giveup",{no});
+}
+/* 共有する。共有画面が使えれば共有画面、使えなければ（または拒まれたら）クリップボードにコピーして知らせる。
+   共有画面を開いた（閉じただけでも）か、コピーできたら、共有 1 回に数える（実際に送ったかは確かめない。8 章）。
+   fromLock = もらう前の知らせの箱から共有した。もらえたら、そのままヒントを出す */
+async function doShare(fromLock){
+  if(!PUZZLE)return;
+  const text=shareTextOf(PUZZLE.no,dayRecord(),streakNow());
+  let ok=false;
+  if(navigator.share){
+    try{await navigator.share({text,url:DAILY_URL});ok=true}
+    catch(e){ok=!!e&&e.name==="AbortError"}        // 共有画面を閉じただけ。開いたので数える
+  }
+  if(!ok){
+    try{await navigator.clipboard.writeText(text+"\n"+DAILY_URL);ok=true;toast(t("daily.toast_copied"))}
+    catch(e){toast(t("daily.toast_copy_failed"))}
+  }
+  if(!ok)return;
+  const rec=dayRecord();
+  if(rec){rec.sh=(rec.sh||0)+1;saveDaily();return}   // 解いた後・ギブアップの後。回数だけ数える
+  shareCount++;keepTime();
+  if(fromLock&&hintLeft()>0)useHint();               // 知らせの箱から共有した。そのままヒントを出す
+  else{if(hintShown==="lock")hintBox(null);drawHintBtn()}
+}
+$("share").onclick=()=>doShare(false);
+$("rshare").onclick=()=>doShare(false);
+
+/* ═══ トースト（除外の一覧。本編のものは、本編の下の段の並びから位置を決める）═══
+   解く前は、丸ボタン 2 つ（全部消す・ヒント）の間。解いた後・ギブアップの後は、版の行のすぐ上 */
+function toast(msg){
+  let e=$("toast");
+  if(!e){e=document.createElement("div");e.id="toast";document.body.appendChild(e)}
+  e.textContent=msg;
+  const foot=playing();
+  if(foot){
+    const c=$("clear").getBoundingClientRect(), h=$("hint").getBoundingClientRect();
+    e.style.left=(c.right+h.left)/2+"px";e.style.top=(c.top+c.bottom)/2+"px";e.style.bottom="";
+  }else{
+    e.style.left="";e.style.top="";
+    e.style.bottom=(innerHeight-$("dfoot").getBoundingClientRect().top+8)+"px";
+  }
+  e.classList.toggle("atfoot",foot);
+  e.classList.add("show");
+  clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("show"),1600);
+}
+
 /* ═══ ギブアップの入口と確認（13-3）═══ */
-$("dgiveup").onclick=()=>{if(playing())$("gubox").classList.toggle("show")};
+$("dgiveup").onclick=()=>{if(!playing())return;hintBox(null);$("gubox").classList.toggle("show")};
 $("gu-no").onclick=()=>$("gubox").classList.remove("show");
 $("gu-yes").onclick=()=>giveUp();
 
@@ -2202,6 +2380,8 @@ function drawStats(){
     `</div><div class="sk">${t(k)}</div></div>`).join("");
 }
 $("dstats-close").innerHTML=ICON_HCLOSE;
+$("share").innerHTML=ICON_SHARE;
+$("rshare-ic").innerHTML=ICON_SHARE;
 $("dstats").onclick=()=>{drawStats();$("dstatsheet").classList.remove("hide")};
 $("dstats-close").onclick=()=>$("dstatsheet").classList.add("hide");
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("dstatsheet").classList.add("hide")});
@@ -2219,9 +2399,14 @@ if(PUZZLE){
   if(dayRecord())showResult(true);           // 解いた後・ギブアップの後に開き直した。解き直せない
   else{
     // 解いている途中で開き直した。時間だけ続きから数える（盤は空に戻す）
-    if(DATA.cur&&DATA.cur.no===PUZZLE.no&&DATA.cur.ms>0)seenMs=DATA.cur.ms;
+    // 使ったヒントの回数と共有の回数も、その日の分は続きから
+    if(DATA.cur&&DATA.cur.no===PUZZLE.no){
+      seenMs=DATA.cur.ms>0?DATA.cur.ms:0;
+      hintUsed=Math.min(2,DATA.cur.h>0?DATA.cur.h:0);shareCount=DATA.cur.sh>0?DATA.cur.sh:0;
+    }
     else DATA.cur=null;
     clearAll();
+    drawHintBtn();
     watch(document.visibilityState==="visible");
   }
 }

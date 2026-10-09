@@ -17,14 +17,14 @@ from uiharness import daily_ui as dui
 NAME = "本編との同期の照合"
 STATIC = True
 
-# 1 文字も変えずに複製するもの（DAILY-SPEC 18-3）。D0.3 の時点
+# 1 文字も変えずに複製するもの（DAILY-SPEC 18-3）。D0.4 の時点
 REQUIRED_JS = """STR_CORE LANGS LANG_URL LANG PLURAL pickLang t applyI18n OPOF conOf MODE solved
 gd R add ml isInt fct pwr TOKEN_METRICS COMPACT_MQ ZONE_BASE ZONE_MIN MET applyMetrics tokensWidth
 GLYPH NEST TRAY S $ T canPut insSeq livePositions put dropTok match parse ev same deadParens segValues
 curExprScale MIN_SCALE applyScale scaleFor fit zoneCalc devSnap layoutZones closeSet afterInsert afterRemove
 captureCloseSet showZones hideZones DEV_CATCH DEV_SWAP buzz lastHot ghost gmove startDrag nearest nearZone
 nearSwap tgt onMove onUp clearAll DEV_DEFAULT btnOf btnOff HINT_ROW HINT_GLYPH HINT_TEXT hintExprW
-hintExprScale SHARE_BTN NEXT_BTN pretty ICON_HCLOSE""".split()
+hintExprScale SHARE_BTN NEXT_BTN pretty ICON_HCLOSE ICON_SHARE toastT""".split()
 REQUIRED_JS_ANON = [
     '@document.body.appendChild(ghost);',
     '@$("tray").addEventListener("pointerdown",e=>{',
@@ -50,6 +50,11 @@ REQUIRED_CSS = [
     "#statlist", ".stat", ".stat .sv", ".stat .sv b,.stat .sv .none", ".stat .sv .none",
     ".stat .sv .su", ".stat .sk",
     MEDIA + ".stat", MEDIA + ".stat .sv b,.stat .sv .none",
+    # D0.4: ヒントの丸ボタンの残り回数・共有ボタンの位置・箱の中のボタン・トースト
+    ".btnlabel", "#share", "#hint", ".stocknum", "#hint::before", '#hint[aria-disabled="true"]',
+    '#hint[aria-disabled="true"]:active', ".hintrow .hbtn", ".hintrow .hbtn .ic",
+    ".hintrow .hbtn:active:not(:disabled)", ".hintrow .hbtn:disabled",
+    "#toast", "#toast.show", "#toast.atfoot", "#toast.atfoot.show",
     MEDIA + ".readout", MEDIA + ".eq", MEDIA + ".eq.idle", MEDIA + ".eq.part", MEDIA + ".chip",
     MEDIA + ".foot", MEDIA + ".top", MEDIA + ".field",
     "@media (prefers-reduced-motion:reduce) || *",
@@ -119,4 +124,6 @@ def run(ui):
                      ".rcol .rv .ru", ".rcol .rn", "#solbox", "#solbox .hintrow", ".applink",
                      ".applink:active", "#app.daily.scrolly", "#dstatsheet", "#dstatsheet .shead",
                      "#dstatsheet h2", MEDIA + "#dfoot", MEDIA + ".rcol .rv", MEDIA + ".rcol .rv b",
-                     MEDIA + ".applink"]))
+                     MEDIA + ".applink",
+                     # D0.4
+                     ".rshare", ".rshare:active", ".rshare .ic"]))
