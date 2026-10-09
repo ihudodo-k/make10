@@ -2441,9 +2441,10 @@ function drawAgg(){
 }
 
 /* ═══ 来た人数の計測（17-1。Cloudflare Web Analytics）═══
-   合い言葉（WA_TOKEN）が空なら読み込まない。ホスト名が make10.app のときだけ読み込む
+   合い言葉（WA_TOKEN。Cloudflare のダッシュボードが出したサイト make10.app のもの）が空なら読み込まない。
+   ホスト名が make10.app のときだけ読み込む
    （127.0.0.1 での検証や、手元で開いたときは読み込まない）。HTML には直に書かない */
-const WA_TOKEN="";
+const WA_TOKEN="fdeab85a494942a296434b2ae241dd45";
 function waStart(token,host){
   if(!token||host!=="make10.app")return false;
   const s=document.createElement("script");

@@ -431,7 +431,6 @@ python make10.py daily --rebuild              # ページの行を捨てて頭�
 - 全部の列を使い切った後の扱い
 - 時間の分布の帯の区切りと、集計とプライバシーポリシーのために足す文は、**案のまま実装した**（D0.6〜D0.8。
   人には相談していない。19 章）。見直すなら、帯はページとサーバーの両方、文は辞書を直す
-- Cloudflare Web Analytics の合い言葉（ページの定数 `WA_TOKEN`。今は空で、計測は読み込まれない。17-1）
 - プライバシーポリシーの本文の確かめと、開発者の名前（17-6・19-2）
 
 ## 13. 画面
@@ -960,8 +959,8 @@ python make10.py daily --rebuild              # ページの行を捨てて頭�
 ### 17-1. 来た人数（Cloudflare Web Analytics）
 - Cloudflare Web Analytics を、**デイリーにだけ**入れる。DNS はプロキシなし（DNS only）のまま
   （ページに印の 1 行を入れる方式。DNS は変えない）
-- **入れる場所は作ってあり、合い言葉がまだ無い**（D0.8）。ページの定数 **`WA_TOKEN`**（1 か所。今は空）に、人が値を入れる。
-  空の間は、計測の 1 本を読み込まない。読み込むのは関数 `waStart(token, host)` で、合い言葉があり、
+- **合い言葉は、ページの定数 `WA_TOKEN`（1 か所）**。D0.8 で入れ場所を作り、D0.8 追補で値を入れた
+  （Cloudflare のダッシュボードが出した、サイト `make10.app` のもの）。空にすると、計測の 1 本を読み込まない。読み込むのは関数 `waStart(token, host)` で、合い言葉があり、
   ホスト名がちょうど `make10.app` のときだけ（`www.make10.app` は `make10.app` へ転送されるので、読み込まない）
 - 入れ方: Cloudflare のダッシュボードの Web Analytics で、サイト（ホスト名 `make10.app`）を足し、
   出てくる印（`https://static.cloudflareinsights.com/beacon.min.js` を読む 1 行と、サイトごとの合い言葉）を使う
