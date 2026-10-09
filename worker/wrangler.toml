@@ -23,5 +23,5 @@ ALLOW_ORIGIN = "https://make10.app"
 [[d1_databases]]
 binding = "DB"
 database_name = "make10-daily"
-# `npx wrangler d1 create make10-daily` が出す id に書き換える（手元の試しは、このままで動く）
-database_id = "00000000-0000-0000-0000-000000000000"
+# 本番の D1（`npx wrangler d1 create make10-daily` が出した id）。手元の試しは、手元の D1 を使うので本番には触らない
+database_id = "8f564a10-b136-4cf7-81d2-24f280856d79"
