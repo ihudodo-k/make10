@@ -24,13 +24,17 @@ GLYPH NEST TRAY S $ T canPut insSeq livePositions put dropTok match parse ev sam
 curExprScale MIN_SCALE applyScale scaleFor fit zoneCalc devSnap layoutZones closeSet afterInsert afterRemove
 captureCloseSet showZones hideZones DEV_CATCH DEV_SWAP buzz lastHot ghost gmove startDrag nearest nearZone
 nearSwap tgt onMove onUp clearAll DEV_DEFAULT btnOf btnOff HINT_ROW HINT_GLYPH HINT_TEXT hintExprW
-hintExprScale SHARE_BTN NEXT_BTN pretty ICON_HCLOSE ICON_SHARE toastT dropFacRun""".split()
+hintExprScale SHARE_BTN NEXT_BTN pretty ICON_HCLOSE ICON_SHARE toastT dropFacRun pressedBtn pressOff""".split()
 REQUIRED_JS_ANON = [
     '@document.body.appendChild(ghost);',
     '@$("tray").addEventListener("pointerdown",e=>{',
     '@$("expr").addEventListener("pointerdown",e=>{',
     '@document.addEventListener("click",e=>{',
     '@$("clear").onclick=()=>clearAll();',
+    # D0.10: 押した瞬間の手応え
+    '@document.addEventListener("pointerdown",e=>{',
+    '@document.addEventListener("pointerup",pressOff,true);',
+    '@document.addEventListener("pointercancel",pressOff,true);',
 ]
 MEDIA = "@media (max-height:700px) || "
 REQUIRED_CSS = [
@@ -55,6 +59,8 @@ REQUIRED_CSS = [
     '#hint[aria-disabled="true"]:active', ".hintrow .hbtn", ".hintrow .hbtn .ic",
     ".hintrow .hbtn:active:not(:disabled)", ".hintrow .hbtn:disabled",
     "#toast", "#toast.show", "#toast.atfoot", "#toast.atfoot.show",
+    # D0.10: 押した瞬間の手応え
+    'button.pressed,[role="button"].pressed',
     MEDIA + ".readout", MEDIA + ".eq", MEDIA + ".eq.idle", MEDIA + ".eq.part", MEDIA + ".chip",
     MEDIA + ".foot", MEDIA + ".top", MEDIA + ".field",
     "@media (prefers-reduced-motion:reduce) || *",

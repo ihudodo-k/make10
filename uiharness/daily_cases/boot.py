@@ -4,6 +4,7 @@
 判定は見えている値で取る。期待値の起点日と列は、ページのソースから読む（`daily_ui.page_data()`）。
 """
 import datetime
+import time
 
 from uiharness import daily_ui as dui
 
@@ -57,6 +58,33 @@ def run(ui):
              ui.ev("[dhelp,dstats,share,dgiveup,hint].map(b=>b.getAttribute('aria-label')).join(' ')"),
              "遊び方 統計 共有 ギブアップ ヒント")
     ui.check("「全部消す」の名前", ui.ev("clear.getAttribute('aria-label')"), "全部消す")
+    # 押した瞬間の手応え（D0.10。本編 8.0 と同じ文）: 指が触れた瞬間に薄くなり、離すと戻る。本物のタッチで見る
+    touch = lambda typ, pts: ui.c.ws.call("Input.dispatchTouchEvent", {"type": typ, "touchPoints": [      # noqa: E731
+        {"x": x, "y": y, "id": i} for i, (x, y) in enumerate(pts)]})
+    ui.c.ws.call("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
+    try:
+        got = []
+        for el in ("clear", "dhelp", "share"):
+            x, y = ui.ev("(()=>{const b=document.getElementById(%r).getBoundingClientRect();"
+                         "return [(b.left+b.right)/2,(b.top+b.bottom)/2]})()" % el)
+            look = ("(()=>{const e=document.getElementById(%r);"
+                    "return [e.classList.contains('pressed'),getComputedStyle(e).opacity]})()" % el)
+            before = ui.ev(look)
+            touch("touchStart", [(x, y)])
+            time.sleep(0.08)
+            down = ui.ev(look)
+            touch("touchMove", [(x + 90, y + 90)])           # 大きく動かして、押したことにしない
+            time.sleep(0.05)
+            touch("touchEnd", [])
+            time.sleep(0.15)
+            got.append([before, down, ui.ev(look)])
+        # 上のバーのボタン（.plainbtn）は、ふだんの不透明度が 90%
+        ui.check("全部消す・遊び方・共有: 指が触れた瞬間に薄くなり（50%）、離すと戻る",
+                 got, [[[False, "1"], [True, "0.5"], [False, "1"]]] + [[[False, "0.9"], [True, "0.5"], [False, "0.9"]]] * 2)
+        ui.check("押したことにしなかったので、遊び方も共有も開いていない",
+                 [ui.ev("document.getElementById('dhelpsheet').classList.contains('hide')"), ui.visible("play")], [True, True])
+    finally:
+        ui.c.ws.call("Emulation.setTouchEmulationEnabled", {"enabled": False})
     ui.check("画面に、辞書の印やキーがそのまま出ていない",
              ui.ev("/\\{\\w+\\}|daily\\.|read\\.|btn\\./.test(document.body.innerText)"), False)
     # 列の幅と高さ。スマホの画面では、列＝画面

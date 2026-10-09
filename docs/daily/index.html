@@ -26,6 +26,9 @@ body{background:var(--ink); color:var(--paper); font-family:"Zen Kaku Gothic New
 .bottom{position:relative;flex:0 0 auto}
 button{font:inherit;cursor:pointer;color:var(--paper);background:var(--panel); border:1px solid var(--edge);border-radius:11px}
 button:active{background:var(--edge)}
+/* 押した瞬間の手応え（8.0）。指が触れた瞬間に薄くし、離すと戻す。:active は、タッチでは出ない・出るのが
+   遅い端末があるので、pointerdown で付ける印（.pressed）でも同じ見た目にする */
+button.pressed,[role="button"].pressed{opacity:.5}
 .hide{display:none!important}
 .ic{width:var(--icW);height:var(--icW);flex:0 0 auto; display:block;fill:none;stroke:currentColor; stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .top{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:4px}
@@ -318,7 +321,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.9";
+const DAILY_VERSION="0.10";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -1702,6 +1705,7 @@ function applyMetrics(){
   s.setProperty("--hintBtnW",HINT_ROW.btnW+"px");
   s.setProperty("--shareGap",SHARE_BTN.gap+"px");
   s.setProperty("--nextW",NEXT_BTN.w+"px");
+  s.setProperty("--nextUp",NEXT_BTN.up+"px");
   s.setProperty("--hintBtnH",HINT_ROW.btnH+"px");
   s.setProperty("--hintGap",HINT_ROW.gap+"px");
   s.setProperty("--hintIcW",HINT_ROW.icW+"px");
@@ -2110,6 +2114,18 @@ const DEV_DEFAULT={dur:300,shrink:80,catch:40,swapCatch:40,hotDur:200,zoneMin:ZO
   btnRing:0,
   devTop:0};         // 開発者パネルを上側に付けるか（0=下 / 1=上）。開き直しても維持する
 const btnOf=e=>e.target.closest?.("button,[role=button]");
+/* 押した瞬間の手応え（8.0）。ボタンに指が触れた瞬間に .pressed を付け、離す・取り消されると外す。
+   見た目は CSS（薄くする）。押せないボタン（disabled・aria-disabled）には付けない */
+let pressedBtn=null;
+const pressOff=()=>{if(pressedBtn){pressedBtn.classList.remove("pressed");pressedBtn=null}};
+document.addEventListener("pointerdown",e=>{
+  pressOff();
+  const b=btnOf(e);
+  if(!b||b.disabled||b.getAttribute("aria-disabled")==="true")return;
+  pressedBtn=b;b.classList.add("pressed");
+},true);
+document.addEventListener("pointerup",pressOff,true);
+document.addEventListener("pointercancel",pressOff,true);
 let btnOff=false;
 document.addEventListener("click",e=>{
   const b=btnOf(e);
@@ -2137,7 +2153,7 @@ function hintExprScale(ex){
   return w>avail?Math.max(MIN_SCALE,avail/w):1;
 }
 const SHARE_BTN={gap:8};
-const NEXT_BTN={w:160};
+const NEXT_BTN={w:200,up:8};
 
 /* ═══ ここからデイリーだけの部分 ═══ */
 /* 年・月・日から、日の通し番号を出す（グレゴリオ暦）。日数の差はこの引き算で数える ――
