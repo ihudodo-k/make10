@@ -286,6 +286,7 @@ window.__API=[];window.__APIMODE=%s;
       },m.delay||0)})}})();
 """
 SAVE_KEY = "make10.daily.v1"          # デイリーの保存のキー（本編は make10.progress.v4）
+SET_DEFAULT = {"easy": 0, "tap": 0}   # 設定の既定（D0.13。途中の値を表示しない・ドラッグで置く）
 # 経過時間の時計（performance.now）を、ケースから進められるものに差し替える。__perf がミリ秒
 PERF = r"""
 window.__perf=0;
@@ -404,13 +405,16 @@ class UI:
 
     def saved(self, raw=False):
         """保存データ（無ければ None）。
-        既定では「遊び方を見た」の印（help）を外して返し、ほかに何も入っていなければ None にする
-        （open() が仕込んだ印だけの状態を「まだ何も保存していない」と読むため）。raw=True でそのまま返す"""
+        既定では「遊び方を見た」の印（help）と、既定のままの設定（set が 2 つとも 0。D0.13）を外して返し、
+        ほかに何も入っていなければ None にする（open() が仕込んだ印だけの状態を「まだ何も保存していない」と
+        読むため）。設定を切り替えてあれば、set は外さない。raw=True でそのまま返す"""
         text = self.c.ev("localStorage.getItem(%s)" % json.dumps(SAVE_KEY))
         data = json.loads(text) if text else None
         if raw or data is None:
             return data
         data.pop("help", None)
+        if data.get("set") == SET_DEFAULT:
+            data.pop("set")
         return None if data == {"v": 1, "days": {}, "cur": None} else data
 
     def resize(self, w, h):

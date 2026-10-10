@@ -47,16 +47,18 @@ def run(ui):
                    "const a=[r('#play .top'),r('#field'),r('#clear'),r('#tray'),r('#dfoot')];"
                    "return a.every((x,i)=>x.height>0&&x.top>=0&&x.bottom<=innerHeight+0.5"
                    "&&(i===0||x.top>=a[i-1].bottom-0.5))})()"), True)
+    # 見えている文字そのものの左右で見る（D0.13。歯車を足したので、箱は左に余白を持つ。箱の中央では測れない）
     ui.check("上のバーの文字は画面の左右の中央",
-             ui.ev("(function(){const r=dinfo.getBoundingClientRect(),a=app.getBoundingClientRect();"
-                   "return Math.abs((r.left+r.right)/2-(a.left+a.right)/2)<1})()"), True)
-    ui.check("見えているボタンは、遊び方・統計・共有・ギブアップ・全部消す・ヒント",
+             ui.ev("(function(){const g=document.createRange();g.selectNodeContents(dinfo);"
+                   "const r=g.getBoundingClientRect(),a=app.getBoundingClientRect();"
+                   "return r.width>0&&Math.abs((r.left+r.right)/2-(a.left+a.right)/2)<1})()"), True)
+    ui.check("見えているボタンは、遊び方・設定・統計・共有・ギブアップ・全部消す・ヒント",
              ui.ev("[...document.querySelectorAll('button')].filter(b=>b.offsetHeight>0"
                    "&&getComputedStyle(b).visibility!=='hidden').map(b=>b.id).join(' ')"),
-             "dhelp dstats share dgiveup clear hint")
+             "dhelp dset dstats share dgiveup clear hint")
     ui.check("ボタンの名前",
-             ui.ev("[dhelp,dstats,share,dgiveup,hint].map(b=>b.getAttribute('aria-label')).join(' ')"),
-             "遊び方 統計 共有 ギブアップ ヒント")
+             ui.ev("[dhelp,dset,dstats,share,dgiveup,hint].map(b=>b.getAttribute('aria-label')).join(' ')"),
+             "遊び方 設定 統計 共有 ギブアップ ヒント")
     ui.check("「全部消す」の名前", ui.ev("clear.getAttribute('aria-label')"), "全部消す")
     # 押した瞬間の手応え（D0.10。本編 8.0 と同じ文）: 指が触れた瞬間に薄くなり、離すと戻る。本物のタッチで見る
     touch = lambda typ, pts: ui.c.ws.call("Input.dispatchTouchEvent", {"type": typ, "touchPoints": [      # noqa: E731

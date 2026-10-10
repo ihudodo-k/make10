@@ -54,7 +54,8 @@ def run(ui):
     # ══ 初めて来た人: 自動で出る ══
     ui.open(now=at(no), tz=TZ, perf=True, first=True)
     ui.check("初回: 遊び方が自動で出る", ui.ev(SHOWN), True)
-    ui.check("初回: 出した時点で、保存データに印が付く", ui.saved(raw=True), {"v": 1, "days": {}, "cur": None, "help": 1})
+    ui.check("初回: 出した時点で、保存データに印が付く", ui.saved(raw=True),
+             {"v": 1, "days": {}, "cur": None, "help": 1, "set": {"easy": 0, "tap": 0}})
     ui.check("見出しと、7 つの行（^・!・0! の説明と、毎日 0 時の行を含む）",
              [ui.ev("document.querySelector('#dhelpsheet h2').textContent"),
               ui.ev("[...document.querySelectorAll('#dhelpbody p:not(.hlink)')].map(e=>e.textContent)")],

@@ -48,13 +48,14 @@ AUDIT = r"""(function(){
   }
   // 中身が箱より広くなっていないこと
   for(const sel of ['#dinfo','#banline','.sub','.hintrow .hbody','.rcol','.rshare','.applink','#gubox .gutext',
-                    '#toast.show','#dhelpbody','#dhelpbody p','.stat','#dver','#dtest','.dsheet h2','#nopuzzle'])
+                    '#toast.show','#dhelpbody','#dhelpbody p','.stat','#dver','#dtest','.dsheet h2','#nopuzzle',
+                    '#dsetsheet .toggle'])
     for(const e of document.querySelectorAll(sel))
       if(vis(e)&&e.scrollWidth>e.clientWidth+1)out.over.push('箱より広い: '+sel+' '+e.textContent.trim().slice(0,30));
   // 1 行のはずの所が折り返していないこと（中の文字の上端から下端までが、いちばん大きい字の 1.9 倍以内）
   for(const sel of ['#dinfo','#banline','.sub','#hintbox .hbin','#solbox .hbin','.rcol .rn','.rcol .rv','.rshare',
                     '.applink','#gubox .gutext','#toast.show','.stat .sk','.stat .sv','#dver','#dtest','.dsheet h2',
-                    '#dhelpbody code','#nopuzzle'])
+                    '#dhelpbody code','#nopuzzle','#dsetsheet .toggle>span:first-child'])
     for(const e of document.querySelectorAll(sel)){
       if(!vis(e)||!e.textContent.trim())continue;
       const r=document.createRange();r.selectNodeContents(e);
@@ -297,12 +298,15 @@ def run(ui):
         click("dhelp")
         audit(lang, "遊び方")
         click("dhelp-close")
+        click("dset")
+        audit(lang, "設定")
+        click("dset-close")
         ui.open(date=(start - datetime.timedelta(days=1)).isoformat(), lang=lang)
         audit(lang, "問題がありません")
         ui.check("%s: 主な状態を巡って、JS エラーも、辞書に無いキーの警告も無い" % lang, ui.errors(), [])
 
     for lang in ("ja", "en"):
-        ui.check("%s: 巡った状態は 16" % lang, len(seen[lang]), 16)
+        ui.check("%s: 巡った状態は 17" % lang, len(seen[lang]), 17)
         ui.check("%s: 文字が画面・ボタン・箱からはみ出さない" % lang,
                  [(n, a["over"]) for n, a in seen[lang] if a["over"] or a["scroll"]], [])
         ui.check("%s: 1 行のはずの所が折り返さない" % lang,

@@ -6,7 +6,7 @@
 - 外した・運んだ後に !! が残っていたら、後ろの ! も一緒に外す（dropFacRun）。手数には数えない
 - parse は ! の連続を読まない（!! のある列は「この式は計算できません」）
 - ( 3! )! の括弧は、要る括弧なので薄くしない
-操作は本物のマウス（CDP）で行う。デイリーはタップ配置を持たないので、外へ出す・運ぶの 2 つを見る。最後に、置く・外す・運ぶを数万手ぶん歩いて、どの列も決まりを満たすことを見る。
+操作は本物のマウス（CDP）で行う。外へ出す・運ぶと、タップ配置で押して消す（D0.13 で設定から選べるようになった）を見る。最後に、置く・外す・運ぶを数万手ぶん歩いて、どの列も決まりを満たすことを見る。
 """
 import time
 
@@ -124,7 +124,17 @@ def run(ui):
     drag(ui, RP, lambda: center(ui, RP))
     ui.check(") をつまんで、そのまま離す: 列はそのまま", ui.ev("__toks()"), BASE)
 
-    ui.check("タップ配置は持たない（押して消す道は無い）", ui.ev("tapMode"), False)
+    # ══ タップ配置で消す（D0.13。設定のスイッチで切り替える）══
+    ui.check("はじめはドラッグで置く（タップ配置はオフ）", ui.ev("tapMode"), False)
+    ui.ev("document.getElementById('t-tap').click()")
+    ui.ev("__place('(12!)!34')")
+    x, y = center(ui, RP)
+    mouse(ui, "mousePressed", x, y)
+    mouse(ui, "mouseReleased", x, y)
+    time.sleep(0.3)
+    ui.check("タップ配置で ) を押して消す: 後ろの ! も一緒に外れる", [ui.ev("tapMode"), ui.ev("__toks()")], [True, "( n n ! n n"])
+    ui.ev("document.getElementById('t-tap').click()")
+    ui.check("ドラッグに戻す", ui.ev("tapMode"), False)
 
     # ══ ほかの外し方は、今までどおり ══
     ui.ev("__place('(12!)!34')")

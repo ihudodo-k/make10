@@ -17,7 +17,7 @@ from uiharness import daily_ui as dui
 NAME = "本編との同期の照合"
 STATIC = True
 
-# 1 文字も変えずに複製するもの（DAILY-SPEC 18-3）。D0.9 の時点
+# 1 文字も変えずに複製するもの（DAILY-SPEC 18-3）。D0.13 で JS に足したものは無い（設定はデイリーだけの文）
 REQUIRED_JS = """STR_CORE LANGS LANG_URL LANG PLURAL pickLang t applyI18n OPOF conOf MODE solved
 gd R add ml isInt fct pwr TOKEN_METRICS COMPACT_MQ ZONE_BASE ZONE_MIN MET applyMetrics tokensWidth
 GLYPH NEST TRAY S $ T canPut insSeq livePositions put dropTok match parse ev same deadParens segValues
@@ -61,6 +61,9 @@ REQUIRED_CSS = [
     "#toast", "#toast.show", "#toast.atfoot", "#toast.atfoot.show",
     # D0.10: 押した瞬間の手応え
     'button.pressed,[role="button"].pressed',
+    # D0.13: 設定のスイッチの行（本編の設定の行）
+    ".toggle", ".toggle:active", ".toggle span.sw", ".toggle span.sw::after", ".toggle.on span.sw",
+    ".toggle.on span.sw::after", ".group .toggle:not(:last-child)::after",
     MEDIA + ".readout", MEDIA + ".eq", MEDIA + ".eq.idle", MEDIA + ".eq.part", MEDIA + ".chip",
     MEDIA + ".foot", MEDIA + ".top", MEDIA + ".field",
     "@media (prefers-reduced-motion:reduce) || *",
@@ -152,4 +155,6 @@ def run(ui):
                      # D0.12（調整の版）
                      "#dstatbody #statlist", "#play.done .readout", "#aggbox.tight.pend", "#aggbox.tight.pend .at",
                      "#aggbox.tight.pend .ap", MEDIA + "#statlist .stat",
-                     MEDIA + "#statlist .stat .sv b,#statlist .stat .sv .none"]))
+                     MEDIA + "#statlist .stat .sv b,#statlist .stat .sv .none",
+                     # D0.13（設定）
+                     "#dsetbody", "#dinfo"]))

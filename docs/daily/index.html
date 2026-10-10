@@ -258,6 +258,25 @@ body.daily{align-items:center}
 #dcal-legend i.n{width:5px;height:5px;margin:0 2.5px;background:var(--calDot)}
 #dcal-line{min-height:20px;margin:8px 0 6px;text-align:center;font-size:12.5px;line-height:20px;color:var(--dim);white-space:nowrap}
 #dcal-line b{color:var(--paper);font-weight:700}
+/* 設定（13-11。D0.13）。上のバーの歯車から開く、列の中に重ねる 1 枚の画面（統計・遊び方と同じ作り）。
+   中身は 2 つのスイッチ。行・スイッチ・区切り線は本編の設定の行（.toggle）を 1 文字も変えずに複製してある。
+   囲まない ―― 本編の設定と同じで、面も枠も持たない（.group は区切り線の規則のための印だけ）*/
+.toggle{position:relative;display:flex;align-items:center;justify-content:space-between;width:100%;
+ padding:14px;min-height:48px;font-size:13.5px;font-weight:700;margin-bottom:0;
+ background:none;border:0;border-radius:0}
+.toggle:active{background:color-mix(in srgb,var(--paper) 10%,transparent)}
+.toggle span.sw{width:44px;height:25px;border-radius:13px;background:var(--edge);
+ position:relative;transition:background .18s;flex:0 0 auto}
+.toggle span.sw::after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;
+ border-radius:50%;background:var(--slate);transition:transform .18s,background .18s}
+.toggle.on span.sw{background:color-mix(in srgb,var(--paper) 45%,transparent)}
+.toggle.on span.sw::after{transform:translateX(19px);background:var(--paper)}
+.group .toggle:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;
+ bottom:0;height:1px;background:var(--edge)}
+#dsetbody{flex:1 1 0;min-height:0;overflow-y:auto}
+/* 歯車を統計の左に足したぶん、中央の文字が左へ寄る。左に同じ幅（ボタン 1 つと間隔）を空けて、
+   文字を画面の軸に戻す。折り返さない（4 桁の問題番号の日本語がいちばん長い。360px で 117px）*/
+#dinfo{padding-left:calc(var(--btnW) + 9px);white-space:nowrap}
 /* 遊び方の文（本編の遊び方の文と同じ大きさ・行間・明るさ）。式は折り返さない（本編 7.7 と同じ）。
    低い画面で収まらなければ、この中だけ縦に動く */
 #dhelpbody{flex:1 1 0;min-height:0;overflow-y:auto;padding:0 15px}
@@ -292,6 +311,8 @@ body.daily{align-items:center}
       <!-- 左の席は「?」（遊び方）-->
       <button id="dhelp" class="plainbtn" data-i18n-label="daily.btn_help"></button>
       <div class="info" id="dinfo"></div>
+      <!-- 設定（歯車）。統計の左（D0.13）。統計と共有の位置は変えない -->
+      <button id="dset" class="plainbtn" data-i18n-label="daily.btn_settings"></button>
       <button id="dstats" class="plainbtn" data-i18n-label="daily.btn_stats">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19.5v-7"/><path d="M12 19.5v-15"/><path d="M17.5 19.5v-10"/></svg>
       </button>
@@ -376,11 +397,20 @@ body.daily{align-items:center}
       <p class="hlink"><a id="dprivacy" href="../privacy/" target="_blank" rel="noopener" data-i18n="daily.help_privacy"></a></p>
     </div>
   </div>
+  <!-- 設定（列の中に重ねる 1 枚の画面。2 つのスイッチ。id は本編の設定と同じ t-easy・t-tap）-->
+  <div id="dsetsheet" class="dsheet hide">
+    <div class="shead"><h2 data-i18n="daily.set_title"></h2>
+      <button id="dset-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
+    <div id="dsetbody"><div class="group">
+      <button class="toggle" id="t-easy"><span data-i18n="daily.set_easy"></span><span class="sw"></span></button>
+      <button class="toggle" id="t-tap"><span data-i18n="daily.set_tap"></span><span class="sw"></span></button>
+    </div></div>
+  </div>
   <div id="dfoot"><span id="dtest" class="hide" data-i18n="daily.testmode"></span><span id="dver"></span></div>
 </div>
 <script>
-/* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.12";
+/* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
+const DAILY_VERSION="0.13";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -448,6 +478,7 @@ const STR_DAILY={ja:{
   "daily.btn_help":"遊び方",
   "daily.btn_giveup":"ギブアップ",
   "daily.btn_stats":"統計",
+  "daily.btn_settings":"設定",
   "daily.btn_share":"共有",
   "daily.giveup_confirm":"ギブアップしますか？",
   "daily.yes":"はい",
@@ -500,7 +531,11 @@ const STR_DAILY={ja:{
   "daily.cal_legend_solved":"解いた",
   "daily.cal_legend_none":"遊ばなかった",
   "daily.cal_solved":{other:"{time}　ヒント {n} 回"},
-  "daily.cal_none":"遊んでいません"
+  "daily.cal_none":"遊んでいません",
+  // 設定（D0.13）。文は本編の設定（settings.title・settings.easy・settings.tap）と同じ
+  "daily.set_title":"設定",
+  "daily.set_easy":"途中の値を表示する",
+  "daily.set_tap":"タップで配置する"
 },
 en:{
   "daily.page_title":"Make10 Daily",
@@ -511,6 +546,7 @@ en:{
   "daily.btn_help":"How to play",
   "daily.btn_giveup":"Give up",
   "daily.btn_stats":"Stats",
+  "daily.btn_settings":"Settings",
   "daily.btn_share":"Share",
   "daily.giveup_confirm":"Give up?",
   "daily.yes":"Yes",
@@ -565,7 +601,10 @@ en:{
   "daily.cal_legend_solved":"Solved",
   "daily.cal_legend_none":"Missed",
   "daily.cal_solved":{one:"{time} · {n} hint",other:"{time} · {n} hints"},
-  "daily.cal_none":"Not played"
+  "daily.cal_none":"Not played",
+  "daily.set_title":"Settings",
+  "daily.set_easy":"Show intermediate values",
+  "daily.set_tap":"Tap to place"
 }};
 const LANGS=["ja","en"];
 const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");
@@ -2287,16 +2326,18 @@ function applyLang(){
      cur = {no:問題番号, ms:見ていた間の時間（ミリ秒）, h:使ったヒントの回数, sh:共有の回数}
      help = 遊び方を自動で出したら 1（初回だけ出すための印。D0.5）
      days[…].sent = 集計へ送れたら 1（送り直さないための印。D0.8。17-2）
+     set = 設定 {easy:途中の値を表示する 0/1, tap:タップで配置する 0/1}（D0.13。13-11）
    ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる。
    公開までは保存の形の互換を気にしない（古い形の記録は読めなくてよい。移行の処理は作らない。10 章）*/
 const DAILY_KEY="make10.daily.v1";
-let DATA={v:1,days:{},cur:null,help:0};
+let DATA={v:1,days:{},cur:null,help:0,set:{easy:0,tap:0}};
 function loadDaily(){
   if(TEST_MODE)return;
   try{
     const x=JSON.parse(localStorage.getItem(DAILY_KEY)||"null");
     if(x&&typeof x==="object"&&x.days&&typeof x.days==="object")
-      DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null,help:x.help?1:0};
+      DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null,help:x.help?1:0,
+        set:{easy:x.set&&x.set.easy?1:0,tap:x.set&&x.set.tap?1:0}};
   }catch(e){}
 }
 function saveDaily(){
@@ -2784,14 +2825,42 @@ function helpHide(){
 }
 $("dhelp").onclick=()=>helpShow();
 $("dhelp-close").onclick=()=>helpHide();
+/* ═══ 設定（13-11。D0.13）═══
+   上のバーの歯車から開く。スイッチは 2 つ ――「途中の値を表示する」と「タップで配置する」（本編の設定と同じ文）。
+   保存は DATA.set。盤が読むのは、本編から複製した G.easy と tapMode（applySet() が当てる）。
+   切り替えたら、その場で盤を描き直す。?date=（テスト表示）では保存しない（saveDaily() が書かない）ので、その場だけ効く。
+   記録・集計・共有には載せない（days にも、送る中身にも、共有文にも入れない）。
+   絵柄は、本編の 3.5〜4.4 にあった 8 枚歯の歯車（線の太さと大きさは .ic で「?」・統計と同じ）*/
+const ICON_SET=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 10.13L20.8 13.87L17.9 13.92L17.52 14.81L19.55 16.9L16.9 19.55L14.81 17.52L13.92 17.9L13.87 20.8L10.13 20.8L10.08 17.9L9.19 17.52L7.1 19.55L4.45 16.9L6.48 14.81L6.1 13.92L3.2 13.87L3.2 10.13L6.1 10.08L6.48 9.19L4.45 7.1L7.1 4.45L9.19 6.48L10.08 6.1L10.13 3.2L13.87 3.2L13.92 6.1L14.81 6.48L16.9 4.45L19.55 7.1L17.52 9.19L17.9 10.08Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+$("dset").innerHTML=ICON_SET;
+$("dset-close").innerHTML=ICON_HCLOSE;
+/* 保存してある設定を、盤が読む 2 つの値に当てる */
+function applySet(){G.easy=!!DATA.set.easy;tapMode=!!DATA.set.tap}
+function drawSet(){
+  $("t-easy").classList.toggle("on",!!DATA.set.easy);$("t-easy").setAttribute("aria-pressed",DATA.set.easy?"true":"false");
+  $("t-tap").classList.toggle("on",!!DATA.set.tap);$("t-tap").setAttribute("aria-pressed",DATA.set.tap?"true":"false");
+}
+/* スイッチを切り替える。タップ配置をやめたときは、選んでいた記号を放して枠を閉じる
+   （ドラッグの操作に、選んだままの記号が残らないように）。盤は、その場で描き直す */
+function toggleSet(key){
+  DATA.set[key]=DATA.set[key]?0:1;
+  saveDaily();applySet();drawSet();
+  if(!playing())return;                      // 解いた後・ギブアップの後の盤は動かさない（結果の画面はそのまま）
+  if(key==="tap"&&!tapMode&&held){held=null;hideZones()}
+  render();
+}
+$("t-easy").onclick=()=>toggleSet("easy");
+$("t-tap").onclick=()=>toggleSet("tap");
+$("dset").onclick=()=>{drawSet();$("dsetsheet").classList.remove("hide")};
+$("dset-close").onclick=()=>$("dsetsheet").classList.add("hide");
 document.addEventListener("keydown",e=>{
   if(e.key!=="Escape")return;
-  $("dstatsheet").classList.add("hide");helpHide()});
+  $("dstatsheet").classList.add("hide");$("dsetsheet").classList.add("hide");helpHide()});
 
 window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();drawCal();
   if(dayRecord()){drawSols();layoutResult()}});
 
-loadDaily();
+loadDaily();applySet();
 applyLang();applyMetrics();
 // 正解の「10」の倍率。本編は開発者パネルの applyDevVars() が流す。デイリーは既定値をそのまま流す
 document.documentElement.style.setProperty("--tenScale",DEV_DEFAULT.tenScale);
