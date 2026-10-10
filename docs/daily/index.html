@@ -410,7 +410,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.13";
+const DAILY_VERSION="0.14";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2074,6 +2074,7 @@ function showZones(k){
   document.querySelectorAll(".zone").forEach(z=>{z.classList.remove("hot","zop","zfac","zpar");
     if(live.has(+z.dataset.p)){z.classList.add("live",cls);count++}
     else z.classList.remove("live","snap")});
+  lastHot=null;                    // .hot を外したので、onMove() の覚えも外す（次の pointermove で付け直す。8.1）
   document.querySelectorAll(".tok.op").forEach(t=>
     t.classList.toggle("swap","+-*/^".includes(k)&&(!drag||drag.id!==+t.dataset.id)));
   layoutZones(cls,count);
@@ -2088,6 +2089,7 @@ function hideZones(){
     devSnap.expr={tw:tokensWidth(),ew:$("expr").offsetWidth-zw,when:Date.now()};
   }
   document.querySelectorAll(".zone").forEach(z=>z.classList.remove("live","hot","snap"));
+  lastHot=null;                    // .hot を外したので、onMove() の覚えも外す（8.1）
   document.querySelectorAll(".tok.op").forEach(t=>t.classList.remove("swap"));
   applyScale(scaleFor(tokensWidth()));   // 枠が閉じたあとの幅。閉じる動きと同時に補間される
 }
@@ -2133,12 +2135,18 @@ function tgt(e){
   return null;
 }
 function onMove(e){if(!drag)return;e.preventDefault();gmove(e);
-  document.querySelectorAll(".hot").forEach(x=>x.classList.remove("hot"));
-  const t=tgt(e);const el=t&&(t.z||t.swap);
+  // 先に行き先を決め、行き先が変わったときだけ class を触る（8.1）。同じ要素の上にいる間は何も触らない。
+  // 8.0 までは「全部の .hot を外す → tgt() → 同じ枠に付け直す」の順で、tgt() の中の elementFromPoint と
+  // getBoundingClientRect がスタイルの再計算を起こすため、.hot が外れた状態が一瞬確定して幅の遷移が
+  // 縮む方向に始まり、動くたびに繰り返されて、吸着した枠が細かく震えて見えた
+  const t=tgt(e);const el=(t&&(t.z||t.swap))||null;
   // .snap は最初に hot になった瞬間に付けたら外さない（外れる時も --hotDur にするため）。
   // live が外れる（枠が閉じる）ときに showZones()/hideZones() 側で消す
-  if(el){el.classList.add("hot"); if(t.z)el.classList.add("snap"); if(el!==lastHot)buzz("vibHover")}
-  lastHot=el||null;
+  if(el!==lastHot){
+    if(lastHot)lastHot.classList.remove("hot");
+    if(el){el.classList.add("hot"); if(t.z)el.classList.add("snap"); buzz("vibHover")}
+    lastHot=el;
+  }
   const r=$("field").getBoundingClientRect();
   const out=e.clientY<r.top||e.clientY>r.bottom||e.clientX<r.left||e.clientX>r.right;
   $("field").classList.toggle("trash",!!drag.id&&out&&!t)}
