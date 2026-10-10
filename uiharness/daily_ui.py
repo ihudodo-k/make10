@@ -18,7 +18,7 @@ DAILY_HTML = os.path.join(DOCS, "daily", "index.html")
 READY = "complete|undefined"     # cdp.Chrome.goto() の待ち合わせ。デイリーに APP_VERSION は無い
 
 # 本編と同じ名前だが、手を入れてあるもの（DAILY-SPEC 18-3 の除外の一覧）。
-# 足す・外すときは CLAUDE.md の変更履歴に書く
+# 足す・外すときは CHANGELOG.md に書く
 JS_EXCLUDE = {
     "render": "カーソルの印を足す予定（14-3）。本編のコード欄・難易度の言葉・正解の後の処理の呼び出しを外した",
     "applyLang": "本編は STR_APP を名前で書いている（16-2）。本編だけの画面の引き直しも持たない",
