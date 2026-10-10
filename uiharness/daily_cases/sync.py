@@ -141,4 +141,11 @@ def run(ui):
                      "#aggbox", "#aggbox .at", "#aggbox .ap", "#aggbox .ar", "#aggbox .ac", "#aggbox .ac b",
                      "#aggbox .ac span", "#aggbox .ab", "#aggbox .bar", "#aggbox .bar i", "#aggbox .bar span",
                      "#aggbox .bar.me i", "#aggbox .bar.me span", "#aggbox.tight", "#aggbox.tight .at",
-                     "#aggbox.tight .ar", "#aggbox.tight .ac b", "#aggbox.tight .ac span,#aggbox.tight .bar span"]))
+                     "#aggbox.tight .ar", "#aggbox.tight .ac b", "#aggbox.tight .ac span,#aggbox.tight .bar span",
+                     # D0.11（カレンダー）
+                     "#dstatbody", "#dcal", "#dcal .chead", "#dcal .chead b", "#dcal .chead button:disabled",
+                     "#dcal-grid", "#dcal-grid .dw", "#dcal-grid .dc", "#dcal-grid .dc:active", "#dcal-grid .dc i",
+                     "#dcal-grid .dc.s i", "#dcal-grid .dc.g i", "#dcal-grid .dc.n::after", "#dcal-grid .dc.x",
+                     "#dcal-grid .dc.today", "#dcal-grid .dc.sel", "#dcal-grid .dc.today.sel",
+                     "#dcal-legend", "#dcal-legend span", "#dcal-legend i", "#dcal-legend i.s", "#dcal-legend i.g",
+                     "#dcal-legend i.n", "#dcal-line", "#dcal-line b"]))

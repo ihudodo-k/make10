@@ -215,6 +215,38 @@ body.daily{align-items:center}
 .dsheet .shead{display:flex;align-items:center;justify-content:space-between;height:var(--btnW);
  flex:0 0 auto;margin-bottom:8px}
 .dsheet h2{font-size:17px;font-weight:700;margin:0;padding-left:15px}
+/* 統計の中身（4 つの数字とカレンダー）。画面に収まらなければ、この中だけ縦に動く */
+#dstatbody{flex:1 1 0;min-height:0;overflow-y:auto}
+/* カレンダー（13-8。D0.11）。囲まない ―― 4 つの数字との間は細い線 1 本。週は月曜始まり。
+   日の見分けは形でも分ける: 解いた日 = 塗りつぶした丸（--paper）／ギブアップ = 輪だけの丸（--dim）／
+   遊ばなかった日 = 数字の下の小さな点（--edge）／今日 = 外側に枠／問題が無い日 = 印なし（数字は無効の色）。金も赤も使わない */
+#dcal{margin:12px 15px 0;padding-top:6px;border-top:1px solid var(--edge)}
+#dcal .chead{display:flex;align-items:center;justify-content:space-between}
+#dcal .chead b{font-size:14px;font-weight:700}
+#dcal .chead button:disabled{color:var(--slate);opacity:.5;cursor:default}
+#dcal-grid{display:grid;grid-template-columns:repeat(7,1fr);justify-items:center;row-gap:2px}
+#dcal-grid .dw{font-size:11px;line-height:20px;color:var(--dim)}
+#dcal-grid .dc{position:relative;width:var(--calCell);height:var(--calCell);padding:0;border:0;border-radius:8px;background:none;
+ display:flex;align-items:center;justify-content:center;color:var(--dim);font:inherit}
+#dcal-grid .dc:active{background:none}
+#dcal-grid .dc i{box-sizing:border-box;width:var(--calMark);height:var(--calMark);line-height:var(--calMark);border-radius:50%;
+ font-style:normal;font-size:12.5px;font-weight:500;text-align:center;font-variant-numeric:tabular-nums}
+#dcal-grid .dc.s i{background:var(--paper);color:var(--ink);font-weight:700}
+#dcal-grid .dc.g i{border:1.5px solid var(--dim);line-height:calc(var(--calMark) - 3px)}
+#dcal-grid .dc.n::after{content:"";position:absolute;left:50%;bottom:1px;width:4px;height:4px;margin-left:-2px;
+ border-radius:50%;background:var(--edge)}
+#dcal-grid .dc.x{color:var(--slate)}
+#dcal-grid .dc.today{box-shadow:inset 0 0 0 1px var(--dim)}
+#dcal-grid .dc.sel{box-shadow:inset 0 -2px 0 var(--paper)}
+#dcal-grid .dc.today.sel{box-shadow:inset 0 0 0 1px var(--dim),inset 0 -2px 0 var(--paper)}
+#dcal-legend{display:flex;justify-content:center;gap:14px;margin-top:8px;font-size:11px;line-height:16px;color:var(--dim);white-space:nowrap}
+#dcal-legend span{display:flex;align-items:center;gap:5px}
+#dcal-legend i{box-sizing:border-box;width:10px;height:10px;border-radius:50%}
+#dcal-legend i.s{background:var(--paper)}
+#dcal-legend i.g{border:1.5px solid var(--dim)}
+#dcal-legend i.n{width:4px;height:4px;margin:0 3px;background:var(--edge)}
+#dcal-line{min-height:20px;margin:8px 0 6px;text-align:center;font-size:12.5px;line-height:20px;color:var(--dim);white-space:nowrap}
+#dcal-line b{color:var(--paper);font-weight:700}
 /* 遊び方の文（本編の遊び方の文と同じ大きさ・行間・明るさ）。式は折り返さない（本編 7.7 と同じ）。
    低い画面で収まらなければ、この中だけ縦に動く */
 #dhelpbody{flex:1 1 0;min-height:0;overflow-y:auto;padding:0 15px}
@@ -299,7 +331,20 @@ body.daily{align-items:center}
   <div id="dstatsheet" class="dsheet hide">
     <div class="shead"><h2 data-i18n="daily.stats_title"></h2>
       <button id="dstats-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
-    <div id="statlist"></div>
+    <div id="dstatbody">
+      <div id="statlist"></div>
+      <!-- カレンダー（起点日の月から今月まで。1 か月ずつ）-->
+      <div id="dcal">
+        <div class="chead">
+          <button id="dcal-prev" class="plainbtn" data-i18n-label="daily.cal_prev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+          <b id="dcal-title"></b>
+          <button id="dcal-next" class="plainbtn" data-i18n-label="daily.cal_next"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
+        <div id="dcal-grid"></div>
+        <div id="dcal-legend"><span><i class="s"></i><span data-i18n="daily.cal_legend_solved"></span></span><span><i class="g"></i><span data-i18n="daily.giveup_label"></span></span><span><i class="n"></i><span data-i18n="daily.cal_legend_none"></span></span></div>
+        <div id="dcal-line"></div>
+      </div>
+    </div>
   </div>
   <!-- 遊び方（列の中に重ねる 1 枚の画面。初回だけ自動で出し、以後は「?」から）-->
   <div id="dhelpsheet" class="dsheet hide">
@@ -321,7 +366,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.10";
+const DAILY_VERSION="0.11";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -435,7 +480,13 @@ const STR_DAILY={ja:{
   "daily.agg_pending":"集計中",
   "daily.agg_rate":"正解率",
   "daily.agg_nohint":"ヒントなし",
-  "daily.agg_you":"あなた"
+  "daily.agg_you":"あなた",
+  "daily.cal_prev":"前の月",
+  "daily.cal_next":"次の月",
+  "daily.cal_legend_solved":"解いた",
+  "daily.cal_legend_none":"遊ばなかった",
+  "daily.cal_solved":{other:"{time}　ヒント {n} 回"},
+  "daily.cal_none":"遊んでいません"
 },
 en:{
   "daily.page_title":"Make10 Daily",
@@ -494,7 +545,13 @@ en:{
   "daily.agg_pending":"Collecting results",
   "daily.agg_rate":"Solve rate",
   "daily.agg_nohint":"No hints",
-  "daily.agg_you":"You"
+  "daily.agg_you":"You",
+  "daily.cal_prev":"Previous month",
+  "daily.cal_next":"Next month",
+  "daily.cal_legend_solved":"Solved",
+  "daily.cal_legend_none":"Missed",
+  "daily.cal_solved":{one:"{time} · {n} hint",other:"{time} · {n} hints"},
+  "daily.cal_none":"Not played"
 }};
 const LANGS=["ja","en"];
 const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");
@@ -2624,7 +2681,71 @@ function drawStats(){
 $("dstats-close").innerHTML=ICON_HCLOSE;
 $("share").innerHTML=ICON_SHARE;
 $("rshare-ic").innerHTML=ICON_SHARE;
-$("dstats").onclick=()=>{drawStats();$("dstatsheet").classList.remove("hide")};
+/* ═══ カレンダー（13-8。D0.11）═══
+   統計の画面の、4 つの数字の下。起点日（#1）の月から今月まで、1 か月ずつ出す。週は月曜始まり
+   （曜日ごとの難易度と、列がそろう）。記録は保存してある days をそのまま読む（保存の形は変えない）。
+   日付から問題番号は dayNumber()（年・月・日からの通し番号。夏時間に左右されない）*/
+const CAL_METRICS={normal:{cell:38,mark:28},compact:{cell:32,mark:26}};   // 1 日の箱と、丸の大きさ（px）
+const CAL_START=parseYmd(DAILY_START);
+let calY=TODAY.y, calM=TODAY.m, calSel=null;        // 出している月と、選んでいる日 {no,d}（この月に無ければ null）
+const calNo=(y,m,d)=>dayNumber(y,m,d)-dayNumber(CAL_START.y,CAL_START.m,CAL_START.d)+1;
+const calIdx=(y,m)=>y*12+m;
+/* その日の様子: "s" 解いた / "g" ギブアップ / "n" 遊ばなかった / "t" 今日でまだ遊んでいない /
+   null = 問題が無い日（起点日より前・まだ来ていない日・列の終わりの後）*/
+function calState(no){
+  if(no<1||no>DAILY_NO||no>DAILY_DAYS.length)return null;
+  const r=DATA.days[no];
+  if(r&&r.r==="s")return "s";
+  if(r&&r.r==="g")return "g";
+  return no===DAILY_NO?"t":"n";
+}
+/* その日の結果の 1 行（HTML）。#番号と日付は上のバーと同じ文、後ろに 時間とヒントの回数／ギブアップ／遊んでいません */
+function calLine(no,y,m,d){
+  const day=new Date(y,m-1,d,12), st=calState(no), r=DATA.days[no];
+  const head=t("daily.top_date_html",{no,
+    md:new Intl.DateTimeFormat(LANG,DATE_FMT[LANG]).format(day),
+    wd:new Intl.DateTimeFormat(LANG,{weekday:"short"}).format(day)});
+  const what=st==="s"?t("daily.cal_solved",{time:fmtTime(r.t),n:r.h}):st==="g"?t("daily.giveup_label"):t("daily.cal_none");
+  return head+t("daily.hint_sep")+what;
+}
+function drawCal(){
+  const first=new Date(calY,calM-1,1,12), days=new Date(calY,calM,0).getDate(), lead=(first.getDay()+6)%7;
+  const m=CAL_METRICS[matchMedia(COMPACT_MQ).matches?"compact":"normal"];
+  $("dcal").style.setProperty("--calCell",m.cell+"px");$("dcal").style.setProperty("--calMark",m.mark+"px");
+  $("dcal-title").textContent=new Intl.DateTimeFormat(LANG,{year:"numeric",month:"long"}).format(first);
+  $("dcal-prev").disabled=calIdx(calY,calM)<=calIdx(CAL_START.y,CAL_START.m);
+  $("dcal-next").disabled=calIdx(calY,calM)>=calIdx(TODAY.y,TODAY.m);
+  const wf=new Intl.DateTimeFormat(LANG,{weekday:"short"});
+  let h="";
+  for(let i=0;i<7;i++)h+=`<span class="dw">${wf.format(new Date(2024,0,1+i,12))}</span>`;   // 2024-01-01 は月曜
+  h+=`<span></span>`.repeat(lead);
+  for(let d=1;d<=days;d++){
+    const no=calNo(calY,calM,d), st=calState(no);
+    if(st===null){h+=`<span class="dc x"><i>${d}</i></span>`;continue}
+    h+=`<button class="dc ${st}${no===DAILY_NO?" today":""}${calSel&&calSel.no===no?" sel":""}" data-no="${no}" data-d="${d}"`+
+      ` aria-label="${calLine(no,calY,calM,d).replace(/<[^>]+>/g,"")}"><i>${d}</i></button>`;
+  }
+  $("dcal-grid").innerHTML=h;
+  $("dcal-line").innerHTML=calSel?calLine(calSel.no,calY,calM,calSel.d):"";
+}
+/* 月を移る（起点日の月より前・今月より後へは行けない）。選んでいた日は外す */
+function calMove(k){
+  const i=calIdx(calY,calM)+k;
+  if(i<calIdx(CAL_START.y,CAL_START.m)||i>calIdx(TODAY.y,TODAY.m))return;
+  calY=Math.floor((i-1)/12);calM=i-calY*12;calSel=null;drawCal();
+}
+/* 開いたときは今月。今日を選んでおく */
+function calOpen(){
+  calY=TODAY.y;calM=TODAY.m;
+  calSel=calState(DAILY_NO)===null?null:{no:DAILY_NO,d:TODAY.d};
+  drawCal();
+}
+$("dcal-prev").onclick=()=>calMove(-1);
+$("dcal-next").onclick=()=>calMove(1);
+$("dcal-grid").onclick=e=>{
+  const b=e.target.closest(".dc[data-no]");if(!b)return;
+  calSel={no:+b.dataset.no,d:+b.dataset.d};drawCal()};
+$("dstats").onclick=()=>{drawStats();calOpen();$("dstatsheet").classList.remove("hide")};
 $("dstats-close").onclick=()=>$("dstatsheet").classList.add("hide");
 
 /* ═══ 遊び方（13-10）═══
@@ -2645,7 +2766,7 @@ document.addEventListener("keydown",e=>{
   if(e.key!=="Escape")return;
   $("dstatsheet").classList.add("hide");helpHide()});
 
-window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();
+window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();drawCal();
   if(dayRecord()){drawSols();layoutResult()}});
 
 loadDaily();
