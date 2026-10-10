@@ -5,6 +5,7 @@
 経過時間の時計（performance.now）も差し替えて、ケースから進める。
 """
 import datetime
+import time
 
 from uiharness import daily_ui as dui
 
@@ -78,8 +79,20 @@ def run(ui):
              {"v": 1, "days": {str(no): {"r": "s", "t": 102, "h": 0, "sh": 0, "e": multi["sol"]}}, "cur": None})
     ui.check("トレイ・「全部消す」・ギブアップの入口が消える",
              [ui.ev(SEEN % "#tray"), ui.ev(SEEN % "#clear"), ui.ev(SEEN % "#dgiveup")], [False, False, False])
-    ui.check("式と読み出し行は、解く前と同じ位置（画面を切り替えない）",
-             [ui.ev(RECT % "#exprwrap"), ui.ev(RECT % ".readout")], before)
+    ui.check("式は、解く前と同じ位置（画面を切り替えない）", ui.ev(RECT % "#exprwrap"), before[0])
+    # 読み出し行は式へ寄せる（D0.12）。「正解」の下端から式の上端まで、normal 40px・低い画面 32px
+    want_gap = 40 if ui.viewport == "normal" else 32
+    time.sleep(0.4)                                    # 寄せる動き（0.3 秒）が終わるのを待つ
+    GAP = ("(()=>{const r=e=>e.getBoundingClientRect(),low=sub.textContent?sub:eq;"
+           "return [Math.abs(r(exprwrap).top-r(low).bottom-%d)<1,r(eq).bottom<=r(sub).top+0.5,"
+           "r(eq).top>=r(document.querySelector('.top')).bottom,"
+           "getComputedStyle(document.querySelector('.readout')).transitionProperty]})()")
+    ui.check("読み出し行は式へ寄る: 「正解」の下端から式まで %dpx。「10」は「正解」の上・上のバーの下。動かすのは transform" % want_gap,
+             ui.ev(GAP % want_gap), [True, True, True, "transform"])       # 位置は整数に丸めて測るので、1px 未満の端数は許す
+    ui.check("読み出し行の箱の大きさは変わらない（レイアウトを起こさない。下へずれただけ）",
+             [ui.ev(RECT % ".readout")[0], ui.ev(RECT % ".readout")[2],
+              ui.ev(RECT % ".readout")[3] - ui.ev(RECT % ".readout")[1], ui.ev(RECT % ".readout")[1] > before[1][1]],
+             [before[1][0], before[1][2], before[1][3] - before[1][1], True])
     ui.check("盤に自分の式が残る", ui.ev(BOARD), flat(multi["sol"]))
     ui.check("盤は動かせない（式が操作を受けない）",
              ui.ev("getComputedStyle(document.getElementById('expr')).pointerEvents"), "none")

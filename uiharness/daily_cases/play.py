@@ -58,6 +58,10 @@ def run(ui):
 
     # ── 1 問を細かく見る（#1）──
     r = rows[0]
+    # 公開初日の問題（D0.12）: いちばんやさしい難易度 6・制約なし・解答例に 0! も階乗も累乗も無い。同じ 4 桁は列に 1 度だけ
+    ui.check("#1（公開初日）: 難易度 6・制約なし・解答例に ! と ^ が無い・4 桁は列に 1 度だけ",
+             [r["d"], r["rc"], "!" in r["sol"], "^" in r["sol"], [x["id"] for x in rows].count(r["id"])],
+             [6, "N", False, False, 1])
     ui.open(date=iso(1))
     ui.check("解く前: 読み出し行は空で、金はどこにも無い",
              [ui.ev(STATE)[:2], ui.ev("[...document.querySelectorAll('#app *')].filter("

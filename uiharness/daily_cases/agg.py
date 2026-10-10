@@ -115,6 +115,15 @@ def run(ui):
     ui.check("開き直す: 読み直した数字を出す（50%・20%。自分の帯は同じ）",
              [b and b["nums"], b and b["me"], b and b["bars"]], [["50%", "20%"], [2], bars(again["b"], h)])
 
+    # ══ 数字の大きさ（D0.12）: 3 列の数字・統計の数字と同じ（26px。詰めた形は 22px）。箱の高さは変わらない ══
+    ui.open(now=at(no), tz=TZ, perf=True, api=ok())
+    solve(75)
+    z = ui.ev("(()=>{const a=document.getElementById('aggbox'),cs=e=>getComputedStyle(e);"
+              "return [a.classList.contains('tight'),cs(a.querySelector('.ac b')).fontSize,cs(document.querySelector('.rcol .rv b')).fontSize,"
+              "cs(a.querySelector('.ac span')).fontSize,Math.round(a.getBoundingClientRect().height)]})()")
+    ui.check("みんなの結果の数字は 26px（詰めた形は 22px）・名前は 11.5px。箱の高さは 62px（詰めた形 34px）のまま",
+             z[1:], (["22px", z[2], "11.5px", 34] if z[0] else ["26px", "26px", "11.5px", 62]))
+
     # ══ 29 件は「集計中」、30 件で数字 ══
     for agg, want in (({"s": 20, "g": 9, "s0": 3, "b": [1, 5, 9, 4, 1]}, [None, "集計中", []]),
                       ({"s": 21, "g": 9, "s0": 3, "b": [1, 5, 10, 4, 1]}, [None, None, ["70%", "14%"]])):
@@ -124,6 +133,22 @@ def run(ui):
         want[0] = "みんなの結果"
         ui.check("件数が %d: %s" % (agg["s"] + agg["g"], "「集計中」と出し、数字も棒も出さない" if want[1] else "数字を出す"),
                  [b and b["title"], b and b["pending"], b and b["nums"]], want)
+        if want[1]:
+            # 「集計中」の詰めた形（D0.12）。公開の直後は必ずこの状態なので、360×690 で縦に動かさない
+            p = ui.ev("(()=>{const a=document.getElementById('aggbox'),r=e=>e.getBoundingClientRect(),"
+                      "t=a.querySelector('.at'),q=a.querySelector('.ap');"
+                      "return {tight:a.classList.contains('tight'),h:Math.round(r(a).height),scrolly:app.classList.contains('scrolly'),"
+                      "seen:[t.offsetHeight>0,q.offsetHeight>0],row:Math.abs(r(t).top-r(q).top)<3&&r(t).right<=r(q).left,"
+                      "in:r(t).left>=r(app).left&&r(q).right<=r(app).right,"
+                      "fit:r(applink).bottom<=r(dver).top+0.5}})()")
+            if ui.viewport == "compact":
+                ui.check("「集計中」: 360×690 は詰めた形（見出しと文を 1 行・20px）で、縦に動かさずに収まる",
+                         p, {"tight": True, "h": 20, "scrolly": False, "seen": [True, True], "row": True, "in": True, "fit": True})
+            elif ui.viewport == "normal":
+                ui.check("「集計中」: 大きい画面は見出しと文の 2 行（39px）のまま",
+                         [p["tight"], p["h"], p["scrolly"], p["seen"]], [False, 39, False, [True, True]])
+            else:
+                ui.check("「集計中」: 360×640 でも、見出しと文は見えている", p["seen"], [True, True])
     ui.open(now=at(no), tz=TZ, perf=True, api=ok({"s": 0, "g": 40, "s0": 0, "b": [0, 0, 0, 0, 0]}))
     giveup()
     b = ui.ev(BOX)

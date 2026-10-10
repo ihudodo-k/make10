@@ -162,6 +162,9 @@ body.daily{align-items:center}
    結果の並びは、式の下端から重ねて置く（top は layoutResult() が入れる）。左右は列の端まで */
 #play.dplay{position:relative}
 #play.done .bottom{visibility:hidden}
+/* 結果の画面では、読み出し行（「10」と「正解」／「ギブアップ」）を式のほうへ寄せる（D0.12）。
+   読み出し行も式の箱も中央寄せなので、そのままだと間が 160〜200px 空く。寄せる量は layoutResult() が決める */
+#play.done .readout{transform:translateY(var(--roShift,0px));transition:transform .3s var(--ease)}
 #play.done #expr,#play.locked #expr,#play.locked #tray{pointer-events:none}
 #play.done #dgiveup{display:none}
 /* ギブアップの後は、「10」の場所に副次色で「ギブアップ」（金は使わない）*/
@@ -187,12 +190,12 @@ body.daily{align-items:center}
 /* みんなの結果（17-4。集計が読めたときだけ出す。全解答の下）。囲まない ―― 見出しの小さい字と、1 行の数字。
    左に 2 つの割合（正解率・ヒントなし）、右に時間の分布（5 本の棒。自分のいる帯だけ明るい）。金は使わない */
 #aggbox{margin:0 12px;text-align:center;--aggH:26px}
-#aggbox .at{font-size:11.5px;line-height:17px;color:var(--dim);letter-spacing:.08em}
+#aggbox .at{font-size:12px;line-height:17px;color:var(--dim);letter-spacing:.08em}
 #aggbox .ap{font-size:12.5px;line-height:20px;color:var(--dim);margin-top:2px}
 #aggbox .ar{display:flex;align-items:flex-end;justify-content:center;margin-top:4px}
 #aggbox .ac{flex:0 0 auto;width:68px}
-#aggbox .ac b{display:block;font-size:20px;font-weight:700;line-height:var(--aggH);font-variant-numeric:tabular-nums}
-#aggbox .ac span{display:block;font-size:11px;line-height:15px;color:var(--dim);white-space:nowrap}
+#aggbox .ac b{display:block;font-size:26px;font-weight:700;line-height:var(--aggH);font-variant-numeric:tabular-nums}
+#aggbox .ac span{display:block;font-size:11.5px;line-height:15px;color:var(--dim);white-space:nowrap}
 #aggbox .ab{flex:0 0 auto;display:flex;align-items:flex-end;gap:2px;margin-left:8px}
 #aggbox .bar{width:32px}
 #aggbox .bar i{display:block;margin:0 auto;width:14px;height:calc(var(--aggH)*var(--k));min-height:2px;
@@ -203,8 +206,12 @@ body.daily{align-items:center}
 /* 詰めた形（並びが版の行に届くときだけ。layoutResult が付ける）: 見出しを出さず、数字と棒を低くする */
 #aggbox.tight{--aggH:20px}
 #aggbox.tight .at{display:none}
+/* 「集計中」の詰めた形（D0.12）: 見出しと文を 1 行に並べる（39px → 20px）。数字が無いので、見出しは消さない */
+#aggbox.tight.pend{display:flex;justify-content:center;align-items:baseline;gap:10px}
+#aggbox.tight.pend .at{display:block;line-height:20px}
+#aggbox.tight.pend .ap{margin-top:0}
 #aggbox.tight .ar{margin-top:0}
-#aggbox.tight .ac b{font-size:18px}
+#aggbox.tight .ac b{font-size:22px}
 #aggbox.tight .ac span,#aggbox.tight .bar span{line-height:14px}
 /* それでも収まらない低い画面だけ、列の中を縦に動かせるようにする（13-5）*/
 #app.daily.scrolly{overflow-y:auto}
@@ -217,15 +224,19 @@ body.daily{align-items:center}
 .dsheet h2{font-size:17px;font-weight:700;margin:0;padding-left:15px}
 /* 統計の中身（4 つの数字とカレンダー）。画面に収まらなければ、この中だけ縦に動く */
 #dstatbody{flex:1 1 0;min-height:0;overflow-y:auto}
+/* 4 つの数字の左右を、見出しとカレンダーの左右（15px）にそろえる（D0.12。本編から複製した #statlist は 14px） */
+#dstatbody #statlist{padding:6px 15px 0}
 /* カレンダー（13-8。D0.11）。囲まない ―― 4 つの数字との間は細い線 1 本。週は月曜始まり。
    日の見分けは形でも分ける: 解いた日 = 塗りつぶした丸（--paper）／ギブアップ = 輪だけの丸（--dim）／
-   遊ばなかった日 = 数字の下の小さな点（--edge）／今日 = 外側に枠／問題が無い日 = 印なし（数字は無効の色）。金も赤も使わない */
-#dcal{margin:12px 15px 0;padding-top:6px;border-top:1px solid var(--edge)}
+   遊ばなかった日 = 数字の下の小さな点（--calDot）／今日 = 外側に枠／問題が無い日 = 印なし（数字は無効の色）。金も赤も使わない。
+   --calDot（D0.12）は、副次色 --dim を地の色に 55% 混ぜた色。--edge（地との比 1.5）では暗い画面で見落とすので、
+   見える濃さ（比 3.2）にした。輪（--dim。比 7.4）と塗った丸（--paper）よりは沈む。色は既存の変数から作る */
+#dcal{margin:12px 15px 0;padding-top:6px;border-top:1px solid var(--edge);--calDot:color-mix(in srgb,var(--dim) 55%,var(--ink))}
 #dcal .chead{display:flex;align-items:center;justify-content:space-between}
 #dcal .chead b{font-size:14px;font-weight:700}
 #dcal .chead button:disabled{color:var(--slate);opacity:.5;cursor:default}
 #dcal-grid{display:grid;grid-template-columns:repeat(7,1fr);justify-items:center;row-gap:2px}
-#dcal-grid .dw{font-size:11px;line-height:20px;color:var(--dim)}
+#dcal-grid .dw{font-size:11.5px;line-height:20px;color:var(--dim)}
 #dcal-grid .dc{position:relative;width:var(--calCell);height:var(--calCell);padding:0;border:0;border-radius:8px;background:none;
  display:flex;align-items:center;justify-content:center;color:var(--dim);font:inherit}
 #dcal-grid .dc:active{background:none}
@@ -233,18 +244,18 @@ body.daily{align-items:center}
  font-style:normal;font-size:12.5px;font-weight:500;text-align:center;font-variant-numeric:tabular-nums}
 #dcal-grid .dc.s i{background:var(--paper);color:var(--ink);font-weight:700}
 #dcal-grid .dc.g i{border:1.5px solid var(--dim);line-height:calc(var(--calMark) - 3px)}
-#dcal-grid .dc.n::after{content:"";position:absolute;left:50%;bottom:1px;width:4px;height:4px;margin-left:-2px;
- border-radius:50%;background:var(--edge)}
+#dcal-grid .dc.n::after{content:"";position:absolute;left:50%;bottom:1px;width:5px;height:5px;margin-left:-2.5px;
+ border-radius:50%;background:var(--calDot)}
 #dcal-grid .dc.x{color:var(--slate)}
 #dcal-grid .dc.today{box-shadow:inset 0 0 0 1px var(--dim)}
 #dcal-grid .dc.sel{box-shadow:inset 0 -2px 0 var(--paper)}
 #dcal-grid .dc.today.sel{box-shadow:inset 0 0 0 1px var(--dim),inset 0 -2px 0 var(--paper)}
-#dcal-legend{display:flex;justify-content:center;gap:14px;margin-top:8px;font-size:11px;line-height:16px;color:var(--dim);white-space:nowrap}
+#dcal-legend{display:flex;justify-content:center;gap:14px;margin-top:8px;font-size:11.5px;line-height:16px;color:var(--dim);white-space:nowrap}
 #dcal-legend span{display:flex;align-items:center;gap:5px}
 #dcal-legend i{box-sizing:border-box;width:10px;height:10px;border-radius:50%}
 #dcal-legend i.s{background:var(--paper)}
 #dcal-legend i.g{border:1.5px solid var(--dim)}
-#dcal-legend i.n{width:4px;height:4px;margin:0 3px;background:var(--edge)}
+#dcal-legend i.n{width:5px;height:5px;margin:0 2.5px;background:var(--calDot)}
 #dcal-line{min-height:20px;margin:8px 0 6px;text-align:center;font-size:12.5px;line-height:20px;color:var(--dim);white-space:nowrap}
 #dcal-line b{color:var(--paper);font-weight:700}
 /* 遊び方の文（本編の遊び方の文と同じ大きさ・行間・明るさ）。式は折り返さない（本編 7.7 と同じ）。
@@ -267,6 +278,9 @@ body.daily{align-items:center}
   .rcol .rv{height:30px}
   .rcol .rv b{font-size:22px;line-height:30px}
   .applink{height:44px}
+  /* 統計の数字（D0.12）。本編から複製した @media の中の同じ指定は、後ろにある通常の規則に負けて効いていなかった */
+  #statlist .stat{height:66px}
+  #statlist .stat .sv b,#statlist .stat .sv .none{font-size:22px}
 }
 </style>
 </head>
@@ -366,7 +380,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.11";
+const DAILY_VERSION="0.12";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -589,7 +603,7 @@ const G={lang:"auto",vib:true,easy:false,dev:false};
    起点日（#1 の日。月曜）と列は、python make10.py daily が下の 2 つの印の間を書き換える（DAILY-SPEC 6 章）。
    1 日 1 行。問題番号,4桁,制約,難易度,解答例;2 本目;3 本目… */
 const DAILY_START="2099-01-05";
-const DAILY=`1,3915,N,8,3! + 9 - 1 * 5;3! + 9 * 1 - 5;3! + ( 9 - 1 * 5 );3! + ( 9 * 1 - 5 );( 3! + 9 ) * 1 - 5;3! + 9 ^ 1 - 5;3! + ( 9 ^ 1 - 5 );( 3! + 9 ) ^ 1 - 5
+const DAILY=`1,8752,N,6,( 8 - 7 ) * 5 * 2;( 8 - 7 ) * ( 5 * 2 );( 8 + 7 + 5 ) / 2;( 8 + ( 7 + 5 ) ) / 2
 2,9730,N,7,9 + 7 - 3! + 0;9 + ( 7 - 3! + 0 );9 + 7 - ( 3! + 0 );9 + ( 7 - 3! ) + 0;9 + ( 7 - ( 3! + 0 ) );9 + 7 - ( 3 + 0 )!;9 + ( 7 - ( 3 + 0 )! );9 + 7 - 3! * 0!;9 * ( 7 - 3! ) + 0!;9 + ( 7 - 3! * 0! );9 + ( 7 - 3! ) * 0!;( 9 + 7 - 3! ) * 0!;9 + 7 - 3! ^ 0!;9 + 7 - ( 3 * 0! )!;9 ^ ( 7 - 3! ) + 0!;9 + ( 7 - 3! ^ 0! );( 9 + 7 - 3! ) ^ 0!;9 + ( 7 - ( 3 * 0! )! );9 + 7 - ( 3 ^ 0! )!;9 + ( 7 - 3! - 0! )!;9 + ( 7 - ( 3 ^ 0! )! );9 + ( 7 - ( 3! + 0! ) )!;9 + 7! / ( 3! + 0! )!;9 + ( 7! - ( 3! + 0! )! )!
 3,0877,N,9,0! + 8 + 7 / 7;0! + ( 8 + 7 / 7 );0! + 8 + ( 7 - 7 )!;0! + ( 8 + ( 7 - 7 )! );0! + 8 + 7! / 7!;0! + ( 8 + 7! / 7! );0! + ( 8! + 7! ) / 7!;0! + 8 + ( 7! - 7! )!;0! + ( 8 + ( 7! - 7! )! )
 4,7032,N,9,( 7 + 0! - 3 ) * 2;7 + 0 + 3! / 2;7 - ( 0 - 3! / 2 );7 - ( 0 - 3! ) / 2;( 7 + ( 0! - 3 ) ) * 2;7 - 0! + 3! - 2;7 - ( 0! - 3! + 2 );7 - 0! + ( 3! - 2 );7 - ( 0! - 3! ) - 2;7 + ( 0 + 3 )! / 2;7 - ( 0! - ( 3! - 2 ) );7 + 0! * 3! / 2;7 * 0! + 3! / 2;7 + 0! * ( 3! / 2 );7 ^ 0! + 3! / 2;7 + ( 0! * 3 )! / 2
@@ -2438,15 +2452,23 @@ function drawSols(){
    12 → 8px と詰める。それでも届くなら、みんなの結果を詰めた形（見出しなし・低い棒）にして 12 → 8px。
    それでも収まらない低い画面だけ、列の中を縦に動かせるようにする（13-5）。
    式と 3 列のあいだだけは、間隔より 8px 広い（Figma「20 デイリー」）*/
+const RESULT_READ_GAP={normal:40,compact:32};   // 結果の画面: 読み出し行の下端から式の上端までの間（px）
 function layoutResult(){
   const play=$("play"), res=$("result");
   if(!play.classList.contains("done"))return;
+  {// 読み出し行を式へ寄せる。位置は transform に左右されない offset で測る（動いている途中でも同じ値になる）
+    const ro=play.querySelector(".readout"), low=$("sub").textContent?$("sub"):$("eq");
+    // transform を持つ読み出し行は、中の要素の位置の基準になる（中の offsetTop は読み出し行からの値）
+    const gap=$("field").offsetTop+$("exprwrap").offsetTop-(ro.offsetTop+low.offsetTop+low.offsetHeight);
+    ro.style.setProperty("--roShift",Math.max(0,gap-RESULT_READ_GAP[matchMedia(COMPACT_MQ).matches?"compact":"normal"])+"px");
+  }
   const top=$("exprwrap").getBoundingClientRect().bottom-play.getBoundingClientRect().top;
   // 上限は、版の行に見えている文字の上端（テスト表示が出ていればその上端）。箱の上端ではない ――
   // Figma は、導線の押せる範囲を版の文字のすぐ上まで使っている
   const limit=Math.min(...[$("dtest"),$("dver")].filter(e=>e.offsetHeight>0).map(e=>e.getBoundingClientRect().top));
   const first=matchMedia(COMPACT_MQ).matches?16:24;
-  const agg=$("aggbox"), canTight=!!agg.querySelector(".ar");      // 数字が出ているときだけ、詰めた形がある
+  const agg=$("aggbox"), canTight=!agg.classList.contains("hide");  // 出ていれば、詰めた形がある（数字／「集計中」）
+  agg.classList.toggle("pend",!!agg.querySelector(".ap"));
   let fits=false;
   for(const [tight,g] of [[0,24],[0,16],[0,12],[0,8],[1,12],[1,8]]){
     if(g>first||(tight&&!canTight))continue;

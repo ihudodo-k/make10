@@ -9,6 +9,7 @@
 """
 import calendar as pycal
 import datetime
+import re
 import time
 
 from uiharness import daily_ui as dui
@@ -98,10 +99,43 @@ def run(ui):
              ui.ev("(()=>{const s=getComputedStyle(document.querySelector('#dcal-grid .dc.g i'));"
                    "return [s.backgroundColor,s.borderTopColor,s.borderTopStyle,parseFloat(s.borderTopWidth)>=1,s.borderRadius,s.color]})()"),
              ["rgba(0, 0, 0, 0)", DIM, "solid", True, "50%", DIM])      # 線は 1.5px。1 倍の密度の画面では 1px に丸まる
-    ui.check("見た目: 遊ばなかった日は、数字の下の小さな点（4px・--edge）。丸は無い",
-             ui.ev("(()=>{const e=document.querySelector('#dcal-grid .dc.n'),a=getComputedStyle(e,'::after'),i=getComputedStyle(e.querySelector('i'));"
-                   "return [a.content,a.width,a.height,a.backgroundColor,i.backgroundColor,i.borderTopWidth]})()"),
-             ['""', "4px", "4px", EDGE, "rgba(0, 0, 0, 0)", "0px"])
+    # 点の色（D0.12）は、副次色を地の色に 55% 混ぜた色。期待値はここで別に計算する（ページの変数は読まない）
+    rgb = lambda c: [int(v) for v in re.findall(r"\d+", c)[:3]]                       # noqa: E731
+    mix = [(d * 0.55 + k * 0.45) / 255 for d, k in zip(rgb(DIM), rgb(INK))]
+
+    def lum(c):
+        f = lambda v: v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4      # noqa: E731
+        return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+
+    ratio = lambda c: (lum(c) + 0.05) / (lum([v / 255 for v in rgb(INK)]) + 0.05)      # noqa: E731  地との明るさの比
+    d = ui.ev("(()=>{const e=document.querySelector('#dcal-grid .dc.n'),a=getComputedStyle(e,'::after'),i=getComputedStyle(e.querySelector('i'));"
+              "const r=e.getBoundingClientRect();"
+              "return [a.content,a.width,a.height,a.backgroundColor,i.backgroundColor,i.borderTopWidth,"
+              "getComputedStyle(document.querySelector('#dcal-legend i.n')).backgroundColor,"
+              "getComputedStyle(document.querySelector('#dcal-legend i.n')).width]})()")
+    got = [float(v) for v in re.findall(r"[\d.]+", d[3].split("srgb")[-1])[:3]] if "srgb" in d[3] else [v / 255 for v in rgb(d[3])]
+    ui.check("見た目: 遊ばなかった日は、数字の下の小さな点（5px）。丸は無い。凡例の点も同じ色と大きさ",
+             [d[0], d[1], d[2], d[4], d[5], d[6] == d[3], d[7]], ['""', "5px", "5px", "rgba(0, 0, 0, 0)", "0px", True, "5px"])
+    ui.check("点の色は、副次色を地の色に 55% 混ぜた色（別に計算した値と同じ）",
+             [round(a - b, 3) for a, b in zip(got, mix)], [0, 0, 0])
+    ui.check("点は見える濃さ（地との比が 3 以上）で、輪（副次色）と塗った丸（--paper）よりは沈む",
+             [ratio(got) >= 3, ratio(got) < ratio([v / 255 for v in rgb(DIM)]) / 2, ratio(got) < ratio([v / 255 for v in rgb(PAPER)]) / 4],
+             [True, True, True])
+    ui.check("点の色は、まだ来ていない日の数字（無効の色）とも、線（--edge）とも違う",
+             [d[3] != SLATE, d[3] != EDGE, ui.ev("getComputedStyle(document.querySelector('#dcal-grid .dc.x'),'::after').content")],
+             [True, True, "none"])
+    # 統計のシートの様式（D0.12）: 左右の端・名前の字の大きさ・数字の大きさ
+    low = ui.viewport != "normal"
+    ui.check("統計: 見出し・4 つの数字・カレンダーの左端がそろう（15px）。名前の字は 11.5px でそろう",
+             ui.ev("(()=>{const cs=e=>getComputedStyle(e),q=s=>document.querySelector(s),L=e=>Math.round(e.getBoundingClientRect().left*10)/10;"
+                   "const x0=app.getBoundingClientRect().left;"
+                   "return [L(q('#dstatsheet h2'))+parseFloat(cs(q('#dstatsheet h2')).paddingLeft)===L(q('#statlist .stat')),"
+                   "L(q('#statlist .stat'))-L(dstatbody),L(dcal)-L(dstatbody),parseFloat(cs(q('#dstatsheet h2')).paddingLeft),"
+                   "cs(q('.stat .sk')).fontSize,cs(q('#dcal-grid .dw')).fontSize,cs(document.getElementById('dcal-legend')).fontSize]})()"),
+             [True, 15, 15, 15, "11.5px", "11.5px", "11.5px"])
+    ui.check("統計: 4 つの数字は %s・段の高さ %dpx（低い画面は小さく。3 列の数字と同じ大きさ）" % (("22px", 66) if low else ("26px", 76)),
+             ui.ev("[getComputedStyle(document.querySelector('.stat .sv b')).fontSize,document.querySelector('.stat').offsetHeight]"),
+             ["22px", 66] if low else ["26px", 76])
     ui.check("見た目: 今日は外側に枠。点も丸も無い（まだ遊んでいない）。枠があるのは今日だけ",
              ui.ev("(()=>{const e=document.querySelector('#dcal-grid .dc.today'),s=getComputedStyle(e);"
                    "return [/inset/.test(s.boxShadow),getComputedStyle(e,'::after').content,"

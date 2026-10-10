@@ -148,4 +148,8 @@ def run(ui):
                      "#dcal-grid .dc.s i", "#dcal-grid .dc.g i", "#dcal-grid .dc.n::after", "#dcal-grid .dc.x",
                      "#dcal-grid .dc.today", "#dcal-grid .dc.sel", "#dcal-grid .dc.today.sel",
                      "#dcal-legend", "#dcal-legend span", "#dcal-legend i", "#dcal-legend i.s", "#dcal-legend i.g",
-                     "#dcal-legend i.n", "#dcal-line", "#dcal-line b"]))
+                     "#dcal-legend i.n", "#dcal-line", "#dcal-line b",
+                     # D0.12（調整の版）
+                     "#dstatbody #statlist", "#play.done .readout", "#aggbox.tight.pend", "#aggbox.tight.pend .at",
+                     "#aggbox.tight.pend .ap", MEDIA + "#statlist .stat",
+                     MEDIA + "#statlist .stat .sv b,#statlist .stat .sv .none"]))
