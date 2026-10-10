@@ -2050,6 +2050,32 @@ class DailyColumn(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.build(pool, 2, keep=page)                        # ページより短くは作れない
 
+    def test_pin_swaps_only_that_number(self):
+        """固定 (pin): その番号だけが決めた 4 桁になり、ほかの行は変わらない。
+        その 4 桁がもともと出ていた番号には、入れ替えで外れた問題が入る (同じ 4 桁は一度)。"""
+        pool = self.pool(8)
+        base = m.select_daily(pool, 8)
+        first = base[0]
+        # (a) 列の後ろに出ている、月・火の枠の 4 桁を #1 に固定する
+        later = next(x for x in base[7:] if x["cls"] == first["cls"] and x["rc"] == "N")
+        got = m.select_daily(pool, 8, {1: later["id"]})
+        self.assertEqual((got[0]["no"], got[0]["id"], got[0]["rc"]), (1, later["id"], "N"))
+        self.assertEqual(got[later["no"] - 1]["id"], first["id"])        # 外れた問題が、そこへ入る
+        self.assertEqual(got[later["no"] - 1]["no"], later["no"])
+        same = [i for i in range(len(base)) if i not in (0, later["no"] - 1)]
+        self.assertEqual([got[i] for i in same], [base[i] for i in same])
+        self.assertEqual(len({x["id"] for x in got}), len(got))
+        self.assertEqual([x["no"] for x in got], list(range(1, len(got) + 1)))
+        # (b) 作る長さに依らない (短く作っても頭が同じ。入れ替え先がまだ列に無い長さでも)
+        for weeks in (1, 2, 5):
+            self.assertEqual(m.select_daily(pool, weeks, {1: later["id"]}), got[:weeks * 7])
+        # (c) 曜日の決まりに合わない 4 桁は断る (土曜の枠の問題を月曜に固定する)
+        other = next(x for x in base if x["cls"] != first["cls"])
+        with self.assertRaises(RuntimeError):
+            m.select_daily(pool, 8, {1: other["id"]})
+        # (d) 固定なしは今までどおり
+        self.assertEqual(m.select_daily(pool, 8, {}), base)
+
     def test_rebuild_is_refused_once_published(self):
         """--rebuild (ページの行を捨てて作り直す) は、起点日が今日以前なら断る。"""
         import datetime

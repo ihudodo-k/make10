@@ -3413,6 +3413,10 @@ DAILY_CLASSES = (
 # 解答例に `0!` を含む問題を使わない枠 (月・火)。`0! = 1` は知らないと出てこない手筋なので、
 # 週のはじめのやさしい日には出さない。`3!` などほかの階乗は残す (DAILY-SPEC 4 章)
 DAILY_NO_ZERO_FAC = ("A",)
+# 手で決めた問題 {問題番号: 4 桁} (制約なしの puzzle)。作り方 (6-2) が出す列の、その番号だけを入れ替える。
+# #1 (公開初日) は、初めて来た人のために、いちばんやさしい難易度 6 の 8752 にしてある (D0.12。DAILY-SPEC 6-4)。
+# 曜日の決まり (4 章) は守る ―― 合わない問題を書くと select_daily が止まる。--rebuild でもこの番号は変わらない
+DAILY_PIN = {1: "8752"}
 _DAILY_RC_OP = {v: k for k, v in _BLOB_CODEOF.items()}   # "A" -> "+" …
 _DAILY_SEP = ";"             # 1 行の中で、解答を区切る文字
 
@@ -3525,9 +3529,14 @@ def daily_partition(cand):
     return lo, owned, len(can) - sum(len(v) for v in owned.values())
 
 
-def select_daily(cand, weeks):
+def select_daily(cand, weeks, pin=None):
     """列を作る。[{"no", "wd", "cls", "id", "rc", "d", "sol"}…] (#1 から)。
-    weeks が持ち分の週数を超えたら RuntimeError (足りないまま作らない)。"""
+    weeks が持ち分の週数を超えたら RuntimeError (足りないまま作らない)。
+
+    pin = {問題番号: 4 桁} (DAILY_PIN の形)。その番号を、その 4 桁の制約なしの puzzle に入れ替える。
+    その 4 桁が列のほかの番号に出ているなら、そこには入れ替えで外れた問題を入れる (同じ 4 桁を
+    二度出さない。同じ曜日の枠どうしでなければ止まる)。入れ替えは番号だけで決まり、作る長さを見ない
+    ―― 列に出ていないときは、もっと長い列で探して、出る番号が同じになるようにする。"""
     t, owned, _rest = daily_partition(cand)
     if weeks > t:
         raise RuntimeError("デイリー: %d 週ぶんは作れない (全曜日を満たせるのは %d 週まで)"
@@ -3548,6 +3557,29 @@ def select_daily(cand, weeks):
                             "id": r["id"], "rc": r["rc"], "d": r["d"],
                             "sol": r["sol"]})
     out.sort(key=lambda x: x["no"])
+    for no, pid in sorted((pin or {}).items()):
+        if no > len(out):
+            continue
+        new = [r for r in by_id.get(pid, []) if r["rc"] == "N"]
+        cls = next(c for c in DAILY_CLASSES if out[no - 1]["wd"] in c[1])
+        if len(new) != 1 or not _daily_class_ok(cls, new[0]):
+            raise RuntimeError("デイリー: 固定した #%d の %s は、その曜日の決まりに合う制約なしの問題でない"
+                               % (no, pid))
+        old = out[no - 1]
+        # その 4 桁がもともと出る番号 (あれば)。長さに依らないよう、列ではなく持ち分の表から出す
+        at = None
+        for c in DAILY_CLASSES:
+            if pid in owned[c[0]]:
+                i = owned[c[0]].index(pid)
+                at = (c[0], (i // len(c[1])) * 7 + c[1][i % len(c[1])] + 1)
+        if at and at[1] != no:
+            if at[0] != old["cls"]:
+                raise RuntimeError("デイリー: 固定した #%d の %s は、別の曜日の枠 (#%d) に出ている"
+                                   % (no, pid, at[1]))
+            if at[1] <= len(out):
+                out[at[1] - 1] = dict(old, no=at[1], wd=out[at[1] - 1]["wd"])
+        out[no - 1] = {"no": no, "wd": old["wd"], "cls": old["cls"], "id": pid,
+                       "rc": "N", "d": new[0]["d"], "sol": new[0]["sol"]}
     return out
 
 
@@ -3620,8 +3652,13 @@ def _daily_build(conn, weeks, start=None, pool=None, keep=None):
         raise ValueError("デイリー: ページにある %d 週より短くは作れない (%d 週)"
                          % (len(keep) // 7, weeks))
 
+    have = {r["id"] for r in pool}
+    pin = {no: pid for no, pid in DAILY_PIN.items() if pid in have}
+
     def lines_of(cand, n_weeks, offset):
-        col = select_daily(cand, n_weeks)
+        # 固定 (DAILY_PIN) は、頭から作るときだけ当てる (ページの行を残して続きを足すときの続きには当てない)。
+        # 候補に無い 4 桁の固定は当てない ―― 本物の DB でそうなったら、確かめ 13 が落とす
+        col = select_daily(cand, n_weeks, None if offset else pin)
         sols = _daily_sols(conn, col)
         for x in col:
             x["no"] += offset
@@ -3837,6 +3874,14 @@ def _daily_verify(conn, blob_text, built):
             n_fac += any("!" in e for e in ex)
     add_rows("12 月・火は 0! なし", bad,
         "月・火 %d 問の解答例に 0! が無い (ほかの階乗を使うのは %d 問)" % (n_mt, n_fac))
+
+    # 13. 手で決めた問題 (DAILY_PIN)。列のその番号が、決めた 4 桁の制約なしの問題であること。
+    #     select_daily は呼ばず、できあがった列の行を読む (候補に無くて当たらなかった固定もここで落ちる)
+    bad = [(no, pid, (rows[no - 1]["id"], rows[no - 1]["rc"]) if no <= len(rows) else None)
+           for no, pid in sorted(DAILY_PIN.items())
+           if no > len(rows) or (rows[no - 1]["id"], rows[no - 1]["rc"]) != (pid, "N")]
+    add("13 手で決めた問題", bad,
+        "・".join("#%d は %s" % (no, pid) for no, pid in sorted(DAILY_PIN.items())) or "なし")
     return checks
 
 
