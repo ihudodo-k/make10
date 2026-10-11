@@ -836,7 +836,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="8.1";
+const APP_VERSION="8.2";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -40992,7 +40992,10 @@ $("t-easy").onclick=()=>{G.easy=!G.easy;save();renderSettings();playDirty=true};
 // オンにした瞬間の手応えは、下の「ボタンの振動」が出す（切り替えた後の G.vib を見るので、
 // オンにしたときだけ振動し、オフにしたときは振動しない）
 $("t-vib").onclick=()=>{G.vib=!G.vib;save();renderSettings()};
-$("t-tap").onclick=()=>{G.tap=!G.tap;tapMode=G.tap;save();renderSettings();hideZones();
+// タップ配置を切ったら、選んでいた記号を放す（8.2）。切った後はドラッグの操作なので、選んだままの記号は
+// 外せなくなる（同じ記号を押してもドラッグが始まるだけ）。盤は、戻ったときに playDirty で描き直す
+// （選ばれた見た目と、置き場所の枠が消える）。オンにするときは何も変えない
+$("t-tap").onclick=()=>{G.tap=!G.tap;tapMode=G.tap;if(!tapMode)held=null;save();renderSettings();hideZones();
   playDirty=true};
 $("go-help").onclick=()=>go("help");
 
