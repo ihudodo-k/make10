@@ -276,7 +276,35 @@ body.daily{align-items:center}
 #dsetbody{flex:1 1 0;min-height:0;overflow-y:auto}
 /* 歯車を統計の左に足したぶん、中央の文字が左へ寄る。左に同じ幅（ボタン 1 つと間隔）を空けて、
    文字を画面の軸に戻す。折り返さない（4 桁の問題番号の日本語がいちばん長い。360px で 117px）*/
-#dinfo{padding-left:calc(var(--btnW) + 9px);white-space:nowrap}
+#dmid{padding-left:calc(var(--btnW) + 9px);white-space:nowrap}
+/* 名前「Make10 DAILY」（13-2・14-1。D0.17）。訳さない（どの言語でも同じ字）。Make10 は太字の白、DAILY は小さく字間を広げた副次色。
+   金は使わない（金は正解の「10」だけ。1 章）。押せない（リンクにしない）。読み上げには見出し（h1）として読ませる。
+   出す場所は 3 つで、画面に出ているのはいつも 1 つだけ（出ていないものは display:none なので、読み上げにも出ない）:
+     スマホと低い画面 = 上のバーの中央の 1 行目（下の行が問題番号と日付）／パソコン（広くて高い画面）= 画面の上の、幅いっぱいの見出し #dhead／
+     「問題がありません」の日のスマホ = 上のバーがあるはずの場所 #nobrand
+   上のバーの高さはボタンの高さで決まるので、2 行にしても変わらない（2 行で 32.4px。ボタンは 44 / 52px）*/
+.dbrand{margin:0;font:inherit;font-size:12px;line-height:1.35;white-space:nowrap;color:var(--dim)}
+.dbrand b{font-weight:700;color:var(--paper);letter-spacing:.02em}
+.dbrand span{margin-left:5px;font-size:9px;font-weight:500;letter-spacing:.22em;color:var(--dim)}
+#dhead{display:none}
+#nobrand{position:absolute;left:0;right:0;top:12px;height:var(--btnW);display:flex;align-items:center;justify-content:center}
+#nobrand.hide{display:none}
+/* パソコン（14-1）: 列の左右が空く広い画面では、画面の上に幅いっぱいの見出しを置き、下に細い線。
+   列は見出しの下の残りの高さの中で、上下の中央に置く（高さの上限 900px はそのまま）。
+   このときは、列の中の名前（上のバーの 1 行目・#nobrand）は出さない（名前を二重に出さない）。
+   広さの境目は、幅 720px 以上・高さ 768px 以上。見出しの高さは --dheadH（60px）。
+   それより低い広い画面（1280×720 など）と、横向きのスマホは、スマホと同じ出し方（上のバーの 1 行目）にする ――
+   見出しのぶん列が低くなると、1280×720 で解いた後の並び（みんなの結果が数字のとき）が収まらなくなるため
+   （見出し 60px で 4px、48px でも 1px 足りない。列を高くしても、高さは読み出し行と式に分かれて入るので、余りは 4 分の 1 しか増えない）*/
+@media (min-width:720px) and (min-height:768px){
+  body.daily{--dheadH:60px;padding-top:var(--dheadH)}
+  #dhead{display:flex;position:fixed;z-index:2;top:0;left:0;right:0;height:var(--dheadH);align-items:center;justify-content:center;
+   background:var(--ink);border-bottom:1px solid color-mix(in srgb,var(--paper) 10%,transparent)}
+  #dhead .dbrand{font-size:17px}
+  #dhead .dbrand span{margin-left:8px;font-size:11.5px}
+  #app.daily{height:calc(100dvh - var(--dheadH))}
+  #dmid .dbrand,#nobrand{display:none}
+}
 /* 遊び方の文（本編の遊び方の文と同じ大きさ・行間・明るさ）。式は折り返さない（本編 7.7 と同じ）。
    低い画面で収まらなければ、この中だけ縦に動く */
 #dhelpbody{flex:1 1 0;min-height:0;overflow-y:auto;padding:0 15px}
@@ -377,12 +405,15 @@ body.daily{align-items:center}
 </head>
 <body data-theme="ai" class="daily">
 <div id="bg"></div>
+<!-- パソコンの見出し（D0.17。広い画面でだけ出す）。名前は訳さない -->
+<header id="dhead"><h1 class="dbrand"><b>Make10</b><span>DAILY</span></h1></header>
 <div id="app" class="daily">
   <div id="play" class="hide dplay" style="flex:1;display:flex;flex-direction:column">
     <div class="top">
       <!-- 左の席は「?」（遊び方）-->
       <button id="dhelp" class="plainbtn" data-i18n-label="daily.btn_help"></button>
-      <div class="info" id="dinfo"></div>
+      <!-- 中央: 1 行目に名前（スマホだけ。D0.17）、2 行目に問題番号と日付（drawTop() が #dinfo に書く）-->
+      <div class="info" id="dmid"><h1 class="dbrand"><b>Make10</b><span>DAILY</span></h1><div id="dinfo"></div></div>
       <!-- 設定（歯車）。統計の左（D0.13）。統計と共有の位置は変えない -->
       <button id="dset" class="plainbtn" data-i18n-label="daily.btn_settings"></button>
       <button id="dstats" class="plainbtn" data-i18n-label="daily.btn_stats">
@@ -433,6 +464,8 @@ body.daily{align-items:center}
       <a class="applink" id="applink" href="https://make10.app/"><span data-i18n="daily.app_link"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>
     </div>
   </div>
+  <!-- 「問題がありません」の日の名前（上のバーが無いので、その場所に出す。スマホだけ。D0.17）-->
+  <h1 id="nobrand" class="dbrand hide"><b>Make10</b><span>DAILY</span></h1>
   <div id="nopuzzle" class="hide" data-i18n="daily.nopuzzle"></div>
   <!-- 統計（列の中に重ねる 1 枚の画面）-->
   <div id="dstatsheet" class="dsheet hide">
@@ -494,7 +527,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.16";
+const DAILY_VERSION="0.17";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -3003,7 +3036,7 @@ if(PUZZLE){
     helpShow();
   }
 }
-else $("nopuzzle").classList.remove("hide");
+else{$("nopuzzle").classList.remove("hide");$("nobrand").classList.remove("hide")}
 // みんなの結果: 送れていない日を送り直し、今日の分は読み直す（17-2）。?date= では何もしない
 if(!TEST_MODE){
   let marked=false;

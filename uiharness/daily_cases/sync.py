@@ -37,6 +37,7 @@ REQUIRED_JS_ANON = [
     '@document.addEventListener("pointercancel",pressOff,true);',
 ]
 MEDIA = "@media (max-height:700px) || "
+WIDE = "@media (min-width:720px) and (min-height:768px) || "      # パソコンの見出し（D0.17。デイリーだけ）
 REQUIRED_CSS = [
     ":root", 'body[data-theme="ai"]', "*", "html,body", "body", "#bg", "@keyframes sweep", "#bg.flash",
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",
@@ -157,7 +158,7 @@ def run(ui):
                      "#aggbox.tight.pend .ap", MEDIA + "#statlist .stat",
                      MEDIA + "#statlist .stat .sv b,#statlist .stat .sv .none",
                      # D0.13（設定）
-                     "#dsetbody", "#dinfo",
+                     "#dsetbody", "#dmid",
                      # D0.16（遊び方の見本の盤。.hd1 .dn3 は、止まっている形と動きの 2 つ）
                      ".hfig", ".hstep", "#dhelpbody .hfig .hcap", ".hdemo", ".dexpr", ".dnum", ".dtok", ".dtok.op",
                      ".dtok.par", ".dslot", ".dslot>*", ".dzone", ".dhot", ".dtray", ".dchip", ".dghost", ".deq", ".dsub",
@@ -165,4 +166,8 @@ def run(ui):
                      ".hd1 .ds1", ".hd1 .dzone", ".hd1 .dhot", ".hd1 .ds1 .dtok", ".hd1 .dghost", ".hd1 .dpick",
                      "@keyframes hd-n0", "@keyframes hd-n1", "@keyframes hd-n2", "@keyframes hd-n3", "@keyframes hd-s1",
                      "@keyframes hd-zone", "@keyframes hd-hot", "@keyframes hd-tok", "@keyframes hd-ghost",
-                     "@keyframes hd-pick", "#dhelpbody p.hico", "#dhelpbody p.hico .hi", "#dhelpbody p.hico .hi .ic"]))
+                     "@keyframes hd-pick", "#dhelpbody p.hico", "#dhelpbody p.hico .hi", "#dhelpbody p.hico .hi .ic",
+                     # D0.17（名前。#dinfo の左の余白は、名前と日付を入れる #dmid へ移した）
+                     ".dbrand", ".dbrand b", ".dbrand span", "#dhead", "#nobrand", "#nobrand.hide",
+                     WIDE + "body.daily", WIDE + "#dhead", WIDE + "#dhead .dbrand", WIDE + "#dhead .dbrand span",
+                     WIDE + "#app.daily", WIDE + "#dmid .dbrand,#nobrand"]))
