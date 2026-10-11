@@ -117,6 +117,26 @@ def run(ui):
     ui.check("歯車の絵柄は、箱の中央にある",
              ui.ev("(function(){const a=dset.getBoundingClientRect(),b=dset.querySelector('.ic').getBoundingClientRect();"
                    "return Math.abs(a.left+a.width/2-b.left-b.width/2)<.6&&Math.abs(a.top+a.height/2-b.top-b.height/2)<.6})()"), True)
+    # 歯車の形（D0.15 で軽くした）: 外形の 1 本と、中の丸（線だけ）。外形の大きさは「?」の丸にそろえる
+    shape = ui.ev("(function(){const s=dset.querySelector('svg'),b=s.getBBox(),h=dhelp.querySelector('svg').getBBox();"
+                  "const len=e=>[...e.querySelectorAll('path,circle')].reduce((a,x)=>a+x.getTotalLength(),0);"
+                  "return {kids:[...s.children].map(e=>e.tagName).join(' '),fill:[...s.children].map(e=>getComputedStyle(e).fill),"
+                  "box:[b.x,b.y,b.x+b.width,b.y+b.height],help:[h.x,h.y,h.x+h.width,h.y+h.height],"
+                  "len:len(s),helpLen:len(dhelp.querySelector('svg')),statsLen:len(dstats.querySelector('svg')),"
+                  "teeth:(s.querySelector('path').getAttribute('d').match(/A/g)||[]).length}})()")
+    ui.check("歯車の形: 外形の 1 本と中の丸。どちらも塗らない（線だけ）。歯は 6 枚",
+             [shape["kids"], shape["fill"], shape["teeth"]], ["path circle", ["none", "none"], 6])
+    ui.check("歯車の外形は、「?」の丸の外形（3.5〜20.5）の中に収まり、差は 0.5 以内。上下左右の中央",
+             [all(abs(a - b) <= 0.5 and (a >= b if i < 2 else a <= b) for i, (a, b) in enumerate(zip(shape["box"], shape["help"]))),
+              abs(shape["box"][0] + shape["box"][2] - 24) < 0.01, abs(shape["box"][1] + shape["box"][3] - 24) < 0.01],
+             [True, True, True])
+    # 画面に描かれた大きさでも見る（図の中の座標が同じでも、枠の取り方で大きく描けてしまうため）
+    drawn = ui.ev("(function(){const r=s=>{const b=document.querySelector(s).getBoundingClientRect();return [b.width,b.height]};"
+                  "return [r('#dset svg path'),r('#dhelp svg circle')]})()")
+    ui.check("画面に描かれた歯車の外形は、「?」の丸より大きくなく、差は 1.5px 以内",
+             [all(g <= h + 0.01 and h - g <= 1.5 for g, h in zip(*drawn))], [True])
+    ui.check("歯車の線の量は、「?」の 1.3 倍より少ない（D0.13 の 8 枚歯は 1.57 倍だった）。統計よりは多い",
+             [shape["len"] < shape["helpLen"] * 1.3, shape["len"] > shape["statsLen"]], [True, True])
     # いちばん長い文字（4 桁の問題番号・2 桁の月と日）でも、歯車に重ならず、画面の軸に乗る。両方の言語
     long_no = max(n for n in range(1, len(rows) + 1) if n >= 1000 and day(n).month >= 10 and day(n).day >= 20)
     for lang in ("ja", "en"):

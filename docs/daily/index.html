@@ -410,7 +410,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.14";
+const DAILY_VERSION="0.15";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2532,7 +2532,8 @@ function layoutResult(){
 /* ═══ みんなの結果（17 章）═══
    解いた瞬間とギブアップの瞬間に、問題番号・結果・時間（秒）・ヒントの回数の 4 つだけを送る（1 端末 1 日 1 回）。
    返事にその日の集計が載るので、全解答の下に出す。開き直したときは読み直す。
-   ?date=（テスト表示）では送らないし読まない。数秒で打ち切り、通信できなければ何も出さない（知らせもしない）*/
+   ?date=（テスト表示）では送らないし読まない（agg=demo・agg=pending を付けたときだけ、通信せずに見本の数字を出す。D0.15）。
+   数秒で打ち切り、通信できなければ何も出さない（知らせもしない）*/
 const AGG_URL="https://api.make10.app/r";
 const AGG_TIMEOUT=4000;                    // 打ち切るまでの時間（ミリ秒）
 const AGG_MIN=30;                          // 件数がこれより少ない間は「集計中」
@@ -2540,6 +2541,15 @@ const AGG_BANDS=[30,60,120,300];           // 時間の帯の区切り（秒）�
 const AGG_LABELS=["<0:30","<1:00","<2:00","<5:00","5:00+"];
 const AGG_T_MAX=86400;                     // 送る時間の上限（秒）。サーバーの T_MAX と同じ値
 let aggData=null;                          // 今日の集計（読めたときだけ）
+/* テスト表示の見本（D0.15。17-4）。?date= に agg=demo か agg=pending を付けたときだけ、解いた後・ギブアップの後に、
+   決まった見本の数字で「みんなの結果」を出す（公開前に、画面で見るための入口）。通信はしない（fetch を呼ばない）。
+   ?date= が無いときは無視する。見本の数字は、本物の返事と同じ道（aggShow → aggOk → drawAgg）を通すので、
+   自分のいる帯は、その回の自分の時間から決まる。pending は、件数が AGG_MIN より少なくて「集計中」になる場合 */
+const AGG_DEMO={demo:{s:412,g:96,s0:268,b:[38,121,147,82,24]},pending:{s:20,g:9,s0:3,b:[1,5,9,4,1]}};
+const AGG_TEST=(()=>{
+  if(!TEST_MODE)return null;
+  try{const k=new URLSearchParams(location.search).get("agg");
+    return k&&Object.prototype.hasOwnProperty.call(AGG_DEMO,k)?AGG_DEMO[k]:null}catch(e){return null}})();
 const aggBusy=new Set();                   // 送っている途中の問題番号（二重に送らない）
 const aggBand=t=>{let i=0;while(i<AGG_BANDS.length&&t>=AGG_BANDS[i])i++;return i};
 const aggOk=(j,no)=>!!j&&j.n===no&&[j.s,j.g,j.s0].every(x=>Number.isInteger(x)&&x>=0)
@@ -2556,6 +2566,7 @@ function aggShow(no,j){
 /* 送る。送れたら（か、サーバーが「もう受け取らない日」と断ったら）印を付けて、送り直さない */
 async function aggSend(no){
   const rec=DATA.days[no];
+  if(AGG_TEST){if(rec)aggShow(no,{n:no,...AGG_TEST});return}   // テスト表示の見本。送らずに、見本の数字を出す
   if(TEST_MODE||!rec||rec.sent||aggBusy.has(no))return;
   aggBusy.add(no);
   let j=null, done=false;
@@ -2838,8 +2849,10 @@ $("dhelp-close").onclick=()=>helpHide();
    保存は DATA.set。盤が読むのは、本編から複製した G.easy と tapMode（applySet() が当てる）。
    切り替えたら、その場で盤を描き直す。?date=（テスト表示）では保存しない（saveDaily() が書かない）ので、その場だけ効く。
    記録・集計・共有には載せない（days にも、送る中身にも、共有文にも入れない）。
-   絵柄は、本編の 3.5〜4.4 にあった 8 枚歯の歯車（線の太さと大きさは .ic で「?」・統計と同じ）*/
-const ICON_SET=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 10.13L20.8 13.87L17.9 13.92L17.52 14.81L19.55 16.9L16.9 19.55L14.81 17.52L13.92 17.9L13.87 20.8L10.13 20.8L10.08 17.9L9.19 17.52L7.1 19.55L4.45 16.9L6.48 14.81L6.1 13.92L3.2 13.87L3.2 10.13L6.1 10.08L6.48 9.19L4.45 7.1L7.1 4.45L9.19 6.48L10.08 6.1L10.13 3.2L13.87 3.2L13.92 6.1L14.81 6.48L16.9 4.45L19.55 7.1L17.52 9.19L17.9 10.08Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+   絵柄は、6 枚の浅い歯の外形と、中の丸（線だけ）。D0.15 で軽くした ―― D0.13 の 8 枚歯（本編の 3.5〜4.4 のもの）は、
+   隣の「?」・統計より線が多く重く見えた。外形は半径 8.5（「?」の丸と同じ）・歯の谷は半径 6.9・中の丸は半径 3.2。
+   線の太さ・端の形・大きさは .ic で「?」・統計と同じ。押せる範囲（ボタンの箱）と位置は変えていない */
+const ICON_SET=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.1 5.37L10.09 3.72L13.91 3.72L13.9 5.37A6.9 6.9 0 0 1 16.79 7.04L18.22 6.2L20.13 9.51L18.7 10.33A6.9 6.9 0 0 1 18.7 13.67L20.13 14.49L18.22 17.8L16.79 16.96A6.9 6.9 0 0 1 13.9 18.63L13.91 20.28L10.09 20.28L10.1 18.63A6.9 6.9 0 0 1 7.21 16.96L5.78 17.8L3.87 14.49L5.3 13.67A6.9 6.9 0 0 1 5.3 10.33L3.87 9.51L5.78 6.2L7.21 7.04A6.9 6.9 0 0 1 10.1 5.37Z"/><circle cx="12" cy="12" r="3.2"/></svg>`;
 $("dset").innerHTML=ICON_SET;
 $("dset-close").innerHTML=ICON_HCLOSE;
 /* 保存してある設定を、盤が読む 2 つの値に当てる */
