@@ -134,7 +134,7 @@ def run(ui):
              [ui.scrolls(), ui.ev("app.classList.contains('scrolly')")], [False, False])
     ui.check("金を使っているのは「10」だけ",
              ui.ev("[...document.querySelectorAll('#app *')].filter("
-                   "e=>getComputedStyle(e).color===%r).map(e=>e.id)" % GOLD), ["eq"])
+                   "e=>!e.closest('#dhelpsheet')&&getComputedStyle(e).color===%r).map(e=>e.id)" % GOLD), ["eq"])
     # 全解答を送る
     ui.ev("document.getElementById('sol-next').click()")
     ui.check("箱を押すと次の解答（2/N）",
@@ -213,7 +213,7 @@ def run(ui):
               ui.ev("eq.classList.contains('hit')")], ["ギブアップ", "", DIM, False])
     ui.check("ギブアップの後: 金はどこにも無い",
              ui.ev("[...document.querySelectorAll('#app *')].filter("
-                   "e=>getComputedStyle(e).color===%r).length" % GOLD), 0)
+                   "e=>!e.closest('#dhelpsheet')&&getComputedStyle(e).color===%r).length" % GOLD), 0)
     ui.check("ギブアップの後: 盤に解答例", ui.ev(BOARD), flat(multi["sol"]))
     ui.check("ギブアップの後: 時間は「—」（副次色）・ヒント 0 回・連続 0 日",
              [ui.ev(COLS), ui.ev("getComputedStyle(document.getElementById('r-time')).color")],

@@ -157,4 +157,12 @@ def run(ui):
                      "#aggbox.tight.pend .ap", MEDIA + "#statlist .stat",
                      MEDIA + "#statlist .stat .sv b,#statlist .stat .sv .none",
                      # D0.13（設定）
-                     "#dsetbody", "#dinfo"]))
+                     "#dsetbody", "#dinfo",
+                     # D0.16（遊び方の見本の盤。.hd1 .dn3 は、止まっている形と動きの 2 つ）
+                     ".hfig", ".hstep", "#dhelpbody .hfig .hcap", ".hdemo", ".dexpr", ".dnum", ".dtok", ".dtok.op",
+                     ".dtok.par", ".dslot", ".dslot>*", ".dzone", ".dhot", ".dtray", ".dchip", ".dghost", ".deq", ".dsub",
+                     ".hd1 .dn0,.hd1 .dn1,.hd1 .ds1", ".hd1 .dn3", ".hd1 .dn0", ".hd1 .dn1", ".hd1 .dn2", ".hd1 .dn3",
+                     ".hd1 .ds1", ".hd1 .dzone", ".hd1 .dhot", ".hd1 .ds1 .dtok", ".hd1 .dghost", ".hd1 .dpick",
+                     "@keyframes hd-n0", "@keyframes hd-n1", "@keyframes hd-n2", "@keyframes hd-n3", "@keyframes hd-s1",
+                     "@keyframes hd-zone", "@keyframes hd-hot", "@keyframes hd-tok", "@keyframes hd-ghost",
+                     "@keyframes hd-pick", "#dhelpbody p.hico", "#dhelpbody p.hico .hi", "#dhelpbody p.hico .hi .ic"]))

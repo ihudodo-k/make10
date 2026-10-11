@@ -65,14 +65,14 @@ def run(ui):
     ui.open(date=iso(1))
     ui.check("解く前: 読み出し行は空で、金はどこにも無い",
              [ui.ev(STATE)[:2], ui.ev("[...document.querySelectorAll('#app *')].filter("
-                                      "e=>getComputedStyle(e).color===%r).length" % GOLD)],
+                                      "e=>!e.closest('#dhelpsheet')&&getComputedStyle(e).color===%r).length" % GOLD)],
              [["", ""], 0])
     ui.solve(r["sol"], wait=0.9)
     ui.check("正解: 「10」と「正解」", ui.ev(STATE), ["10", "正解", True, False, False])
     ui.check("正解: 「10」は金", ui.ev("getComputedStyle(eq).color"), GOLD)
     ui.check("正解: 金を使っているのは「10」だけ",
              ui.ev("[...document.querySelectorAll('#app *')].filter("
-                   "e=>getComputedStyle(e).color===%r).map(e=>e.id)" % GOLD), ["eq"])
+                   "e=>!e.closest('#dhelpsheet')&&getComputedStyle(e).color===%r).map(e=>e.id)" % GOLD), ["eq"])
     ui.check("正解: 「10」は拡大して出る（本編と同じ倍率）",
              ui.ev("getComputedStyle(eq).transform"), "matrix(1.8, 0, 0, 1.8, 0, 0)")
     ui.check("正解: 記録の旗が立つ（1 回だけ）", ui.ev("solved"), True)
