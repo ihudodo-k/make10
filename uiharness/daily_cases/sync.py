@@ -43,7 +43,7 @@ REQUIRED_CSS = [
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",
     ".top .info", ".readout", ".eq", ".eq.idle", ".eq.hit", ".eq.miss", ".eq.ban", ".eq.part",
     ".sub", ".sub.warn", ".sub.ok", ".field", ".field.trash", ".field .trashmsg", ".field.trash .trashmsg",
-    ".exprwrap", ".expr", ".num", "@keyframes pop", ".num.pop", ".tok", ".tok.op", ".tok.fac",
+    ".exprwrap", ".expr", ".num", "@keyframes numglow", ".num.shine", ".tok", ".tok.op", ".tok.fac",
     ".tok.lp,.tok.rp", ".tok.lone", ".tok.dead", ".tok.lift", ".tok.swap", "@keyframes glow", ".tok.shine",
     ".zone", ".zone.snap", ".zone.live", ".zone.hot", ".tray", ".chip", ".chip:active", ".chip.sel",
     ".chip.off", ".chip .stock", "@keyframes shake", ".chip.shake", ".foot", "#ghost",

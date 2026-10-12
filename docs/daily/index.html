@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 /* ── 本編から複製した規則（セレクタごとに本編と同じ。手を入れない）── */
-:root{--ease:cubic-bezier(.34,1.28,.64,1); --zoneEase:cubic-bezier(.22,.72,.3,1); --dur:.3s; --hotDur:.2s; --bannerH:52px; --bannerGap:14px}
+:root{--zoneEase:cubic-bezier(.22,.72,.3,1); --dur:.3s; --hotDur:.2s; --bannerH:52px; --bannerGap:14px}
 body[data-theme="ai"]{--ink:#0A1220;--panel:#121D31;--edge:#24344F;--paper:#F4F1E8; --teal:#4FC3B0;--slate:#55688A;--coral:#E2705F;--gold:#E3C16F;--line:159,180,214; --dim:#8FA3C4; --ring:color-mix(in srgb,var(--paper) 22%,transparent); --bannerText:#2F4163}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden}
@@ -52,8 +52,8 @@ button.pressed,[role="button"].pressed{opacity:.5}
 .exprwrap{width:100%;display:flex;justify-content:center;overflow:hidden}
 .expr{display:flex;align-items:center;flex-wrap:nowrap;width:max-content; transform-origin:center center;will-change:transform; transition:transform var(--dur) var(--zoneEase)}
 .num{width:var(--numW);height:var(--tokH);flex:0 0 auto;background:none;color:var(--paper); display:flex;align-items:center;justify-content:center;font-size:var(--numF);font-weight:700; font-variant-numeric:tabular-nums;margin:0 var(--numMx)}
-@keyframes pop{0%{transform:translateY(0)}45%{transform:translateY(-13px)}100%{transform:translateY(0)}}
-.num.pop{animation:pop .42s var(--ease)}
+@keyframes numglow{0%,100%{text-shadow:none} 50%{text-shadow:0 0 14px color-mix(in srgb,var(--paper) 55%,transparent)}}
+.num.shine{animation:numglow .5s}
 .tok{flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:600; color:color-mix(in srgb,var(--paper) 76%,transparent); cursor:grab;user-select:none;touch-action:none;transition:color .15s,opacity .15s}
 .tok.op{width:var(--opW);height:var(--tokH);font-size:var(--opF)}
 .tok.fac{width:var(--facW);height:var(--tokH);font-size:var(--facF);margin-left:var(--facMl)}
@@ -163,8 +163,10 @@ body.daily{align-items:center}
 #play.dplay{position:relative}
 #play.done .bottom{visibility:hidden}
 /* 結果の画面では、読み出し行（「10」と「正解」／「ギブアップ」）を式のほうへ寄せる（D0.12）。
-   読み出し行も式の箱も中央寄せなので、そのままだと間が 160〜200px 空く。寄せる量は layoutResult() が決める */
-#play.done .readout{transform:translateY(var(--roShift,0px));transition:transform .3s var(--ease)}
+   読み出し行も式の箱も中央寄せなので、そのままだと間が 160〜200px 空く。寄せる量は layoutResult() が決める。
+   寄る動きは、減速して止まる曲線（--zoneEase。行き過ぎない）。D0.17 までは、行き過ぎて戻る --ease だった ――
+   本編 8.3 で --ease を消したのに合わせて揃えた（製品の動きの曲線は「減速して止まる」だけ。D0.18）*/
+#play.done .readout{transform:translateY(var(--roShift,0px));transition:transform .3s var(--zoneEase)}
 #play.done #expr,#play.locked #expr,#play.locked #tray{pointer-events:none}
 #play.done #dgiveup{display:none}
 /* ギブアップの後は、「10」の場所に副次色で「ギブアップ」（金は使わない）*/
@@ -527,7 +529,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.17";
+const DAILY_VERSION="0.18";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2555,7 +2557,7 @@ function dailySolved(){
   DATA.cur=null;saveDaily();
   aggSend(PUZZLE.no);
   document.querySelectorAll(".num").forEach((n,i)=>
-    setTimeout(()=>{n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop")},i*70));
+    setTimeout(()=>{n.classList.remove("shine");void n.offsetWidth;n.classList.add("shine")},i*70));
   if(G.vib)navigator.vibrate?.(16);
   setTimeout(showResult,260);
 }
