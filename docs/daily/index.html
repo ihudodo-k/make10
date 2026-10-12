@@ -52,8 +52,21 @@ button.pressed,[role="button"].pressed{opacity:.5}
 .exprwrap{width:100%;display:flex;justify-content:center;overflow:hidden}
 .expr{display:flex;align-items:center;flex-wrap:nowrap;width:max-content; transform-origin:center center;will-change:transform; transition:transform var(--dur) var(--zoneEase)}
 .num{width:var(--numW);height:var(--tokH);flex:0 0 auto;background:none;color:var(--paper); display:flex;align-items:center;justify-content:center;font-size:var(--numF);font-weight:700; font-variant-numeric:tabular-nums;margin:0 var(--numMx)}
-@keyframes numglow{0%,100%{text-shadow:none} 50%{text-shadow:0 0 14px color-mix(in srgb,var(--paper) 55%,transparent)}}
-.num.shine{animation:numglow .5s}
+/* 正解したとき、式の下に細い線が中央から左右へ引かれ、少し見せて消える（8.4。答えに下線を引く）。数字は動かず、光らない。
+   線は式エリア .field の中の .ruleline。幅（式の幅）と上下の位置は ruleLine() が算術で決めて、変数 --ruleW・--ruleY で渡す
+   （DOM は測らない）。動かすのは transform と opacity だけ。曲線は、伸びるのが減速（--zoneEase）、消えるのがゆっくり。
+   8.3 は数字が順に光る形、8.2 までは数字が跳ねる形だった。
+   動きは 2 つに分けてある: 伸びる ruledraw（0.5 秒・減速）と、消える rulefade（0.85 秒後から 0.5 秒・ゆっくり）。計 1.35 秒。
+   1 つの @keyframes の中で区間ごとに曲線を変える書き方（animation-timing-function:var(--zoneEase)）は、変数が効かず
+   等速になるので使わない。消える動きは、始まるまでの間も濃さ 1 を保つ（both）ので、伸びている間、線は見えている。
+   動きを減らす設定では animation が止まるので、線は出ない（opacity:0 のまま）。擬似要素にしないのは、その決まり
+   （* に掛けてある）が擬似要素には効かないため。印 .on は、消える動きが終わったら ruleLine() が外す */
+.ruleline{position:absolute;left:50%;top:calc(50% + var(--ruleY,0px));width:var(--ruleW,0px);height:1px;
+ margin-left:calc(var(--ruleW,0px) / -2);background:color-mix(in srgb,var(--paper) 50%,transparent);
+ opacity:0;pointer-events:none;transform-origin:50% 50%}
+.ruleline.on{animation:ruledraw .5s var(--zoneEase) both,rulefade .5s ease-in-out .85s both}
+@keyframes ruledraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes rulefade{from{opacity:1}to{opacity:0}}
 .tok{flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:600; color:color-mix(in srgb,var(--paper) 76%,transparent); cursor:grab;user-select:none;touch-action:none;transition:color .15s,opacity .15s}
 .tok.op{width:var(--opW);height:var(--tokH);font-size:var(--opF)}
 .tok.fac{width:var(--facW);height:var(--tokH);font-size:var(--facF);margin-left:var(--facMl)}
@@ -432,6 +445,8 @@ body.daily{align-items:center}
     <div class="readout"><div class="eq idle" id="eq"></div><div class="sub" id="sub"></div></div>
     <div class="field" id="field">
       <div class="exprwrap" id="exprwrap"><div class="expr" id="expr"></div></div>
+      <!-- 正解の線（D0.19。本編 8.4 と同じ）。式の下に、ruleLine() が引く。押せない・読み上げない -->
+      <div class="ruleline" id="ruleline" aria-hidden="true"></div>
       <div class="trashmsg" data-i18n="field.trash"></div>
     </div>
     <div class="bottom">
@@ -529,7 +544,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.18";
+const DAILY_VERSION="0.19";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2072,6 +2087,21 @@ function applyScale(k){
   curExprScale=k;
   if(G.dev&&!$("devpanel").classList.contains("hide"))renderDevMeasured();
 }
+/* 正解の線（8.4）。式の下 RULE_GAP px に、式と同じ幅の線を引く（見た目は CSS の .ruleline.on）。
+   幅 = トークンの幅の合計 × 縮小率、上下の位置 = 式エリアの中央から、トークンの高さ × 縮小率 ÷ 2 ＋ 間。
+   どちらも算術で出す（式の箱は測らない）。縮小率は「枠が閉じたあとの最終値」を scaleFor() で先に出す ――
+   正解が決まる時点では、まだ枠を開いていたときの縮小率が残っているため。正解が決まった瞬間に 1 度だけ呼ぶ。
+   印 .on は、動きが終わったとき・途中で画面が隠れて止まったときに外す（付けたままだと、画面が見え直したときに
+   もう一度引かれる）*/
+const RULE_GAP=8;
+function ruleLine(){
+  const l=$("ruleline"), k=scaleFor(tokensWidth());
+  l.style.setProperty("--ruleW",(tokensWidth()*k).toFixed(2)+"px");
+  l.style.setProperty("--ruleY",(MET.h*k/2+RULE_GAP).toFixed(2)+"px");
+  l.onanimationend=e=>{if(e.animationName==="rulefade")l.classList.remove("on")};   // 伸び終わり（ruledraw）では外さない
+  l.onanimationcancel=()=>l.classList.remove("on");
+  l.classList.remove("on");void l.offsetWidth;l.classList.add("on");
+}
 function scaleFor(totalW){
   const avail=$("exprwrap").clientWidth;
   return totalW>avail?Math.max(MIN_SCALE,avail/totalW):1;
@@ -2139,7 +2169,7 @@ function render(closing){
       const okC=!c||used===0;                 // 制約は使用禁止のみ。使っていたら不正解
       if(ten&&okC){eq.classList.add("hit");
         // 記録は最初の 1 回だけ。崩して組み直しても win() を予約し直さない
-        if(!solved){solved=true;$("play").classList.add("locked");setTimeout(()=>dailySolved(),260)}
+        if(!solved){solved=true;$("play").classList.add("locked");ruleLine();setTimeout(()=>dailySolved(),260)}
         su.className="sub ok";su.textContent=t("read.solved")}
       else if(ten){eq.classList.add("ban");su.className="sub warn";   // 10 だが使えない記号（7.3。75%）
         su.textContent=t("read.banned",{op:GLYPH[c.op]})}
@@ -2556,8 +2586,6 @@ function dailySolved(){
   DATA.days[PUZZLE.no]={r:"s",t:Math.max(1,Math.round(seenMs/1000)),h:hintUsed,sh:shareCount,e:exprOf()};
   DATA.cur=null;saveDaily();
   aggSend(PUZZLE.no);
-  document.querySelectorAll(".num").forEach((n,i)=>
-    setTimeout(()=>{n.classList.remove("shine");void n.offsetWidth;n.classList.add("shine")},i*70));
   if(G.vib)navigator.vibrate?.(16);
   setTimeout(showResult,260);
 }

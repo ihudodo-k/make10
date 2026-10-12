@@ -24,7 +24,8 @@ GLYPH NEST TRAY S $ T canPut insSeq livePositions put dropTok match parse ev sam
 curExprScale MIN_SCALE applyScale scaleFor fit zoneCalc devSnap layoutZones closeSet afterInsert afterRemove
 captureCloseSet showZones hideZones DEV_CATCH DEV_SWAP buzz lastHot ghost gmove startDrag nearest nearZone
 nearSwap tgt onMove onUp clearAll DEV_DEFAULT btnOf btnOff HINT_ROW HINT_GLYPH HINT_TEXT hintExprW
-hintExprScale SHARE_BTN NEXT_BTN pretty ICON_HCLOSE ICON_SHARE toastT dropFacRun pressedBtn pressOff""".split()
+hintExprScale SHARE_BTN NEXT_BTN pretty ICON_HCLOSE ICON_SHARE toastT dropFacRun pressedBtn pressOff
+RULE_GAP ruleLine""".split()
 REQUIRED_JS_ANON = [
     '@document.body.appendChild(ghost);',
     '@$("tray").addEventListener("pointerdown",e=>{',
@@ -43,7 +44,7 @@ REQUIRED_CSS = [
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",
     ".top .info", ".readout", ".eq", ".eq.idle", ".eq.hit", ".eq.miss", ".eq.ban", ".eq.part",
     ".sub", ".sub.warn", ".sub.ok", ".field", ".field.trash", ".field .trashmsg", ".field.trash .trashmsg",
-    ".exprwrap", ".expr", ".num", "@keyframes numglow", ".num.shine", ".tok", ".tok.op", ".tok.fac",
+    ".exprwrap", ".expr", ".num", ".ruleline", ".ruleline.on", "@keyframes ruledraw", "@keyframes rulefade", ".tok", ".tok.op", ".tok.fac",
     ".tok.lp,.tok.rp", ".tok.lone", ".tok.dead", ".tok.lift", ".tok.swap", "@keyframes glow", ".tok.shine",
     ".zone", ".zone.snap", ".zone.live", ".zone.hot", ".tray", ".chip", ".chip:active", ".chip.sel",
     ".chip.off", ".chip .stock", "@keyframes shake", ".chip.shake", ".foot", "#ghost",
