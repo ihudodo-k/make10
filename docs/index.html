@@ -13,7 +13,7 @@
 <style>
 :root{
  /* 動きの曲線は「減速して止まる」この 1 つだけ（8.3。行き過ぎて戻る --ease は消した。正解のときに数字が
-    跳ねる動き .num.pop 専用だったが、数字は動かさず光らせる形に変えたので、使う所が無くなった）。
+    跳ねる動き .num.pop 専用だったが、数字を動かすのをやめたので、使う所が無くなった。8.4 からは、式の下に線を引く）。
     枠の開閉と式の縮小用。最初が速く、減速して止まる (ease-out 系) */
  --zoneEase:cubic-bezier(.22,.72,.3,1);
  /* 実行時は applyDevVars() が devVars（既定 300ms / 200ms）で上書きする。
@@ -380,11 +380,21 @@ body.rings #hint::before{border-color:var(--ring)}
 .num{width:var(--numW);height:var(--tokH);flex:0 0 auto;background:none;color:var(--paper);
  display:flex;align-items:center;justify-content:center;font-size:var(--numF);font-weight:700;
  font-variant-numeric:tabular-nums;margin:0 var(--numMx)}
-/* 正解したとき、数字は動かさず、左から順に一瞬ほのかに光る（8.3）。順番と間隔は win() が決める（0.07 秒ずつ）。
-   光の強さと長さは、段階 2 で演算子が光る .tok.shine（下の glow）と同じ値。数字は元から --paper なので、変わるのは影だけ。
-   8.2 までは 13px 上がって戻る動き（.num.pop）だった ―― 位置が大きく動くのをやめた（BRAND.md 10 章）*/
-@keyframes numglow{0%,100%{text-shadow:none} 50%{text-shadow:0 0 14px color-mix(in srgb,var(--paper) 55%,transparent)}}
-.num.shine{animation:numglow .5s}
+/* 正解したとき、式の下に細い線が中央から左右へ引かれ、少し見せて消える（8.4。答えに下線を引く）。数字は動かず、光らない。
+   線は式エリア .field の中の .ruleline。幅（式の幅）と上下の位置は ruleLine() が算術で決めて、変数 --ruleW・--ruleY で渡す
+   （DOM は測らない）。動かすのは transform と opacity だけ。曲線は、伸びるのが減速（--zoneEase）、消えるのがゆっくり。
+   8.3 は数字が順に光る形、8.2 までは数字が跳ねる形だった。
+   動きは 2 つに分けてある: 伸びる ruledraw（0.5 秒・減速）と、消える rulefade（0.85 秒後から 0.5 秒・ゆっくり）。計 1.35 秒。
+   1 つの @keyframes の中で区間ごとに曲線を変える書き方（animation-timing-function:var(--zoneEase)）は、変数が効かず
+   等速になるので使わない。消える動きは、始まるまでの間も濃さ 1 を保つ（both）ので、伸びている間、線は見えている。
+   動きを減らす設定では animation が止まるので、線は出ない（opacity:0 のまま）。擬似要素にしないのは、その決まり
+   （* に掛けてある）が擬似要素には効かないため。印 .on は、消える動きが終わったら ruleLine() が外す */
+.ruleline{position:absolute;left:50%;top:calc(50% + var(--ruleY,0px));width:var(--ruleW,0px);height:1px;
+ margin-left:calc(var(--ruleW,0px) / -2);background:color-mix(in srgb,var(--paper) 50%,transparent);
+ opacity:0;pointer-events:none;transform-origin:50% 50%}
+.ruleline.on{animation:ruledraw .5s var(--zoneEase) both,rulefade .5s ease-in-out .85s both}
+@keyframes ruledraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes rulefade{from{opacity:1}to{opacity:0}}
 /* 数字と演算子は色で区別できないので、明るさ・太さ・大きさで差をつける。
    数字がいちばん明るく太い → 演算子は落とした白で細め・小さめ → 括弧はさらに落とす */
 .tok{flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:600;
@@ -663,6 +673,8 @@ button.pressed,[role="button"].pressed{opacity:.5}
     <div class="readout"><div class="eq idle" id="eq"></div><div class="sub" id="sub"></div></div>
     <div class="field" id="field">
       <div class="exprwrap" id="exprwrap"><div class="expr" id="expr"></div></div>
+      <!-- 正解の線（8.4）。式の下に、ruleLine() が引く。押せない・読み上げない -->
+      <div class="ruleline" id="ruleline" aria-hidden="true"></div>
       <div class="trashmsg" data-i18n="field.trash"></div>
     </div>
     <div class="bottom">
@@ -839,7 +851,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="8.3";
+const APP_VERSION="8.4";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -40293,6 +40305,21 @@ function applyScale(k){
   curExprScale=k;
   if(G.dev&&!$("devpanel").classList.contains("hide"))renderDevMeasured();
 }
+/* 正解の線（8.4）。式の下 RULE_GAP px に、式と同じ幅の線を引く（見た目は CSS の .ruleline.on）。
+   幅 = トークンの幅の合計 × 縮小率、上下の位置 = 式エリアの中央から、トークンの高さ × 縮小率 ÷ 2 ＋ 間。
+   どちらも算術で出す（式の箱は測らない）。縮小率は「枠が閉じたあとの最終値」を scaleFor() で先に出す ――
+   正解が決まる時点では、まだ枠を開いていたときの縮小率が残っているため。正解が決まった瞬間に 1 度だけ呼ぶ。
+   印 .on は、動きが終わったとき・途中で画面が隠れて止まったときに外す（付けたままだと、画面が見え直したときに
+   もう一度引かれる）*/
+const RULE_GAP=8;
+function ruleLine(){
+  const l=$("ruleline"), k=scaleFor(tokensWidth());
+  l.style.setProperty("--ruleW",(tokensWidth()*k).toFixed(2)+"px");
+  l.style.setProperty("--ruleY",(MET.h*k/2+RULE_GAP).toFixed(2)+"px");
+  l.onanimationend=e=>{if(e.animationName==="rulefade")l.classList.remove("on")};   // 伸び終わり（ruledraw）では外さない
+  l.onanimationcancel=()=>l.classList.remove("on");
+  l.classList.remove("on");void l.offsetWidth;l.classList.add("on");
+}
 /* 「式の総幅」から縮小率を求める。DOM は読まない */
 function scaleFor(totalW){
   const avail=$("exprwrap").clientWidth;
@@ -40374,7 +40401,7 @@ function render(closing){
       const okC=!c||used===0;                 // 制約は使用禁止のみ。使っていたら不正解
       if(ten&&okC){eq.classList.add("hit");
         // 記録は最初の 1 回だけ。崩して組み直しても win() を予約し直さない
-        if(!solved){solved=true;hitLv=winLevel();setTimeout(()=>win(),260)}
+        if(!solved){solved=true;hitLv=winLevel();ruleLine();setTimeout(()=>win(),260)}
         // 「正解」を出すのはここだけ（6.5。正解カードには出さない）。6.6 で
         // 「お見事」をやめ、段階によらず「正解」の 1 語にした（表示を減らすため）。
         // 段階 hitLv 自体は win() の光り方と振動の強さが使うので残す
@@ -40624,7 +40651,7 @@ const totalScore=()=>Object.values(G.best).reduce((a,b)=>a+b,0);
 /* ═══ 正解演出 ═══ */
 function win(){
   if(!solved)return;              // 別の問題へ移った後に発火した予約は無効
-  // ヒントの箱を開いたまま正解したら閉じる（6.4）。数字が光り始めるのと同時に、× と同じく
+  // ヒントの箱を開いたまま正解したら閉じる（6.4）。win() の始め（正解が決まって 0.26 秒後）に、× と同じく
   // 瞬時に（箱はもともと動きを持たない）。正解カード（520ms 後）より先に消えるので重ならない。
   // 閉じた段階は hintLast に入り、G.hints（到達）と hintMax（減点）には触らない
   if(hintLv>0)hintSet(0);
@@ -40654,8 +40681,6 @@ function win(){
   }
   if(MODE==="chal"&&!G.chalDone.includes(code))G.chalDone.push(code);
   record(); save();               // 記録はここで 1 回だけ確定する（GAME-SPEC 3）
-  document.querySelectorAll(".num").forEach((n,i)=>
-    setTimeout(()=>{n.classList.remove("shine");void n.offsetWidth;n.classList.add("shine")},i*70));
   document.querySelectorAll(".tok.op,.tok.fac").forEach((t,i)=>{
     if(lv>=2)setTimeout(()=>t.classList.add("shine"),120+i*70)});
   if(lv>=3){$("bg").classList.remove("flash");void $("bg").offsetWidth;$("bg").classList.add("flash")}
