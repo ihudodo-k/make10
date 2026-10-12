@@ -4,6 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title data-i18n="daily.page_title"></title>
+<!-- リンクを貼ったときの見た目（OGP。D0.20。DAILY-SPEC 9 章）。貼られた先はスクリプトを動かさないので、辞書を引かずに
+     ここへ直に書く。日本語だけ。URL は絶対パス。画像はどの日も同じ 1 枚（og.png。1200×630） -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Make10">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://make10.app/daily/">
+<meta property="og:title" content="Make10 DAILY — 1 日 1 問の数字パズル">
+<meta property="og:description" content="4 つの数字で 10 を作る。毎日、みんなと同じ 1 問に挑戦。">
+<meta property="og:image" content="https://make10.app/daily/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Make10 DAILY。4 つの数字 1・2・3・4 から 10 を作る">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Make10 DAILY — 1 日 1 問の数字パズル">
+<meta name="twitter:description" content="4 つの数字で 10 を作る。毎日、みんなと同じ 1 問に挑戦。">
+<meta name="twitter:image" content="https://make10.app/daily/og.png">
 <!-- Make10 デイリー（1 日 1 問）。仕様は DAILY-SPEC.md。
      エンジン（有理数・構文解析・評価・盤の操作）と CSS は本編 docs/index.html から 1 文字も変えずに複製してある。
      複製したものと除外の一覧は DAILY-SPEC 18-3、照合は verify_daily.py のケース sync。
@@ -544,7 +561,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.19";
+const DAILY_VERSION="0.20";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
