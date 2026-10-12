@@ -12,9 +12,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
- /* 行き過ぎて戻る曲線。正解演出 (.num.pop) 専用。枠の開閉には使わない */
- --ease:cubic-bezier(.34,1.28,.64,1);
- /* 枠の開閉と式の縮小用。最初が速く、減速して止まる (ease-out 系) */
+ /* 動きの曲線は「減速して止まる」この 1 つだけ（8.3。行き過ぎて戻る --ease は消した。正解のときに数字が
+    跳ねる動き .num.pop 専用だったが、数字は動かさず光らせる形に変えたので、使う所が無くなった）。
+    枠の開閉と式の縮小用。最初が速く、減速して止まる (ease-out 系) */
  --zoneEase:cubic-bezier(.22,.72,.3,1);
  /* 実行時は applyDevVars() が devVars（既定 300ms / 200ms）で上書きする。
     ここが違う値だと静的に読んだときに誤解するので同じ値を書く（4.1）*/
@@ -380,8 +380,11 @@ body.rings #hint::before{border-color:var(--ring)}
 .num{width:var(--numW);height:var(--tokH);flex:0 0 auto;background:none;color:var(--paper);
  display:flex;align-items:center;justify-content:center;font-size:var(--numF);font-weight:700;
  font-variant-numeric:tabular-nums;margin:0 var(--numMx)}
-@keyframes pop{0%{transform:translateY(0)}45%{transform:translateY(-13px)}100%{transform:translateY(0)}}
-.num.pop{animation:pop .42s var(--ease)}
+/* 正解したとき、数字は動かさず、左から順に一瞬ほのかに光る（8.3）。順番と間隔は win() が決める（0.07 秒ずつ）。
+   光の強さと長さは、段階 2 で演算子が光る .tok.shine（下の glow）と同じ値。数字は元から --paper なので、変わるのは影だけ。
+   8.2 までは 13px 上がって戻る動き（.num.pop）だった ―― 位置が大きく動くのをやめた（BRAND.md 10 章）*/
+@keyframes numglow{0%,100%{text-shadow:none} 50%{text-shadow:0 0 14px color-mix(in srgb,var(--paper) 55%,transparent)}}
+.num.shine{animation:numglow .5s}
 /* 数字と演算子は色で区別できないので、明るさ・太さ・大きさで差をつける。
    数字がいちばん明るく太い → 演算子は落とした白で細め・小さめ → 括弧はさらに落とす */
 .tok{flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:600;
@@ -836,7 +839,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="8.2";
+const APP_VERSION="8.3";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -40621,7 +40624,7 @@ const totalScore=()=>Object.values(G.best).reduce((a,b)=>a+b,0);
 /* ═══ 正解演出 ═══ */
 function win(){
   if(!solved)return;              // 別の問題へ移った後に発火した予約は無効
-  // ヒントの箱を開いたまま正解したら閉じる（6.4）。数字が跳ね始めるのと同時に、× と同じく
+  // ヒントの箱を開いたまま正解したら閉じる（6.4）。数字が光り始めるのと同時に、× と同じく
   // 瞬時に（箱はもともと動きを持たない）。正解カード（520ms 後）より先に消えるので重ならない。
   // 閉じた段階は hintLast に入り、G.hints（到達）と hintMax（減点）には触らない
   if(hintLv>0)hintSet(0);
@@ -40652,7 +40655,7 @@ function win(){
   if(MODE==="chal"&&!G.chalDone.includes(code))G.chalDone.push(code);
   record(); save();               // 記録はここで 1 回だけ確定する（GAME-SPEC 3）
   document.querySelectorAll(".num").forEach((n,i)=>
-    setTimeout(()=>{n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop")},i*70));
+    setTimeout(()=>{n.classList.remove("shine");void n.offsetWidth;n.classList.add("shine")},i*70));
   document.querySelectorAll(".tok.op,.tok.fac").forEach((t,i)=>{
     if(lv>=2)setTimeout(()=>t.classList.add("shine"),120+i*70)});
   if(lv>=3){$("bg").classList.remove("flash");void $("bg").offsetWidth;$("bg").classList.add("flash")}
