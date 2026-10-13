@@ -5,7 +5,9 @@
 ヒントの文と共有文は、列の全問について、Python の側で別に組んだものと突き合わせる。
 """
 import datetime
+import json
 import re
+import time
 
 from uiharness import daily_ui as dui
 
@@ -92,17 +94,59 @@ def run(ui):
              ["%s %s" % (GLYPH[kinds(two["sol"])[0]], GLYPH[kinds(two["sol"])[1]]), "使う"])
 
     # ══ 全問の共有文に、答えも演算の記号も入らない ══
-    texts = ui.ev("DAILY_DAYS.map(p=>[shareTextOf(p.no),"
-                  "shareTextOf(p.no,{r:'s',t:102,h:2,sh:3},7),shareTextOf(p.no,{r:'g',t:null,h:1,sh:1},0)])")
+    # 文は 3 つの状態 × みんなの結果のある・なしの 5 通り（D0.21。その日の 4 つの数字は入れる。ヒントの回数と連続日数は入れない）
+    AGG = {"s": 412, "g": 96, "s0": 268, "b": [38, 121, 147, 82, 24]}
+    AJS = json.dumps(AGG)
+    texts = ui.ev("DAILY_DAYS.map(p=>{const s={r:'s',t:102,h:2,sh:3},g={r:'g',t:null,h:1,sh:1},a=Object.assign({n:p.no},%s);"
+                  "return [shareTextOf(p),shareTextOf(p,s),shareTextOf(p,g),shareTextOf(p,s,a),shareTextOf(p,g,a)]})" % AJS)
     bad = []
-    for r, t3 in zip(rows, texts):
-        want = ["Make10 #%d 解ける？" % r["no"], "Make10 #%d ⏱1:42 💡2 🔥7" % r["no"],
-                "Make10 #%d ギブアップ" % r["no"]]
-        leak = [t for t in t3 if re.search(r"[+\-−×÷*/^!()（）]", t) or r["id"] in t.replace("#%d" % r["no"], "")
-                or any(s in t for s in r["sols"])]
-        if t3 != want or leak:
-            bad.append((r["no"], t3))
-    ui.check("全 %d 問: 共有文 3 種類が決まった文で、答え・4 桁・演算の記号・括弧が入らない" % len(rows), bad[:3], [])
+    for r, t5 in zip(rows, texts):
+        want = [dui.share_text(r), dui.share_text(r, "s", 102), dui.share_text(r, "g"),
+                dui.share_text(r, "s", 102, AGG), dui.share_text(r, "g", agg=AGG)]
+        if t5 != want or any(dui.share_leak(r, t) for t in t5):
+            bad.append((r["no"], t5))
+    ui.check("全 %d 問: 共有文 5 通りが決まった文で、4 つの数字が入り、答え・演算の記号・括弧が入らない" % len(rows), bad[:3], [])
+    ui.check("例（#1）: 解く前・解いた後・ギブアップの後の文",
+             texts[0][:3],
+             ["Make10 DAILY #1\n%s\nこの 4 つの数字で 10 を作れる？" % " ".join(rows[0]["id"]),
+              "Make10 DAILY #1\n%s → 10\n⏱ 1:42\nあなたは何秒？" % " ".join(rows[0]["id"]),
+              "Make10 DAILY #1\n%s → 10\nギブアップ…\nあなたは解ける？" % " ".join(rows[0]["id"])])
+    ui.check("例（#1）: みんなの結果があるとき（1:42 は 25%・正解率は 81%）",
+             texts[0][3:],
+             ["Make10 DAILY #1\n%s → 10\n⏱ 1:42\n解いた人の 25%% より速い\nあなたは何秒？" % " ".join(rows[0]["id"]),
+              "Make10 DAILY #1\n%s → 10\nギブアップ…（正解率 81%%）\nあなたは解ける？" % " ".join(rows[0]["id"])])
+    ui.check("どの文にも、ヒントの回数と連続日数（💡・🔥・ヒント・連続）が入らない",
+             [t for t in texts[0] if re.search("💡|🔥|ヒント|連続", t)], [])
+    # 位置（%）: 自分より遅い帯にいる人 ÷ 解いた人（切り捨て）。帯の境目・集計中・0%・形の合わない返事
+    SP = "sharePct({r:'s',t:%d},Object.assign({n:1},%s))"
+    secs = [1, 29, 30, 59, 60, 119, 120, 299, 300, 3599]
+    ui.check("位置は、時間の帯ごとに「自分より遅い帯の人 ÷ 解いた人」の切り捨て（境目の秒は遅い側の帯）",
+             [ui.ev(SP % (s, AJS)) for s in secs], [dui.share_pct("s", s, AGG) for s in secs])
+    ui.check("…その値は 90・90・61・61・25・25・5・5・無し・無し", [dui.share_pct("s", s, AGG) for s in secs],
+             [90, 90, 61, 61, 25, 25, 5, 5, None, None])
+    slow = dui.share_text(rows[0], "s", 400)
+    ui.check("いちばん遅い帯（0%）のときは、位置の行を出さない",
+             [ui.ev("shareTextOf(DAILY_DAYS[0],{r:'s',t:400},Object.assign({n:1},%s))" % AJS), "より速い" in slow], [slow, False])
+    PEND = {"s": 20, "g": 9, "s0": 3, "b": [1, 5, 9, 4, 1]}
+    ui.check("集計中（30 件未満）は、解いた後もギブアップの後も、位置を出さない",
+             ui.ev("[{r:'s',t:10},{r:'g',t:null}].map(x=>shareTextOf(DAILY_DAYS[0],x,Object.assign({n:1},%s)))" % json.dumps(PEND)),
+             [dui.share_text(rows[0], "s", 10), dui.share_text(rows[0], "g")])
+    ui.check("みんなの結果が無い（通信できない・まだ届いていない）ときは、位置を出さない",
+             ui.ev("[null,undefined].map(a=>sharePct({r:'s',t:10},a))"), [None, None])
+    ui.check("解く前の文は、みんなの結果があっても変わらない",
+             ui.ev("shareTextOf(DAILY_DAYS[0],undefined,Object.assign({n:1},%s))" % AJS), dui.share_text(rows[0]))
+    ui.check("解いた人が 0 のギブアップの後は、正解率 0%",
+             ui.ev("shareTextOf(DAILY_DAYS[0],{r:'g',t:null},{n:1,s:0,g:40,s0:0,b:[0,0,0,0,0]})"),
+             "Make10 DAILY #1\n%s → 10\nギブアップ…（正解率 0%%）\nあなたは解ける？" % " ".join(rows[0]["id"]))
+    # X の文字数（重み 280。かな・漢字・全角・絵文字は 2、ほかは 1、URL は 23）。いちばん長くなる場合でも収まる
+    def xlen(s):
+        n = 0
+        for ch in s:
+            c = ord(ch)
+            n += 1 if (c <= 0x10FF or 0x2000 <= c <= 0x200D or 0x2010 <= c <= 0x201F or 0x2032 <= c <= 0x2037) else 2
+        return n + 1 + 23
+    longest = max(xlen(t) for t5 in texts for t in t5)
+    ui.check("全問の共有文が、URL を含めて X の文字数（重み 280）に収まる", longest <= 280, True)
 
     # ══ もらう前 → 知らせ → 共有 → 1 回目 → 2 回目 ══
     ui.open(now=at(no), tz=TZ, perf=True)
@@ -130,7 +174,7 @@ def run(ui):
     click("hint")
     click("hint-share")
     ui.check("知らせの箱から共有: 共有画面に、解く前の文と URL が渡る",
-             ui.ev("__SH"), [{"text": "Make10 #%d 解ける？" % no, "url": URL}])
+             ui.ev("__SH"), [{"text": dui.share_text(two), "url": URL}])
     ui.check("共有した直後に、そのまま 1 回目のヒントが出る", ui.ev(BOX), hint_text(two["sol"], 1))
     ui.check("1 回目を見た: 残りは無い。記録に、使った 1・共有 1",
              [ui.ev(BTN), ui.saved()["cur"]["h"], ui.saved()["cur"]["sh"]],
@@ -185,8 +229,8 @@ def run(ui):
     ui.check("1 日ぶんの記録に、使ったヒント 2・共有 4", [rec["h"], rec["sh"], ui.saved()["cur"]], [2, 4, None])
     # 解いた後の共有（上のバーと「結果を共有」）
     click("rshare")
-    want = "Make10 #%d ⏱%s 💡2 🔥1" % (no, "%d:%02d" % (rec["t"] // 60, rec["t"] % 60))
-    ui.check("「結果を共有」: 解いた後の文（時間・ヒント・連続日数）と URL", ui.ev("__SH[__SH.length-1]"),
+    want = dui.share_text(two, "s", rec["t"])
+    ui.check("「結果を共有」: 解いた後の文（4 つの数字と時間。ヒントの回数と連続日数は入らない）と URL", ui.ev("__SH[__SH.length-1]"),
              {"text": want, "url": URL})
     click("share")
     ui.check("解いた後は、上のバーの共有ボタンも同じ文", ui.ev("__SH[__SH.length-1]"), {"text": want, "url": URL})
@@ -229,7 +273,7 @@ def run(ui):
     click("gu-yes")
     click("share")
     ui.check("ギブアップの後の共有文", ui.ev("__SH[__SH.length-1]"),
-             {"text": "Make10 #%d ギブアップ" % one["no"], "url": URL})
+             {"text": dui.share_text(one, "g"), "url": URL})
     ui.check("ギブアップの記録にも、使ったヒントと共有の回数が入る",
              [ui.saved()["days"][str(one["no"])]["h"], ui.saved()["days"][str(one["no"])]["sh"]], [2, 3])
 
@@ -242,7 +286,7 @@ def run(ui):
     click("share")
     ui.check("共有画面が無い: 文と URL をコピーして「コピーしました」。ヒントはもらえる",
              [ui.ev("__CP"), ui.ev(TOAST), ui.ev("shareCount"), ui.ev(BTN)[0]],
-             [["Make10 #%d 解ける？\n%s" % (no, URL)], "コピーしました", 1, "1"])
+             [[dui.share_text(two) + "\n" + URL], "コピーしました", 1, "1"])
     ui.check("解く前のトーストは、丸ボタン 2 つの間（重ならない）",
              ui.ev("(function(){const t=document.getElementById('toast').getBoundingClientRect(),c=clear.getBoundingClientRect(),"
                    "h=hint.getBoundingClientRect();return [t.left>=c.right,t.right<=h.left,"
@@ -279,7 +323,25 @@ def run(ui):
                                   "return [Math.round(v.top-t.bottom),t.left>=0&&t.right<=innerWidth]})()")],
              ["コピーしました", [8, True]])
     ui.check("コピーされるのは、解いた後の文と URL",
-             ui.ev("__CP[0]"), "Make10 #%d ⏱0:03 💡0 🔥1\n%s" % (no, URL))
+             ui.ev("__CP[0]"), dui.share_text(two, "s", 3) + "\n" + URL)
+    # ══ みんなの結果を受け取れているときは、共有する文に位置が入る（テスト表示の見本の数字で、押して確かめる）══
+    for extra, kind in (("&agg=demo", "s"), ("&agg=pending", "s"), ("", "s"), ("&agg=demo", "g"), ("&agg=pending", "g")):
+        ui.open(date=day(no).isoformat(), extra=extra)
+        stub("ok")
+        if kind == "s":
+            ui.solve(two["sol"], wait=0.9)
+        else:
+            ui.ev("dgiveup.click();document.getElementById('gu-yes').click()")
+            time.sleep(0.6)
+        click("rshare")
+        sec = ui.ev("dayRecord().t")
+        agg = {"&agg=demo": AGG, "&agg=pending": PEND}.get(extra)
+        want = dui.share_text(two, kind, sec, agg)
+        ui.check("押して共有（%s・%s）: 共有画面に渡る文" % ("解いた後" if kind == "s" else "ギブアップの後", extra[1:] or "みんなの結果なし"),
+                 [ui.ev("__SH[__SH.length-1]"), ("より速い" in want or "正解率" in want)],
+                 [{"text": want, "url": URL}, extra == "&agg=demo"])
+        click("share")
+        ui.check("…上のバーの共有ボタンも同じ文", ui.ev("__SH[__SH.length-1]"), {"text": want, "url": URL})
     ui.check_no_errors("共有: JS エラー 0")
 
     # ══ ?date= では保存しない ══

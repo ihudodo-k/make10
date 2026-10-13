@@ -9,6 +9,7 @@
 - 英語のヒントの文と共有文は、列の全問について、Python の側で別に組んだものと突き合わせる
 """
 import datetime
+import json
 import re
 import time
 
@@ -142,9 +143,12 @@ def run(ui):
                      [k for k in ("daily.hint_label_ops", "daily.sols_other") if re.search("[:：]", en[k])], [])
             ui.check("英語の画面の文の区切りは「 · 」（ヒントの 2 つの間・上のバー）",
                      [en["daily.hint_sep"], " · " in en["daily.top_date_html"]], [" · ", True])
-            ui.check("英語の共有文の区切りはダッシュ",
-                     [en["daily.share_before"], en["daily.share_giveup"], en["daily.share_after"] == ja["daily.share_after"]],
-                     ["Make10 #{no} — Can you make 10?", "Make10 #{no} — Gave up", True])
+            share_keys = ["daily.share_after", "daily.share_after_rank", "daily.share_before",
+                          "daily.share_giveup", "daily.share_giveup_rate"]
+            ui.check("共有文のキーは 5 つで、日本語と英語で同じ。どの文も 1 行目は名前と番号（D0.21）",
+                     [sorted(k for k in en if k.startswith("daily.share_") and k != "daily.share_result"),
+                      [d[k].split("\n")[0] for d in (ja, en) for k in share_keys]],
+                     [share_keys, ["Make10 DAILY #{no}"] * 10])
             ui.check("英語のヒントの回数は単位を出さない。日数は day / days",
                      [en["daily.unit_times"], en["daily.unit_day"]],
                      [{"one": "", "other": ""}, {"one": "day", "other": "days"}])
@@ -186,17 +190,25 @@ def run(ui):
                 "d.innerHTML=hintHtml(p,n);return d.textContent}))})()")
     bad = [(r["no"], g) for r, g in zip(rows, got) if g != [hint_text_en(r["sol"], 1), hint_text_en(r["sol"], 2)]]
     ui.check("英語・全 %d 問: ヒントの文（1 回目・2 回目）が、解答例から組んだ文と同じ" % len(rows), bad[:3], [])
-    texts = ui.ev("DAILY_DAYS.map(p=>[shareTextOf(p.no),"
-                  "shareTextOf(p.no,{r:'s',t:102,h:2,sh:3},7),shareTextOf(p.no,{r:'g',t:null,h:1,sh:1},0)])")
+    AGG = {"s": 412, "g": 96, "s0": 268, "b": [38, 121, 147, 82, 24]}
+    texts = ui.ev("DAILY_DAYS.map(p=>{const s={r:'s',t:102,h:2,sh:3},g={r:'g',t:null,h:1,sh:1},a=Object.assign({n:p.no},%s);"
+                  "return [shareTextOf(p),shareTextOf(p,s),shareTextOf(p,g),shareTextOf(p,s,a),shareTextOf(p,g,a)]})" % json.dumps(AGG))
     bad = []
-    for r, t3 in zip(rows, texts):
-        want = ["Make10 #%d — Can you make 10?" % r["no"], "Make10 #%d ⏱1:42 💡2 🔥7" % r["no"],
-                "Make10 #%d — Gave up" % r["no"]]
-        leak = [t for t in t3 if re.search(r"[+\-−×÷*/^!()]", t) or any(s in t for s in r["sols"])
-                or r["id"] in t.replace("#%d" % r["no"], "").replace("make 10", "")]
-        if t3 != want or leak:
-            bad.append((r["no"], t3))
-    ui.check("英語・全 %d 問: 共有文 3 種類が決まった文で、答え・4 桁・演算の記号・括弧が入らない" % len(rows), bad[:3], [])
+    for r, t5 in zip(rows, texts):
+        want = [dui.share_text(r, lang="en"), dui.share_text(r, "s", 102, lang="en"), dui.share_text(r, "g", lang="en"),
+                dui.share_text(r, "s", 102, AGG, lang="en"), dui.share_text(r, "g", agg=AGG, lang="en")]
+        if t5 != want or any(dui.share_leak(r, t) for t in t5):
+            bad.append((r["no"], t5))
+    ui.check("英語・全 %d 問: 共有文 5 通りが決まった文で、4 つの数字が入り、答え・演算の記号・括弧が入らない" % len(rows), bad[:3], [])
+    d1 = " ".join(rows[0]["id"])
+    ui.check("英語の例（#1）: 5 通りの文",
+             texts[0],
+             ["Make10 DAILY #1\n%s\nCan you make 10 with these four digits?" % d1,
+              "Make10 DAILY #1\n%s → 10\n⏱ 1:42\nHow fast are you?" % d1,
+              "Make10 DAILY #1\n%s → 10\nI gave up…\nCan you?" % d1,
+              "Make10 DAILY #1\n%s → 10\n⏱ 1:42\nFaster than 25%% of solvers\nHow fast are you?" % d1,
+              "Make10 DAILY #1\n%s → 10\nI gave up… (81%% solved it)\nCan you?" % d1])
+    ui.check("英語の共有文に、日本語の文字が無い", [t for t in texts[0] if re.search(r"[　-ヿ㐀-鿿＀-￯]", t)], [])
 
     # ══ 両方の言語で、主な状態を巡る（はみ出し・折り返し。英語では日本語の文字が出ない）══
     con = next(r for r in rows if r["rc"] != "N")                                 # 制約がある日

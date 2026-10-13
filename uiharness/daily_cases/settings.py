@@ -315,8 +315,8 @@ def run(ui):
     calls = ui.api_calls()
     ui.check("集計へ送る中身は、今までの 4 つだけ（設定は送らない）",
              [len(calls), sorted(json.loads(calls[0]["body"]).keys())], [1, ["h", "n", "r", "t"]])
-    ui.check("共有文に、設定のことは入らない", ui.ev("shareTextOf(PUZZLE.no,dayRecord(),streakNow())"),
-             "Make10 #%d ⏱1:01 💡0 🔥1" % no)
+    ui.check("共有文に、設定のことは入らない", ui.ev("shareTextOf(PUZZLE,dayRecord(),aggData)"),
+             dui.share_text(row, "s", 61, AGG))       # みんなの結果を受け取っているので、位置の行が入る（1:01 は 25%）
     # 結果の画面では、切り替えても盤も並びも動かない
     before = [ui.ev(TOKS), ui.text("eq"), ui.ev(RECT % "#result"), ui.ev(RECT % "#exprwrap")]
     click(ui, "dset")

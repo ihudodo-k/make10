@@ -561,7 +561,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.20";
+const DAILY_VERSION="0.21";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -658,9 +658,11 @@ const STR_DAILY={ja:{
   "daily.hint_sr_left":{other:"ヒント（残り {n} 回）"},
   "daily.hint_sr_spent":"これ以上のヒントはありません",
   "daily.share_result":"結果を共有",
-  "daily.share_before":"Make10 #{no} 解ける？",
-  "daily.share_after":"Make10 #{no} ⏱{time} 💡{hints} 🔥{streak}",
-  "daily.share_giveup":"Make10 #{no} ギブアップ",
+  "daily.share_before":"Make10 DAILY #{no}\n{digits}\nこの 4 つの数字で 10 を作れる？",
+  "daily.share_after":"Make10 DAILY #{no}\n{digits} → 10\n⏱ {time}\nあなたは何秒？",
+  "daily.share_after_rank":"Make10 DAILY #{no}\n{digits} → 10\n⏱ {time}\n解いた人の {pct}% より速い\nあなたは何秒？",
+  "daily.share_giveup":"Make10 DAILY #{no}\n{digits} → 10\nギブアップ…\nあなたは解ける？",
+  "daily.share_giveup_rate":"Make10 DAILY #{no}\n{digits} → 10\nギブアップ…（正解率 {pct}%）\nあなたは解ける？",
   "daily.toast_copied":"コピーしました",
   "daily.toast_copy_failed":"コピーできません",
   "daily.help_title":"遊び方",
@@ -732,9 +734,11 @@ en:{
   "daily.hint_sr_left":{one:"Hint ({n} left)",other:"Hint ({n} left)"},
   "daily.hint_sr_spent":"No more hints",
   "daily.share_result":"Share result",
-  "daily.share_before":"Make10 #{no} — Can you make 10?",
-  "daily.share_after":"Make10 #{no} ⏱{time} 💡{hints} 🔥{streak}",
-  "daily.share_giveup":"Make10 #{no} — Gave up",
+  "daily.share_before":"Make10 DAILY #{no}\n{digits}\nCan you make 10 with these four digits?",
+  "daily.share_after":"Make10 DAILY #{no}\n{digits} → 10\n⏱ {time}\nHow fast are you?",
+  "daily.share_after_rank":"Make10 DAILY #{no}\n{digits} → 10\n⏱ {time}\nFaster than {pct}% of solvers\nHow fast are you?",
+  "daily.share_giveup":"Make10 DAILY #{no}\n{digits} → 10\nI gave up…\nCan you?",
+  "daily.share_giveup_rate":"Make10 DAILY #{no}\n{digits} → 10\nI gave up… ({pct}% solved it)\nCan you?",
   "daily.toast_copied":"Copied!",
   "daily.toast_copy_failed":"Couldn't copy",
   "daily.help_title":"How to play",
@@ -2865,20 +2869,34 @@ function pressHint(){
 $("hint").addEventListener("click",pressHint);
 
 /* ═══ 共有（9 章）═══
-   共有するのはページの URL だけ（問題番号や結果を URL に入れない）。共有文に答え・演算・ヒントの中身を入れない */
+   共有するのはページの URL だけ（問題番号や結果を URL に入れない）。共有文には、その日の 4 つの数字（問題そのもの）を入れる。
+   答え・演算・括弧・ヒントの中身は入れない。ヒントの回数と連続日数も入れない（D0.21） */
 const DAILY_URL="https://make10.app/daily/";
-/* その問題番号の、今の状態の共有文（rec = 1 日ぶんの記録。まだなら undefined）*/
-function shareTextOf(no,rec,streak){
-  if(!rec)return t("daily.share_before",{no});
-  if(rec.r==="s")return t("daily.share_after",{no,time:fmtTime(rec.t),hints:rec.h,streak});
-  return t("daily.share_giveup",{no});
+/* 共有文に足す、みんなの中の位置（%）。足さないときは null。a = みんなの結果（aggData と同じ形。無ければ足さない）。
+   集計中（件数が AGG_MIN 未満）は足さない。
+     解いた後     = 自分より遅い帯にいる人 ÷ 解いた人（切り捨て。帯は 5 つなので、少なめに出る）。0% のときは足さない
+     ギブアップの後 = 正解率（画面の「みんなの結果」と同じ数字） */
+function sharePct(rec,a){
+  if(!rec||!a||a.s+a.g<AGG_MIN)return null;
+  if(rec.r!=="s")return Math.round(a.s*100/(a.s+a.g));
+  if(!a.s)return null;
+  const mine=aggBand(rec.t), slower=a.b.reduce((n,c,i)=>i>mine?n+c:n,0);
+  return Math.floor(slower*100/a.s)||null;
+}
+/* その問題（p = 問題の列の 1 行）の、今の状態の共有文（rec = 1 日ぶんの記録。まだなら undefined。a = みんなの結果）*/
+function shareTextOf(p,rec,a){
+  const v={no:p.no,digits:[...p.id].join(" ")}, pct=sharePct(rec,a);
+  if(!rec)return t("daily.share_before",v);
+  if(pct!==null)v.pct=pct;
+  if(rec.r==="s"){v.time=fmtTime(rec.t);return t(pct===null?"daily.share_after":"daily.share_after_rank",v)}
+  return t(pct===null?"daily.share_giveup":"daily.share_giveup_rate",v);
 }
 /* 共有する。共有画面が使えれば共有画面、使えなければ（または拒まれたら）クリップボードにコピーして知らせる。
    共有画面を開いた（閉じただけでも）か、コピーできたら、共有 1 回に数える（実際に送ったかは確かめない。8 章）。
    fromLock = もらう前の知らせの箱から共有した。もらえたら、そのままヒントを出す */
 async function doShare(fromLock){
   if(!PUZZLE)return;
-  const text=shareTextOf(PUZZLE.no,dayRecord(),streakNow());
+  const text=shareTextOf(PUZZLE,dayRecord(),aggData);
   let ok=false;
   if(navigator.share){
     try{await navigator.share({text,url:DAILY_URL});ok=true}

@@ -233,6 +233,59 @@ def top_text(no, day, lang="ja"):
     return "#%d　%d月%d日（%s）" % (no, day.month, day.day, "月火水木金土日"[day.weekday()])
 
 
+# ── 共有の文（DAILY-SPEC 9 章。D0.21）。ページの辞書も関数も使わずに、ここで組む ──────────
+SHARE_BANDS = (30, 60, 120, 300)        # 時間の帯の境目（秒。17-4）
+SHARE_MIN = 30                          # 件数がこれより少ない間は「集計中」（位置を足さない）
+
+
+def share_pct(kind, sec=None, agg=None):
+    """共有の文に足す、みんなの中の位置（%）。足さないときは None。
+    kind … "s"（解いた）/ "g"（ギブアップ）。agg … みんなの結果（s・g・b）"""
+    if not agg or agg["s"] + agg["g"] < SHARE_MIN:
+        return None
+    if kind == "g":
+        return int(agg["s"] * 100 / (agg["s"] + agg["g"]) + 0.5)
+    if not agg["s"]:
+        return None
+    mine = sum(1 for b in SHARE_BANDS if sec >= b)
+    return sum(agg["b"][mine + 1:]) * 100 // agg["s"] or None
+
+
+def share_text(row, kind=None, sec=None, agg=None, lang="ja"):
+    """共有の文（URL の前まで）。kind … None（解く前）/ "s" / "g" """
+    ja = lang == "ja"
+    lines = ["Make10 DAILY #%d" % row["no"]]
+    digits = " ".join(row["id"])
+    if kind is None:
+        return "\n".join(lines + [digits, "この 4 つの数字で 10 を作れる？" if ja else "Can you make 10 with these four digits?"])
+    lines.append(digits + " → 10")
+    pct = share_pct(kind, sec, agg)
+    if kind == "s":
+        lines.append("⏱ %d:%02d" % (sec // 60, sec % 60))
+        if pct is not None:
+            lines.append(("解いた人の %d%% より速い" if ja else "Faster than %d%% of solvers") % pct)
+        lines.append("あなたは何秒？" if ja else "How fast are you?")
+    else:
+        if ja:
+            lines.append("ギブアップ…" + ("" if pct is None else "（正解率 %d%%）" % pct))
+        else:
+            lines.append("I gave up…" + ("" if pct is None else " (%d%% solved it)" % pct))
+        lines.append("あなたは解ける？" if ja else "Can you?")
+    return "\n".join(lines)
+
+
+def share_leak(row, text):
+    """共有の文に、入ってはいけないものが入っていれば、その名前の一覧（答え・演算の記号・解く前後の文の括弧）。
+    その日の 4 つの数字（問題そのもの）は入ってよい。「（正解率 81%）」「(81% solved it)」の括弧は、決めた文の一部"""
+    t = re.sub(r"（正解率 \d+%）| \(\d+% solved it\)", "", text)
+    out = []
+    if re.search(r"[+\-−×÷*/^!()（）]", t):
+        out.append("演算の記号か括弧")
+    if any(s in text or s.replace(" ", "") in text.replace(" ", "") for s in row["sols"]):
+        out.append("答え")
+    return out
+
+
 # ── ページを開いて読む ────────────────────────────────────────────────
 class Fail(Exception):
     pass
