@@ -21,17 +21,23 @@ SEEN = ("(function(){const e=document.querySelector(%r);if(!e)return false;const
         "return s.display!=='none'&&s.visibility!=='hidden'&&e.offsetHeight>0})()")
 # 共有の仕組みの差し替え。__SH = 共有画面に渡された中身、__CP = コピーされた文字
 STUB = r"""
-window.__SH=[];window.__CP=[];
-(function(mode,clip){
+window.__SH=[];window.__CP=[];window.__MQ=[];
+(function(mode,clip,pc){
+  if(!window.__realMM)window.__realMM=window.matchMedia.bind(window);
+  window.matchMedia=function(q){
+    if(/pointer|hover/.test(q)){__MQ.push(q);return {matches:pc,media:q}}
+    return window.__realMM(q)};
   const sh=mode==="none"?undefined:function(d){__SH.push(d);
     if(mode==="ok")return Promise.resolve();
     const e=new Error(mode);e.name=mode==="abort"?"AbortError":"NotAllowedError";return Promise.reject(e)};
   Object.defineProperty(navigator,"share",{value:sh,configurable:true});
   Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:function(s){__CP.push(s);
     return clip?Promise.resolve():Promise.reject(new Error("no clipboard"))}}});
-})(%s,%s);
+})(%s,%s,%s);
 """
 BOX = "(function(){const b=document.getElementById('hintbox');return b.classList.contains('show')?b.textContent:null})()"
+TOAST_JS = ("(function(){const e=document.getElementById('toast');"
+            "return e&&e.classList.contains('show')?e.textContent:null})()")
 BTN = ("(function(){const h=document.getElementById('hint');return [document.getElementById('hintstock').textContent,"
        "h.getAttribute('aria-disabled'),document.getElementById('hintlabel').textContent]})()")
 
@@ -63,8 +69,9 @@ def run(ui):
         tz = datetime.timezone(datetime.timedelta(hours=9))
         return int(datetime.datetime(d.year, d.month, d.day, hour, tzinfo=tz).timestamp() * 1000)
 
-    def stub(mode="ok", clip=True):
-        ui.ev(STUB % ('"%s"' % mode, "true" if clip else "false"))
+    def stub(mode="ok", clip=True, pc=False):
+        """共有の仕組みを差し替える。pc … パソコン扱い（指す道具が細かい）にするか。既定はスマホ扱い"""
+        ui.ev(STUB % ('"%s"' % mode, "true" if clip else "false", "true" if pc else "false"))
 
     def click(el_id, wait=0.25):
         ui.ev("document.getElementById(%r).click()" % el_id)
@@ -174,7 +181,7 @@ def run(ui):
     click("hint")
     click("hint-share")
     ui.check("知らせの箱から共有: 共有画面に、解く前の文と URL が渡る",
-             ui.ev("__SH"), [{"text": dui.share_text(two), "url": URL}])
+             ui.ev("__SH"), [{"text": dui.share_text(two) + "\n" + URL}])
     ui.check("共有した直後に、そのまま 1 回目のヒントが出る", ui.ev(BOX), hint_text(two["sol"], 1))
     ui.check("1 回目を見た: 残りは無い。記録に、使った 1・共有 1",
              [ui.ev(BTN), ui.saved()["cur"]["h"], ui.saved()["cur"]["sh"]],
@@ -231,9 +238,9 @@ def run(ui):
     click("rshare")
     want = dui.share_text(two, "s", rec["t"])
     ui.check("「結果を共有」: 解いた後の文（4 つの数字と時間。ヒントの回数と連続日数は入らない）と URL", ui.ev("__SH[__SH.length-1]"),
-             {"text": want, "url": URL})
+             {"text": want + "\n" + URL})
     click("share")
-    ui.check("解いた後は、上のバーの共有ボタンも同じ文", ui.ev("__SH[__SH.length-1]"), {"text": want, "url": URL})
+    ui.check("解いた後は、上のバーの共有ボタンも同じ文", ui.ev("__SH[__SH.length-1]"), {"text": want + "\n" + URL})
     ui.check("解いた後の共有も、共有の回数に数える（ヒントの回数は変わらない）",
              [ui.saved()["days"][str(no)]["sh"], ui.saved()["days"][str(no)]["h"]], [6, 2])
     ui.open(now=at(no, 20), tz=TZ, store="keep")
@@ -273,13 +280,58 @@ def run(ui):
     click("gu-yes")
     click("share")
     ui.check("ギブアップの後の共有文", ui.ev("__SH[__SH.length-1]"),
-             {"text": dui.share_text(one, "g"), "url": URL})
+             {"text": dui.share_text(one, "g") + "\n" + URL})
     ui.check("ギブアップの記録にも、使ったヒントと共有の回数が入る",
              [ui.saved()["days"][str(one["no"])]["h"], ui.saved()["days"][str(one["no"])]["sh"]], [2, 3])
 
+    # ══ スマホ扱い: 文と URL を 1 つの text にまとめて渡す（url を別にしない。D0.22）══
+    ui.open(now=at(no), tz=TZ)
+    stub("ok")
+    click("share")
+    ui.check("スマホ扱い: 共有画面に渡すのは text の 1 つだけ（title も url も無い）。text の最後の行が URL",
+             ui.ev("[__SH.length,Object.keys(__SH[0]),__SH[0].text.split('\\n').pop(),__CP]"), [1, ["text"], URL, []])
+    ui.check("スマホ扱い: 共有 1 回に数える。トーストは出ない", [ui.ev("shareCount"), ui.ev(BTN)[0], ui.ev(TOAST_JS)], [1, "1", None])
+    ui.check("パソコンかどうかは、指す道具の問い合わせ 1 つで決める（押すたびに見る）",
+             [ui.ev("__MQ"), ui.ev("SHARE_PC_MQ")], [["(hover: hover) and (pointer: fine)"]] + ["(hover: hover) and (pointer: fine)"])
+    # ══ パソコン扱い: 共有画面を使わず、文と URL をコピーする（D0.22）══
+    ui.open(now=at(no), tz=TZ, perf=True)
+    stub("ok", pc=True)
+    click("share")
+    ui.check("パソコン扱い: 共有画面を呼ばない。クリップボードに「文＋改行＋URL」。「コピーしました」",
+             [ui.ev("__SH"), ui.ev("__CP"), ui.ev(TOAST_JS)], [[], [dui.share_text(two) + "\n" + URL], "コピーしました"])
+    ui.check("パソコン扱い: 共有 1 回に数え、ヒントがもらえる", [ui.ev("shareCount"), ui.ev(BTN)], [1, ["1", None, "ヒント（残り 1 回）"]])
+    click("hint")
+    ui.check("パソコン扱い: もらったヒントを使える", ui.ev(BOX), hint_text(two["sol"], 1))
+    click("hint")
+    click("hint-share")
+    ui.check("パソコン扱い: 知らせの箱から共有しても、コピーして、そのまま 2 回目のヒントが出る",
+             [ui.ev("__SH"), len(ui.ev("__CP")), ui.ev("shareCount"), ui.ev(BOX)], [[], 2, 2, hint_text(two["sol"], 2)])
+    ui.tick(3000)
+    ui.solve(two["sol"], wait=0.9)
+    click("rshare")
+    click("share")
+    rec = ui.saved()["days"][str(no)]
+    ui.check("パソコン扱い: 解いた後も、共有ボタン 2 つともコピー（解いた後の文＋URL）。共有の回数は 2 → 4",
+             [ui.ev("__SH"), ui.ev("__CP.slice(2)"), rec["sh"]],
+             [[], [dui.share_text(two, "s", rec["t"]) + "\n" + URL] * 2, 4])
+    ui.open(now=at(no), tz=TZ)
+    stub("ok", clip=False, pc=True)
+    click("hint")
+    click("hint-share")
+    ui.check("パソコン扱いでコピーできない: 共有画面には切り替えず、「コピーできません」。数えない・もらえない",
+             [ui.ev("__SH"), ui.ev(TOAST_JS), ui.ev("shareCount"), ui.ev(BOX), ui.saved()],
+             [[], "コピーできません", 0, "友達に出題するとヒントがもらえます", None])
+    ui.open(now=at(no), tz=TZ)
+    stub("none", pc=True)
+    click("share")
+    ui.check("パソコン扱いで共有画面が無い（Firefox など）: 同じくコピー",
+             [ui.ev("__CP"), ui.ev(TOAST_JS), ui.ev("shareCount")], [[dui.share_text(two) + "\n" + URL], "コピーしました", 1])
+    # 差し替えない本物の問い合わせ: 検証の Chrome（スマホの画面として開いている）の答えと、ページの判定が同じ
+    ui.open(now=at(no), tz=TZ)
+    ui.check("差し替えないとき、ページの判定は、ブラウザーの本物の答えと同じ",
+             ui.ev("sharePc()===matchMedia('(hover: hover) and (pointer: fine)').matches"), True)
     # ══ 共有画面が無い・閉じただけ・拒まれた ══
-    TOAST = ("(function(){const e=document.getElementById('toast');"
-             "return e&&e.classList.contains('show')?e.textContent:null})()")
+    TOAST = TOAST_JS
     # 無い → コピー。もらえる
     ui.open(now=at(no), tz=TZ)
     stub("none")
@@ -339,9 +391,9 @@ def run(ui):
         want = dui.share_text(two, kind, sec, agg)
         ui.check("押して共有（%s・%s）: 共有画面に渡る文" % ("解いた後" if kind == "s" else "ギブアップの後", extra[1:] or "みんなの結果なし"),
                  [ui.ev("__SH[__SH.length-1]"), ("より速い" in want or "正解率" in want)],
-                 [{"text": want, "url": URL}, extra == "&agg=demo"])
+                 [{"text": want + "\n" + URL}, extra == "&agg=demo"])
         click("share")
-        ui.check("…上のバーの共有ボタンも同じ文", ui.ev("__SH[__SH.length-1]"), {"text": want, "url": URL})
+        ui.check("…上のバーの共有ボタンも同じ文", ui.ev("__SH[__SH.length-1]"), {"text": want + "\n" + URL})
     ui.check_no_errors("共有: JS エラー 0")
 
     # ══ ?date= では保存しない ══

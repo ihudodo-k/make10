@@ -561,7 +561,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.21";
+const DAILY_VERSION="0.22";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2891,19 +2891,26 @@ function shareTextOf(p,rec,a){
   if(rec.r==="s"){v.time=fmtTime(rec.t);return t(pct===null?"daily.share_after":"daily.share_after_rank",v)}
   return t(pct===null?"daily.share_giveup":"daily.share_giveup_rate",v);
 }
-/* 共有する。共有画面が使えれば共有画面、使えなければ（または拒まれたら）クリップボードにコピーして知らせる。
+/* パソコンかどうか（D0.22）。主に使う指す道具が細かく（マウス・トラックパッド）、重ねて指せる端末。
+   スマホとタブレットは、主に使う道具が指（粗い・重ねられない）なので当たらない。タッチ画面の付いたノートパソコンは当たる。
+   画面の幅やタッチの有無では決めない（幅の広いタブレットや、タッチ画面のパソコンを取り違える）。押すたびに見る */
+const SHARE_PC_MQ="(hover: hover) and (pointer: fine)";
+const sharePc=()=>matchMedia(SHARE_PC_MQ).matches;
+/* 共有する。渡すのは「共有文＋改行＋URL」の 1 つの文（D0.22。文と URL を別々に渡すと、送り先によって片方が落ちる）。
+   パソコンでは共有画面を使わず、クリップボードにコピーして知らせる（Windows の共有画面は、URL だけを拾う送り先がある）。
+   それ以外は、共有画面が使えれば共有画面、使えなければ（または拒まれたら）クリップボードにコピーして知らせる。
    共有画面を開いた（閉じただけでも）か、コピーできたら、共有 1 回に数える（実際に送ったかは確かめない。8 章）。
    fromLock = もらう前の知らせの箱から共有した。もらえたら、そのままヒントを出す */
 async function doShare(fromLock){
   if(!PUZZLE)return;
-  const text=shareTextOf(PUZZLE,dayRecord(),aggData);
+  const text=shareTextOf(PUZZLE,dayRecord(),aggData)+"\n"+DAILY_URL;
   let ok=false;
-  if(navigator.share){
-    try{await navigator.share({text,url:DAILY_URL});ok=true}
+  if(navigator.share&&!sharePc()){
+    try{await navigator.share({text});ok=true}
     catch(e){ok=!!e&&e.name==="AbortError"}        // 共有画面を閉じただけ。開いたので数える
   }
   if(!ok){
-    try{await navigator.clipboard.writeText(text+"\n"+DAILY_URL);ok=true;toast(t("daily.toast_copied"))}
+    try{await navigator.clipboard.writeText(text);ok=true;toast(t("daily.toast_copied"))}
     catch(e){toast(t("daily.toast_copy_failed"))}
   }
   if(!ok)return;
