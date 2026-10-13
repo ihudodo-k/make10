@@ -267,7 +267,7 @@ python make10.py daily --rebuild              # ページの行を捨てて頭�
     | 状態 | 文 |
     |---|---|
     | 解く前（出題として送る） | Make10 DAILY #1<br>8 7 5 2<br>この 4 つの数字で 10 を作れる？ |
-    | 解いた後 | Make10 DAILY #1<br>8 7 5 2 → 10<br>⏱ 1:42<br>解いた人の 25% より速い<br>あなたは何秒？ |
+    | 解いた後 | Make10 DAILY #1<br>8 7 5 2 → 10  ⏱ 1:42<br>解いた人の 25% より速い<br>あなたは何秒？ |
     | ギブアップの後 | Make10 DAILY #1<br>8 7 5 2 → 10<br>ギブアップ…（正解率 81%）<br>あなたは解ける？ |
 
   - **みんなの中の位置**（解いた後の「解いた人の 25% より速い」の行と、ギブアップの後の「（正解率 81%）」）は、
@@ -281,7 +281,7 @@ python make10.py daily --rebuild              # ページの行を捨てて頭�
     - 実装は `sharePct()`（位置）と `shareTextOf()`（文）。位置は、共有するときに持っている `aggData` から出す
       （テスト表示の `agg=demo` でも同じ道を通る）
   - **X の文字数**（重み 280＝日本語 140 字。URL は 23）に、URL を含めて収まる。いちばん長い文（位置あり・#1099）でも
-    重み 110 ほど（ケース `hint` が全問で見る）
+    重み 111 ほど（ケース `hint` が全問で見る。D0.23 で改行 1 つが空白 2 つになり、1 増えた）
 - **共有の入口（D0.4）**: 上のバー右の統計の真下の共有ボタン（常に出す）・解いた後の並びの「結果を共有」・
   ヒントの知らせの箱の中の入口。どれも、そのときの状態の文（解く前／解いた後／ギブアップの後）を共有する
 - **共有のしかた（D0.22 で書き直した）**: 渡すのは、いつも **「共有文＋改行＋URL」の 1 つの文**。URL は定数 `DAILY_URL`＝`https://make10.app/daily/`
@@ -302,7 +302,7 @@ python make10.py daily --rebuild              # ページの行を捨てて頭�
     **別々の形式で渡す**（`chrome/browser/webshare/win/share_operation.cc`）。送り先のアプリがリンクの形式だけを拾うと、文が落ちる。
     1 つの文にまとめれば、どの送り先でも片方だけが落ちることが無い。パソコンは、送り先のアプリが少なく、貼り付けのほうが確かなので、コピーにした
   - **共有の回数と、ヒントがもらえる決まり（8 章）は変えていない**: 共有画面を開いた（閉じただけでも）か、コピーできたら、共有 1 回
-- 解いた後の文の ⏱ は時間（`1:42`）。D0.20 までの 💡（使ったヒントの回数）と 🔥（連続日数）は、D0.21 で外した
+- 解いた後の文の ⏱ は時間（`1:42`）。**「→ 10」と同じ行に置く**（D0.23。間は半角の空白 2 つ。D0.21・D0.22 は次の行だった。式と結果と時間が 1 行で読める）。位置の行・ギブアップの文・解く前の文は変えていない。D0.20 までの 💡（使ったヒントの回数）と 🔥（連続日数）は、D0.21 で外した
 - **リンクを貼ったときの見た目（OGP。D0.20）**: LINE や X に `https://make10.app/daily/` を貼ったときに、画像・題・説明が出る
   - `docs/daily/index.html` の head に、次のタグを**直に書く**（貼られた先はスクリプトを動かさないので、辞書を引かない。
     言語を切り替えても書き換えない）
@@ -1192,8 +1192,8 @@ python make10.py daily --rebuild              # ページの行を捨てて頭�
 | キー | 場所 | 日本語 | 英語 | 印 |
 |---|---|---|---|---|
 | `daily.share_before` | 解く前 | Make10 DAILY #{no}<br>{digits}<br>この 4 つの数字で 10 を作れる？ | Make10 DAILY #{no}<br>{digits}<br>Can you make 10 with these four digits? | D0.21 |
-| `daily.share_after` | 解いた後（位置なし） | Make10 DAILY #{no}<br>{digits} → 10<br>⏱ {time}<br>あなたは何秒？ | Make10 DAILY #{no}<br>{digits} → 10<br>⏱ {time}<br>How fast are you? | D0.21 |
-| `daily.share_after_rank` | 解いた後（位置あり） | Make10 DAILY #{no}<br>{digits} → 10<br>⏱ {time}<br>解いた人の {pct}% より速い<br>あなたは何秒？ | Make10 DAILY #{no}<br>{digits} → 10<br>⏱ {time}<br>Faster than {pct}% of solvers<br>How fast are you? | D0.21 |
+| `daily.share_after` | 解いた後（位置なし） | Make10 DAILY #{no}<br>{digits} → 10  ⏱ {time}<br>あなたは何秒？ | Make10 DAILY #{no}<br>{digits} → 10  ⏱ {time}<br>How fast are you? | D0.21 |
+| `daily.share_after_rank` | 解いた後（位置あり） | Make10 DAILY #{no}<br>{digits} → 10  ⏱ {time}<br>解いた人の {pct}% より速い<br>あなたは何秒？ | Make10 DAILY #{no}<br>{digits} → 10  ⏱ {time}<br>Faster than {pct}% of solvers<br>How fast are you? | D0.21 |
 | `daily.share_giveup` | ギブアップの後（正解率なし） | Make10 DAILY #{no}<br>{digits} → 10<br>ギブアップ…<br>あなたは解ける？ | Make10 DAILY #{no}<br>{digits} → 10<br>I gave up…<br>Can you? | D0.21 |
 | `daily.share_giveup_rate` | ギブアップの後（正解率あり） | Make10 DAILY #{no}<br>{digits} → 10<br>ギブアップ…（正解率 {pct}%）<br>あなたは解ける？ | Make10 DAILY #{no}<br>{digits} → 10<br>I gave up… ({pct}% solved it)<br>Can you? | D0.21 |
 

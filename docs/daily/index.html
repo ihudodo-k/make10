@@ -561,7 +561,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.22";
+const DAILY_VERSION="0.23";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -659,8 +659,8 @@ const STR_DAILY={ja:{
   "daily.hint_sr_spent":"これ以上のヒントはありません",
   "daily.share_result":"結果を共有",
   "daily.share_before":"Make10 DAILY #{no}\n{digits}\nこの 4 つの数字で 10 を作れる？",
-  "daily.share_after":"Make10 DAILY #{no}\n{digits} → 10\n⏱ {time}\nあなたは何秒？",
-  "daily.share_after_rank":"Make10 DAILY #{no}\n{digits} → 10\n⏱ {time}\n解いた人の {pct}% より速い\nあなたは何秒？",
+  "daily.share_after":"Make10 DAILY #{no}\n{digits} → 10  ⏱ {time}\nあなたは何秒？",
+  "daily.share_after_rank":"Make10 DAILY #{no}\n{digits} → 10  ⏱ {time}\n解いた人の {pct}% より速い\nあなたは何秒？",
   "daily.share_giveup":"Make10 DAILY #{no}\n{digits} → 10\nギブアップ…\nあなたは解ける？",
   "daily.share_giveup_rate":"Make10 DAILY #{no}\n{digits} → 10\nギブアップ…（正解率 {pct}%）\nあなたは解ける？",
   "daily.toast_copied":"コピーしました",
@@ -735,8 +735,8 @@ en:{
   "daily.hint_sr_spent":"No more hints",
   "daily.share_result":"Share result",
   "daily.share_before":"Make10 DAILY #{no}\n{digits}\nCan you make 10 with these four digits?",
-  "daily.share_after":"Make10 DAILY #{no}\n{digits} → 10\n⏱ {time}\nHow fast are you?",
-  "daily.share_after_rank":"Make10 DAILY #{no}\n{digits} → 10\n⏱ {time}\nFaster than {pct}% of solvers\nHow fast are you?",
+  "daily.share_after":"Make10 DAILY #{no}\n{digits} → 10  ⏱ {time}\nHow fast are you?",
+  "daily.share_after_rank":"Make10 DAILY #{no}\n{digits} → 10  ⏱ {time}\nFaster than {pct}% of solvers\nHow fast are you?",
   "daily.share_giveup":"Make10 DAILY #{no}\n{digits} → 10\nI gave up…\nCan you?",
   "daily.share_giveup_rate":"Make10 DAILY #{no}\n{digits} → 10\nI gave up… ({pct}% solved it)\nCan you?",
   "daily.toast_copied":"Copied!",

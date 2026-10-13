@@ -258,14 +258,15 @@ def share_text(row, kind=None, sec=None, agg=None, lang="ja"):
     digits = " ".join(row["id"])
     if kind is None:
         return "\n".join(lines + [digits, "この 4 つの数字で 10 を作れる？" if ja else "Can you make 10 with these four digits?"])
-    lines.append(digits + " → 10")
     pct = share_pct(kind, sec, agg)
     if kind == "s":
-        lines.append("⏱ %d:%02d" % (sec // 60, sec % 60))
+        # 時間は「→ 10」と同じ行（D0.23。間は半角の空白 2 つ）
+        lines.append(digits + " → 10  ⏱ %d:%02d" % (sec // 60, sec % 60))
         if pct is not None:
             lines.append(("解いた人の %d%% より速い" if ja else "Faster than %d%% of solvers") % pct)
         lines.append("あなたは何秒？" if ja else "How fast are you?")
     else:
+        lines.append(digits + " → 10")
         if ja:
             lines.append("ギブアップ…" + ("" if pct is None else "（正解率 %d%%）" % pct))
         else:

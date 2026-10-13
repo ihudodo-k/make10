@@ -204,9 +204,9 @@ def run(ui):
     ui.check("英語の例（#1）: 5 通りの文",
              texts[0],
              ["Make10 DAILY #1\n%s\nCan you make 10 with these four digits?" % d1,
-              "Make10 DAILY #1\n%s → 10\n⏱ 1:42\nHow fast are you?" % d1,
+              "Make10 DAILY #1\n%s → 10  ⏱ 1:42\nHow fast are you?" % d1,
               "Make10 DAILY #1\n%s → 10\nI gave up…\nCan you?" % d1,
-              "Make10 DAILY #1\n%s → 10\n⏱ 1:42\nFaster than 25%% of solvers\nHow fast are you?" % d1,
+              "Make10 DAILY #1\n%s → 10  ⏱ 1:42\nFaster than 25%% of solvers\nHow fast are you?" % d1,
               "Make10 DAILY #1\n%s → 10\nI gave up… (81%% solved it)\nCan you?" % d1])
     ui.check("英語の共有文に、日本語の文字が無い", [t for t in texts[0] if re.search(r"[　-ヿ㐀-鿿＀-￯]", t)], [])
 
