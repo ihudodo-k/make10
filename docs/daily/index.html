@@ -561,7 +561,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.23";
+const DAILY_VERSION="0.24";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2506,10 +2506,10 @@ function applyLang(){
 }
 
 /* ═══ 保存（DAILY-SPEC 10 章）═══
-   本編とは別のキー。days = 1 日ぶんの記録（問題番号ごと）、cur = 解いている途中の時間。
+   本編とは別のキー。days = 1 日ぶんの記録（問題番号ごと）、cur = 解いている途中の分。
      days[番号] = {r:"s"（解いた）/"g"（ギブアップ）, t:時間（秒。ギブアップは null）, h:使ったヒントの回数,
                   sh:共有の回数, e:解いた式（解いたときだけ。開き直したときに盤へ戻す）}
-     cur = {no:問題番号, ms:見ていた間の時間（ミリ秒）, h:使ったヒントの回数, sh:共有の回数}
+     cur = {no:問題番号, start:問題を最初に見た時刻（端末の時計。1970 年からのミリ秒）, h:使ったヒントの回数, sh:共有の回数}
      help = 遊び方を自動で出したら 1（初回だけ出すための印。D0.5）
      days[…].sent = 集計へ送れたら 1（送り直さないための印。D0.8。17-2）
      set = 設定 {easy:途中の値を表示する 0/1, tap:タップで配置する 0/1}（D0.13。13-11）
@@ -2534,29 +2534,35 @@ function saveDaily(){
 const dayRecord=()=>PUZZLE?DATA.days[PUZZLE.no]:undefined;
 const playing=()=>!!PUZZLE&&!dayRecord();
 
-/* ═══ 時間（7 章）═══
-   画面を見ている間だけ数える。隠れたら止め、見えたら続きから。途中で閉じて開き直したら、
-   保存してある時間の続きから数える（保存できない環境では 0 から）*/
-let seenMs=0, seenFrom=null;       // 見ていた間の合計と、いま見ている区間の始まり（見ていなければ null）
+/* ═══ 時間（7 章。D0.24）═══
+   問題を最初に見た時刻から、解いた時刻までの、実際の経過時間。画面を隠しても・ページを閉じても・
+   端末を眠らせても数え続ける（端末の時計の引き算なので、止まる所が無い）。
+   最初に見た時刻は、その日の分として保存する。開き直したら、保存した時刻から数える
+   （保存できない環境と ?date= では残らないので、開き直すとその時から）*/
+let startAt=null;                  // 問題を最初に見た時刻（端末の時計のミリ秒）。まだ見ていなければ null
 let helpHold=false;                // 初回に自動で出た遊び方を読んでいる間。閉じるまで時間を数え始めない（13-10）
-const seenNow=()=>seenMs+(seenFrom===null?0:performance.now()-seenFrom);
-function watch(on){
-  if(on){if(seenFrom===null&&!helpHold)seenFrom=performance.now()}
-  else if(seenFrom!==null){seenMs+=performance.now()-seenFrom;seenFrom=null}
-}
 /* 解いている途中の、使ったヒントの回数と共有の回数（その日の分。解いた・ギブアップした時点で記録へ移す）*/
 let hintUsed=0, shareCount=0;
-function keepTime(){
-  if(!playing())return;
-  DATA.cur={no:PUZZLE.no,ms:Math.round(seenNow()),h:hintUsed,sh:shareCount};
+/* 解いている途中の分を残す（最初に見た時刻・ヒントの回数・共有の回数）。まだ見ていなければ残さない */
+function keepCur(){
+  if(!playing()||startAt===null)return;
+  DATA.cur={no:PUZZLE.no,start:startAt,h:hintUsed,sh:shareCount};
   saveDaily();
 }
-document.addEventListener("visibilitychange",()=>{
-  if(!playing())return;
-  watch(document.visibilityState==="visible");keepTime()});
-window.addEventListener("pagehide",()=>keepTime());
-setInterval(()=>{if(seenFrom!==null)keepTime()},5000);   // 見ている間も数秒おきに残す（突然閉じられたときのため）
-const fmtTime=sec=>Math.floor(sec/60)+":"+String(sec%60).padStart(2,"0");
+/* 数え始める。問題の画面が初めて見えた瞬間に 1 度だけ ―― 遊び方を読んでいる間（helpHold）と、
+   隠れたまま読み込まれた間（裏のタブで開いた）は、まだ見ていないので始めない。その場で保存する */
+function startClock(){
+  if(startAt!==null||helpHold||!playing()||document.visibilityState!=="visible")return;
+  startAt=Date.now();keepCur();
+}
+document.addEventListener("visibilitychange",()=>startClock());
+/* いまの経過時間（秒）。1 秒より短くても 1 秒。端末の時計が戻されてマイナスになっても 1 秒 */
+const elapsedSec=()=>startAt===null?1:Math.max(1,Math.round((Date.now()-startAt)/1000));
+/* 時間の表示。1 時間までは 1:42、1 時間からは 1:02:05（時は桁を詰めない。24 時間を超えても時のまま）*/
+function fmtTime(sec){
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=String(sec%60).padStart(2,"0");
+  return h?h+":"+String(m).padStart(2,"0")+":"+s:m+":"+s;
+}
 
 /* ═══ 連続日数と統計 ═══
    連続日数は「解いた日」を問題番号の連続で数える。ギブアップと遊ばなかった日で途切れる。
@@ -2603,8 +2609,7 @@ function placeExpr(expr){
 /* 正解した後の処理（本編の win() にあたる。名前は変えてある）。記録はここで 1 回だけ確定する */
 function dailySolved(){
   if(!solved||!playing())return;
-  watch(false);
-  DATA.days[PUZZLE.no]={r:"s",t:Math.max(1,Math.round(seenMs/1000)),h:hintUsed,sh:shareCount,e:exprOf()};
+  DATA.days[PUZZLE.no]={r:"s",t:elapsedSec(),h:hintUsed,sh:shareCount,e:exprOf()};
   DATA.cur=null;saveDaily();
   aggSend(PUZZLE.no);
   if(G.vib)navigator.vibrate?.(16);
@@ -2612,7 +2617,6 @@ function dailySolved(){
 }
 function giveUp(){
   if(!playing())return;
-  watch(false);
   DATA.days[PUZZLE.no]={r:"g",t:null,h:hintUsed,sh:shareCount};
   DATA.cur=null;saveDaily();
   aggSend(PUZZLE.no);
@@ -2848,7 +2852,7 @@ function drawHintBtn(){
 }
 /* 次のヒントを 1 回使って出す */
 function useHint(){
-  hintUsed++;keepTime();
+  hintUsed++;keepCur();
   hintBox(hintUsed);
 }
 /* 丸ボタン（本編の決まりに揃えた）。
@@ -2916,7 +2920,7 @@ async function doShare(fromLock){
   if(!ok)return;
   const rec=dayRecord();
   if(rec){rec.sh=(rec.sh||0)+1;saveDaily();return}   // 解いた後・ギブアップの後。回数だけ数える
-  shareCount++;keepTime();
+  shareCount++;keepCur();
   if(fromLock&&hintLeft()>0)useHint();               // 知らせの箱から共有した。そのままヒントを出す
   else{if(hintShown==="lock")hintBox(null);drawHintBtn()}
 }
@@ -3040,7 +3044,7 @@ $("dhelp-close").innerHTML=ICON_HCLOSE;
 function helpShow(){$("dhelpsheet").classList.remove("hide")}
 function helpHide(){
   $("dhelpsheet").classList.add("hide");
-  if(helpHold){helpHold=false;if(playing())watch(document.visibilityState==="visible")}
+  if(helpHold){helpHold=false;startClock()}
 }
 $("dhelp").onclick=()=>helpShow();
 $("dhelp-close").onclick=()=>helpHide();
@@ -3090,23 +3094,23 @@ if(PUZZLE){
   cur=PUZZLE;$("play").classList.remove("hide");
   if(dayRecord())showResult(true);           // 解いた後・ギブアップの後に開き直した。解き直せない
   else{
-    // 解いている途中で開き直した。時間だけ続きから数える（盤は空に戻す）
-    // 使ったヒントの回数と共有の回数も、その日の分は続きから
+    // 解いている途中で開き直した。時間は、保存してある「最初に見た時刻」から数える（盤は空に戻す）
+    // 使ったヒントの回数と共有の回数も、その日の分は続きから。前の日の分は引き継がない
     if(DATA.cur&&DATA.cur.no===PUZZLE.no){
-      seenMs=DATA.cur.ms>0?DATA.cur.ms:0;
+      if(Number.isFinite(DATA.cur.start))startAt=DATA.cur.start;
       hintUsed=Math.min(2,DATA.cur.h>0?DATA.cur.h:0);shareCount=DATA.cur.sh>0?DATA.cur.sh:0;
     }
     else DATA.cur=null;
     clearAll();
     drawHintBtn();
-    watch(document.visibilityState==="visible");
   }
   // 遊び方を、初回だけ自動で出す。読んでいる間は時間を数えない（閉じたところから数え始める）
   if(!TEST_MODE&&!DATA.help){
-    if(playing()){watch(false);helpHold=true}
+    if(playing())helpHold=true;
     DATA.help=1;saveDaily();
     helpShow();
   }
+  startClock();
 }
 else{$("nopuzzle").classList.remove("hide");$("nobrand").classList.remove("hide")}
 // みんなの結果: 送れていない日を送り直し、今日の分は読み直す（17-2）。?date= では何もしない

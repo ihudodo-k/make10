@@ -233,6 +233,13 @@ def top_text(no, day, lang="ja"):
     return "#%d　%d月%d日（%s）" % (no, day.month, day.day, "月火水木金土日"[day.weekday()])
 
 
+def fmt_time(sec):
+    """時間の表示（DAILY-SPEC 7 章。D0.24）。1 時間までは 1:42、1 時間からは 1:02:05。ページの関数は使わない"""
+    if sec >= 3600:
+        return "%d:%02d:%02d" % (sec // 3600, sec % 3600 // 60, sec % 60)
+    return "%d:%02d" % (sec // 60, sec % 60)
+
+
 # ── 共有の文（DAILY-SPEC 9 章。D0.21）。ページの辞書も関数も使わずに、ここで組む ──────────
 SHARE_BANDS = (30, 60, 120, 300)        # 時間の帯の境目（秒。17-4）
 SHARE_MIN = 30                          # 件数がこれより少ない間は「集計中」（位置を足さない）
@@ -261,7 +268,7 @@ def share_text(row, kind=None, sec=None, agg=None, lang="ja"):
     pct = share_pct(kind, sec, agg)
     if kind == "s":
         # 時間は「→ 10」と同じ行（D0.23。間は半角の空白 2 つ）
-        lines.append(digits + " → 10  ⏱ %d:%02d" % (sec // 60, sec % 60))
+        lines.append(digits + " → 10  ⏱ " + fmt_time(sec))
         if pct is not None:
             lines.append(("解いた人の %d%% より速い" if ja else "Faster than %d%% of solvers") % pct)
         lines.append("あなたは何秒？" if ja else "How fast are you?")
@@ -341,7 +348,8 @@ window.__API=[];window.__APIMODE=%s;
 """
 SAVE_KEY = "make10.daily.v1"          # デイリーの保存のキー（本編は make10.progress.v4）
 SET_DEFAULT = {"easy": 0, "tap": 0}   # 設定の既定（D0.13。途中の値を表示しない・ドラッグで置く）
-# 経過時間の時計（performance.now）を、ケースから進められるものに差し替える。__perf がミリ秒
+# performance.now を、ケースから進められるものに差し替える。__perf がミリ秒。
+# D0.24 から、ページは時間を端末の時計（Date）で数えるので、時間の確かめには効かない（tick() は両方を進める）
 PERF = r"""
 window.__perf=0;
 performance.now=()=>window.__perf;
@@ -351,12 +359,13 @@ NO_STORAGE = r"""
 Storage.prototype.getItem=function(){throw new Error("storage blocked")};
 Storage.prototype.setItem=function(){throw new Error("storage blocked")};
 """
-# 端末の時計を固定する（Date の「今」だけを差し替える。時間帯は CDP が決める）
+# 端末の時計を差し替える（Date の「今」だけ。時間帯は CDP が決める）。__now がミリ秒で、
+# 自分では進まない ―― ケースが tick() で進める（戻すこともできる）。D0.24 から、ページはこの時計で時間を数える
 CLOCK = r"""
-(()=>{const RealDate=Date, fixed=%(ms)d;
+(()=>{const RealDate=Date;window.__now=%(ms)s;
   class FakeDate extends RealDate{
-    constructor(...a){if(a.length)super(...a);else super(fixed)}
-    static now(){return fixed}}
+    constructor(...a){if(a.length)super(...a);else super(window.__now)}
+    static now(){return window.__now}}
   window.Date=FakeDate})();
 """
 # 解答例の文字列から盤を組む。置けるかは canPut() を通す（ページの操作と同じ道を通る）
@@ -393,20 +402,22 @@ class UI:
         self._tz = None
 
     def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
-             store=None, perf=False, first=False, api=None):
+             store=None, perf=False, first=False, api=None, hidden=False):
         """ページを開く。
 
         date … ?date=YYYY-MM-DD（テスト表示）。None なら付けない
         lang … ?lang= で固定する。既定は日本語（ケースの期待値は日本語で書く）。None なら付けない
         nav  … navigator.language を差し替える
-        now  … 端末の時計（UTC の ms）。None なら本物の時計
+        now  … 端末の時計（UTC の ms）。開いた後は tick() で進める。None なら本物の時計
+               （perf=True のときは、開いた時の本物の時刻で止めた時計にする ―― tick() で進めるため）
         tz   … 時間帯（"Asia/Tokyo" など）。None なら変えない
         store … 保存データ。None なら空にしてから開く／dict ならその中身を仕込む／
                 "keep" なら前に開いたときのまま／"blocked" なら保存できない環境にする
-        perf … True なら、経過時間の時計を差し替える（tick() で進める）
+        perf … True なら、performance.now も差し替える（tick() で一緒に進む）
         first … True なら、初めて来た人として開く（遊び方が自動で出る）。既定は False ――
                 保存データに「遊び方を見た」の印（help:1）を仕込んでおき、遊び方が盤を覆わないようにする。
                 store="keep"・"blocked" のときは仕込まない
+        hidden … True なら、隠れたまま読み込まれたことにする（裏のタブで開いた。visibility("visible") で見せる）
         api … 集計の送り先の返事の決め方（上の API の __APIMODE）。None なら {"mode": "fail"}（通信できない）。
               出た要求は api_calls() で読む"""
         # 読み込みの前に走る仕込みは、Chrome に 1 つだけ残す。UI はケースごとに作り直されるので、
@@ -427,11 +438,14 @@ class UI:
                 "" if store is None else "localStorage.setItem(%s,%s)" % (
                     json.dumps(SAVE_KEY), json.dumps(json.dumps(store, ensure_ascii=False))))
         self.c._daily_seed = self._seed_id = self.c.on_new_document(SEED % {
-            "store": st + (PERF if perf else ""),
+            "store": st + (PERF if perf else "") + (
+                "Object.defineProperty(document,'visibilityState',{get:()=>'hidden',configurable:true});"
+                if hidden else ""),
             "nav": "" if nav is None else
             "Object.defineProperty(navigator,'language',{get:()=>%s,configurable:true});"
             % json.dumps(nav),
-            "clock": "" if now is None else CLOCK % {"ms": now},
+            "clock": CLOCK % {"ms": "%d" % now} if now is not None
+            else CLOCK % {"ms": "RealDate.now()"} if perf else "",
             "api": API % json.dumps(api or {"mode": "fail"})})
         if tz != self._tz:
             self.c.ws.call("Emulation.setTimezoneOverride", {"timezoneId": tz or ""})
@@ -445,8 +459,9 @@ class UI:
         self.c.ev(SOLVE)
 
     def tick(self, ms):
-        """経過時間の時計を進める（open(perf=True) のとき）"""
-        self.c.ev("window.__perf+=%d" % ms)
+        """端末の時計を進める（open(now=…) か open(perf=True) のとき。負の数で戻す）。
+        performance.now を差し替えてあれば、それも一緒に進める"""
+        self.c.ev("if('__now' in window)window.__now+=%d;if('__perf' in window)window.__perf+=%d" % (ms, ms))
 
     def visibility(self, state):
         """画面が隠れた（"hidden"）・見えた（"visible"）ことにする"""

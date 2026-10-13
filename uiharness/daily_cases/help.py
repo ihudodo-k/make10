@@ -184,16 +184,21 @@ def run(ui):
                    "return [s.whiteSpace,s.fontWeight]})()"), ["nowrap", "700"])
     # 読んでいる間は時間を数えない
     ui.tick(30000)
-    ui.check("初回: 読んでいる間は時間を数えない", ui.ev("Math.round(seenNow())"), 0)
+    ui.check("初回: 読んでいる間は時間を数え始めない（最初に見た時刻が無く、保存もしない）",
+             [ui.ev("startAt"), ui.saved(raw=True)["cur"]], [None, None])
     ui.visibility("hidden")
     ui.visibility("visible")
     ui.tick(5000)
-    ui.check("初回: 画面を隠して戻しても、閉じるまで数え始めない", ui.ev("Math.round(seenNow())"), 0)
+    ui.check("初回: 画面を隠して戻しても、閉じるまで数え始めない",
+             [ui.ev("startAt"), ui.saved(raw=True)["cur"]], [None, None])
     click("dhelp-close")
     ui.check("× で閉じる", ui.ev(SHOWN), False)
     ui.check("閉じたら、見本の動きは止まる（動いているものが 0 個）", ui.ev(HD + ".length"), 0)
     ui.tick(4000)
-    ui.check("閉じたところから時間を数える", ui.ev("Math.round(seenNow())"), 4000)
+    ui.check("閉じた時が「問題を最初に見た時刻」（読んでいた 35 秒は入らない）。その日の分として保存される",
+             [ui.ev("startAt"), ui.saved(raw=True)["cur"]],
+             [at(no) + 35000, {"no": no, "start": at(no) + 35000, "h": 0, "sh": 0}])
+    ui.check("閉じたところから時間を数える", ui.ev("Date.now()-startAt"), 4000)
 
     # ══ 「?」から開く ══
     ui.check("「?」は上のバーの左端（統計と左右対称・同じ高さ・同じ大きさ）。絵柄は丸で囲んだ ?",
@@ -209,7 +214,8 @@ def run(ui):
              [ui.ev(RECT % "dhelp-close") == ui.ev(RECT % "dstats"),
               ui.ev("document.getElementById('dhelp-close').getAttribute('aria-label')")], [True, "閉じる"])
     ui.tick(3000)
-    ui.check("「?」から開いた遊び方では、時間は止めない", ui.ev("Math.round(seenNow())"), 7000)
+    ui.check("「?」から開いた遊び方では、時間は止めない（最初に見た時刻も動かない）",
+             [ui.ev("Date.now()-startAt"), ui.saved(raw=True)["cur"]["start"]], [7000, at(no) + 35000])
     ui.ev(ESC)
     ui.check("Esc で閉じる。見本の動きも止まる", [ui.ev(SHOWN), ui.ev(HD + ".length")], [False, 0])
     click("dstats")

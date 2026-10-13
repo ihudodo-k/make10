@@ -153,6 +153,10 @@ def run(ui):
     ui.check("解いた人が 0 のギブアップの後は、正解率 0%",
              ui.ev("shareTextOf(DAILY_DAYS[0],{r:'g',t:null},{n:1,s:0,g:40,s0:0,b:[0,0,0,0,0]})"),
              "Make10 DAILY #1\n%s → 10\nギブアップ…（正解率 0%%）\nあなたは解ける？" % " ".join(rows[0]["id"]))
+    # 1 時間を超えた時間（D0.24）は h:mm:ss。位置はいちばん遅い帯なので出ない
+    ui.check("1 時間を超えた時間の共有文は「⏱ 1:02:05」「⏱ 23:59:59」（みんなの結果があっても、位置の行は出ない）",
+             [ui.ev("shareTextOf(DAILY_DAYS[0],{r:'s',t:%d},Object.assign({n:1},%s))" % (s, AJS)) for s in (3725, 86399)],
+             ["Make10 DAILY #1\n%s → 10  ⏱ %s\nあなたは何秒？" % (d1, x) for x in ("1:02:05", "23:59:59")])
     # X の文字数（重み 280。かな・漢字・全角・絵文字は 2、ほかは 1、URL は 23）。いちばん長くなる場合でも収まる
     def xlen(s):
         n = 0
@@ -160,11 +164,13 @@ def run(ui):
             c = ord(ch)
             n += 1 if (c <= 0x10FF or 0x2000 <= c <= 0x200D or 0x2010 <= c <= 0x201F or 0x2032 <= c <= 0x2037) else 2
         return n + 1 + 23
-    longest = max(xlen(t) for t5 in texts for t in t5)
+    longest = max([xlen(t) for t5 in texts for t in t5]
+                  + [xlen(dui.share_text(rows[-1], "s", s, AGG)) for s in (299, 3725, 86399, 359999)])
     ui.check("全問の共有文が、URL を含めて X の文字数（重み 280）に収まる", longest <= 280, True)
 
     # ══ もらう前 → 知らせ → 共有 → 1 回目 → 2 回目 ══
     ui.open(now=at(no), tz=TZ, perf=True)
+    ui.tick(9000)                        # 時計を進めておく（ヒントや共有で、最初に見た時刻が動かないことを見るため）
     stub("ok")
     ui.check("丸ボタン: 最初は数字が無く、押せる", ui.ev(BTN), ["", None, "ヒント（残り 0 回）"])
     ui.check("ヒントの丸ボタンは右下（「全部消す」と同じ高さ・同じ大きさ）。共有ボタンは統計の真下 8px",
@@ -180,7 +186,9 @@ def run(ui):
              ui.ev("(function(){const g=hintbox.getBoundingClientRect(),f=document.querySelector('.foot')"
                    ".getBoundingClientRect(),e=expr.getBoundingClientRect();"
                    "return [g.height,Math.round((f.top-g.bottom)*10)/10,g.top>=e.bottom]})()"), [58, 8, True])
-    ui.check("知らせを出しただけでは、何も数えない", [ui.ev("hintUsed"), ui.ev("shareCount"), ui.saved()], [0, 0, None])
+    # 保存にあるのは、問題を見た瞬間に残した「最初に見た時刻」だけ（D0.24）
+    START = {"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 0, "sh": 0}}
+    ui.check("知らせを出しただけでは、何も数えない", [ui.ev("hintUsed"), ui.ev("shareCount"), ui.saved()], [0, 0, START])
     click("hint-close")
     ui.check("× で閉じる", ui.ev(BOX), None)
     click("hint")
@@ -224,6 +232,8 @@ def run(ui):
     click("share")
     ui.check("3 回目・4 回目の共有: 共有の回数は数えるが、ヒントは増えない",
              [ui.ev("shareCount"), ui.ev("hintLeft()"), ui.ev(BTN)[0], ui.saved()["cur"]["sh"]], [4, 0, "", 4])
+    ui.check("ヒントを使っても共有しても、最初に見た時刻は動かない（回数だけが変わる。D0.24）",
+             ui.saved()["cur"], {"no": no, "start": at(no), "h": 2, "sh": 4})
     click("hint")
     ui.check("そのあと押しても、出るのは 2 回目（3 回目は無い）", ui.ev(BOX), hint_text(two["sol"], 2))
     ui.check_no_errors("ヒント: JS エラー 0")
@@ -328,7 +338,7 @@ def run(ui):
     click("hint-share")
     ui.check("パソコン扱いでコピーできない: 共有画面には切り替えず、「コピーできません」。数えない・もらえない",
              [ui.ev("__SH"), ui.ev(TOAST_JS), ui.ev("shareCount"), ui.ev(BOX), ui.saved()],
-             [[], "コピーできません", 0, "友達に出題するとヒントがもらえます", None])
+             [[], "コピーできません", 0, "友達に出題するとヒントがもらえます", START])
     ui.open(now=at(no), tz=TZ)
     stub("none", pc=True)
     click("share")
@@ -371,7 +381,7 @@ def run(ui):
     click("hint-share")
     ui.check("共有画面が無く、コピーもできない: 「コピーできません」。もらえない（知らせのまま）",
              [ui.ev(TOAST), ui.ev("shareCount"), ui.ev(BOX), ui.saved()],
-             ["コピーできません", 0, "友達に出題するとヒントがもらえます", None])
+             ["コピーできません", 0, "友達に出題するとヒントがもらえます", START])
     # 解いた後のトーストは、版の行のすぐ上
     ui.open(now=at(no), tz=TZ, perf=True)
     stub("none")

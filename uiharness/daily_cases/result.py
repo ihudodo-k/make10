@@ -2,7 +2,7 @@
 """解いた後・ギブアップ・時間・保存・連続日数・統計（D0.3。DAILY-SPEC 7・10・13-3・13-5・13-6）。
 
 `?date=` は保存しないので、ここでは端末の時計と時間帯を差し替えて「本物の今日」として開く。
-経過時間の時計（performance.now）も差し替えて、ケースから進める。
+時間は端末の時計（Date）で数える（D0.24）ので、その時計をケースから進める（`tick()`）。
 """
 import datetime
 import time
@@ -54,22 +54,26 @@ def run(ui):
     single = next(r for r in rows if len(r["sols"]) == 1)            # 全解答が 1 本だけの日
     no = multi["no"]
 
-    # ══ 解く。時間は見ている間だけ数える ══
+    # ══ 解く。時間は、最初に見た時刻からの実際の経過時間（隠している間も数える。D0.24）══
     ui.open(now=at(no), tz=TZ, perf=True)
+    ui.check("問題の画面が出た瞬間に、最初に見た時刻がその日の分として保存される", ui.saved(),
+             {"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 0, "sh": 0}})
     ui.check("解く前: 結果の並びは出ていない。ギブアップの入口・トレイ・「全部消す」が見える",
              [ui.ev(SEEN % "#result"), ui.ev(SEEN % "#dgiveup"), ui.ev(SEEN % "#tray"), ui.ev(SEEN % "#clear")],
              [False, True, True, True])
     ui.check("解く前: テスト表示ではない", ui.visible("dtest"), False)
     before = [ui.ev(RECT % "#exprwrap"), ui.ev(RECT % ".readout")]
-    ui.tick(65000)                       # 見ている 65 秒
+    ui.tick(40000)                       # 見ている 40 秒
     ui.visibility("hidden")
-    ui.check("隠れたときに、途中の時間が保存される", ui.saved(), {"v": 1, "days": {}, "cur": {"no": no, "ms": 65000, "h": 0, "sh": 0}})
-    ui.tick(100000)                      # 隠れている 100 秒（数えない）
+    ui.tick(25000)                       # 隠れている 25 秒（これも数える）
+    ui.check("隠しても、最初に見た時刻は動かない", ui.saved()["cur"], {"no": no, "start": at(no), "h": 0, "sh": 0})
     ui.visibility("visible")
+    ui.check("見せ直しても、最初に見た時刻は動かない（数え直さない）",
+             [ui.saved()["cur"]["start"], ui.ev("startAt")], [at(no), at(no)])
     ui.tick(37000)                       # 見ている 37 秒
     got = ui.solve(multi["sol"], wait=0.9)
     ui.check("解いた: 「10」と「正解」", got, "10|正解")
-    ui.check("時間は見ていた間だけ（65 + 37 秒 = 1:42。隠れていた 100 秒は数えない）",
+    ui.check("時間は実際の経過時間（40 + 25 + 37 秒 = 1:42。隠れていた 25 秒も数える）",
              ui.text("r-time"), "1:42")
     ui.check("3 列: 時間・ヒント 0 回・連続 1 日", ui.ev(COLS), ["1:42", "0回", "1日"])
     ui.check("3 列の名前",
@@ -169,23 +173,92 @@ def run(ui):
     ui.open(now=at(no, 20), tz=TZ, store="keep")
     ui.check("解答例でない式で解いて開き直しても、自分の式が出る", ui.ev(BOARD), flat(other))
 
-    # ══ 解いている途中で開き直す: 時間だけ続きから。盤は空 ══
+    # ══ 解いている途中で開き直す: 時間は、保存した「最初に見た時刻」から。盤は空 ══
     ui.open(now=at(no), tz=TZ, perf=True)
     ui.ev("put('+',1);render()")
     ui.tick(30000)
-    ui.ev("dispatchEvent(new Event('pagehide'))")
-    ui.check("閉じるときに、途中の時間が保存される", ui.saved()["cur"], {"no": no, "ms": 30000, "h": 0, "sh": 0})
-    ui.open(now=at(no, 11), tz=TZ, perf=True, store="keep")
+    ui.check("閉じる前に、最初に見た時刻は保存されている（閉じるときの保存に頼らない）",
+             ui.saved()["cur"], {"no": no, "start": at(no), "h": 0, "sh": 0})
+    ui.open(now=at(no, 10, 20), tz=TZ, perf=True, store="keep")          # 閉じていた間に、時計は 20 分進んだ
     ui.check("途中で開き直す: 盤は空に戻る（数字だけ）", ui.ev(BOARD), " ".join(multi["id"]))
     ui.check("途中で開き直す: まだ解ける", [ui.ev(SEEN % "#tray"), ui.ev(SEEN % "#result")], [True, False])
+    ui.check("途中で開き直す: 最初に見た時刻は、保存したもののまま（開き直した時刻にしない）",
+             [ui.ev("startAt"), ui.saved()["cur"]["start"]], [at(no), at(no)])
     ui.tick(12000)
     ui.solve(multi["sol"], wait=0.9)
-    ui.check("途中で開き直す: 時間は続きから（30 + 12 秒 = 0:42）", ui.text("r-time"), "0:42")
-    # 別の日の「途中の時間」は引き継がない
-    ui.open(now=at(no + 1), tz=TZ, perf=True, store={"v": 1, "days": {}, "cur": {"no": no, "ms": 500000}})
+    ui.check("途中で開き直す: 閉じていた間も数える（20 分 + 12 秒 = 20:12）",
+             [ui.text("r-time"), ui.saved()["days"][str(no)]["t"]], ["20:12", 1212])
+    # 2 回開き直して、1 時間を超える（表示は h:mm:ss）
+    ui.open(now=at(no), tz=TZ, perf=True)
+    ui.open(now=at(no, 10, 30), tz=TZ, perf=True, store="keep")
+    ui.open(now=at(no, 11, 2), tz=TZ, perf=True, store="keep")
+    ui.tick(5000)
+    ui.solve(multi["sol"], wait=0.9)
+    ui.check("1 時間を超えた時間は 1:02:05 の形（62:05 にしない）。記録は 3725 秒",
+             [ui.ev(COLS), ui.saved()["days"][str(no)]["t"]], [["1:02:05", "0回", "1日"], 3725])
+    FIT = ("(()=>{const r=[...document.querySelectorAll('.rcol .rv')].map(e=>e.getBoundingClientRect());"
+           "return r[0].right<=r[1].left&&r[0].left>=0})()")
+    ui.check("1 時間を超えた時間でも、3 列は重ならず、スクロールも出ない",
+             [ui.ev(FIT), ui.scrolls(), ui.ev("app.classList.contains('scrolly')")], [True, False, False])
+    # 時間の表示の決まり（期待値は、ページの関数を使わずに組む）
+    secs = [1, 59, 60, 61, 599, 3599, 3600, 3661, 36000, 86399, 86400, 359999, 360000]
+    ui.check("時間の表示: 1 時間までは m:ss、1 時間からは h:mm:ss（24 時間を超えても時のまま）",
+             ui.ev("%r.map(fmtTime)" % secs), [dui.fmt_time(s) for s in secs])
+    ui.check("…その例は 0:59・59:59・1:00:00・1:01:01・23:59:59・100:00:00",
+             [dui.fmt_time(s) for s in (59, 3599, 3600, 3661, 86399, 360000)],
+             ["0:59", "59:59", "1:00:00", "1:01:01", "23:59:59", "100:00:00"])
+    # いちばん長い表示（1 日ぶん・100 時間）でも、結果の 3 列に収まる
+    for sec in (86399, 360000):
+        ui.open(now=at(no, 15), tz=TZ, store={"v": 1, "cur": None, "days": {
+            str(no): {"r": "s", "t": sec, "h": 2, "sh": 0, "e": multi["sol"], "sent": 1}}})
+        ui.check("長い時間（%s）: 結果の 3 列に収まり、重ならず、スクロールも出ない" % dui.fmt_time(sec),
+                 [ui.text("r-time"), ui.ev(FIT), ui.scrolls()], [dui.fmt_time(sec), True, False])
+    # 別の日の「最初に見た時刻」は引き継がない（日付が変わったら、新しく数える）
+    ui.open(now=at(no + 1), tz=TZ, perf=True, store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 1, "sh": 2}})
+    ui.check("日付が変わって別の問題になったら、開いた時から新しく数える（前の日の時刻・回数は消える）",
+             [ui.saved()["cur"], ui.ev("[hintUsed,shareCount]")], [{"no": no + 1, "start": at(no + 1), "h": 0, "sh": 0}, [0, 0]])
     ui.tick(8000)
     ui.solve(rows[no]["sol"], wait=0.9)
-    ui.check("前の日の途中の時間は引き継がない（0:08）", ui.text("r-time"), "0:08")
+    ui.check("前の日の時間は引き継がない（0:08）", ui.text("r-time"), "0:08")
+    # 端末の時計が戻された（経過時間がマイナス）ら、1 秒
+    ui.open(now=at(no), tz=TZ, perf=True)
+    ui.tick(-600000)                     # 開いた後に、時計を 10 分戻す
+    ui.solve(multi["sol"], wait=0.9)
+    ui.check("開いた後に時計が戻された: マイナスにせず 1 秒（0:01）",
+             [ui.text("r-time"), ui.saved()["days"][str(no)]["t"]], ["0:01", 1])
+    ui.open(now=at(no), tz=TZ, perf=True, store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no, 13), "h": 0, "sh": 0}})
+    ui.tick(4000)
+    ui.solve(multi["sol"], wait=0.9)
+    ui.check("保存した時刻が今より先（閉じている間に時計が戻された）: 1 秒（0:01）",
+             [ui.text("r-time"), ui.saved()["days"][str(no)]["t"]], ["0:01", 1])
+    ui.open(now=at(no), tz=TZ, perf=True)
+    ui.solve(multi["sol"], wait=0.9)
+    ui.check("1 秒より短くても 1 秒（0:01）", [ui.text("r-time"), ui.saved()["days"][str(no)]["t"]], ["0:01", 1])
+    # 保存した時刻の形が違うときは、開いた時から数える
+    for bad in ("x", None, {}):
+        ui.open(now=at(no), tz=TZ, perf=True, store={"v": 1, "days": {}, "cur": {"no": no, "start": bad, "h": 1, "sh": 1}})
+        ui.check("最初に見た時刻が数でない（%r）: 開いた時から数える。回数は引き継ぐ" % (bad,),
+                 ui.saved()["cur"], {"no": no, "start": at(no), "h": 1, "sh": 1})
+    # 隠れたまま読み込まれた（裏のタブで開いた）ときは、見えた時から数える
+    ui.open(now=at(no), tz=TZ, perf=True, hidden=True)
+    ui.tick(50000)
+    ui.check("隠れたまま読み込まれた間は、まだ数え始めない（保存もしない）", [ui.ev("startAt"), ui.saved()], [None, None])
+    ui.visibility("visible")
+    ui.check("初めて見えた時が、最初に見た時刻", ui.saved()["cur"], {"no": no, "start": at(no) + 50000, "h": 0, "sh": 0})
+    ui.visibility("hidden")
+    ui.tick(20000)
+    ui.visibility("visible")
+    ui.tick(7000)
+    ui.solve(multi["sol"], wait=0.9)
+    ui.check("そこからは、隠している間も数える（20 + 7 秒 = 0:27）", ui.text("r-time"), "0:27")
+    # ギブアップは、時間を残さない（今までどおり）
+    ui.open(now=at(no), tz=TZ, perf=True)
+    ui.tick(3700000)
+    ui.ev("dgiveup.click();document.getElementById('gu-yes').click()")
+    time.sleep(0.5)
+    ui.check("ギブアップ: 1 時間たっていても、時間は「—」で、記録の時間は無い。途中の分は消える",
+             [ui.text("r-time"), ui.saved()], ["—", {"v": 1, "days": {str(no): {"r": "g", "t": None, "h": 0, "sh": 0}}, "cur": None}])
+    ui.check_no_errors("時間: JS エラー 0")
 
     # ══ ギブアップ ══
     ui.open(now=at(no), tz=TZ, perf=True)
@@ -205,7 +278,8 @@ def run(ui):
                    "return [g.height,Math.round((f.top-g.bottom)*10)/10,g.top>=e.bottom]})()"), [58, 8, True])
     ui.ev("document.getElementById('gu-no').click()")
     ui.check("「いいえ」で確認が消え、そのまま解ける",
-             [ui.ev(SEEN % "#gubox"), ui.ev(SEEN % "#tray"), ui.saved()], [False, True, None])
+             [ui.ev(SEEN % "#gubox"), ui.ev(SEEN % "#tray"), ui.saved()],
+             [False, True, {"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 0, "sh": 0}}])       # 保存にあるのは「最初に見た時刻」だけ
     ui.tick(20000)
     ui.ev("dgiveup.click();document.getElementById('gu-yes').click()")
     ui.check("「はい」: 「10」の場所に「ギブアップ」（副次色。金は使わない）",

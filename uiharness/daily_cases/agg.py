@@ -171,7 +171,7 @@ def run(ui):
 
     # ══ ヒントの回数と、時間の上限 ══
     ui.open(now=at(no), tz=TZ, perf=True, api=ok(),
-            store={"v": 1, "days": {}, "cur": {"no": no, "ms": 90000000, "h": 2, "sh": 2}})
+            store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no) - 90000000, "h": 2, "sh": 2}})
     solve(1)
     c = ui.api_calls()
     ui.check("ヒントを 2 回使って、25 時間かかった: 時間は上限の 86400 秒で送り、ヒントは 2",

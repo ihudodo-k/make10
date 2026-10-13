@@ -215,7 +215,7 @@ def run(ui):
     ui.check("オンにすると、その場で盤に途中の値が出る（シートを開いたまま）",
              [ui.ev(ON), ui.text("eq"), ui.ev("eq.className")], [[True, False], "15  ·  5  ·  2", "eq part"])
     ui.check("オンにしても、盤の式・手数・時間の数え方は変わらない",
-             [ui.ev(TOKS), ui.ev("moves"), ui.ev("seenFrom!==null")], ["8 + 7 5 2", 0, True])
+             [ui.ev(TOKS), ui.ev("moves"), ui.ev("startAt")], ["8 + 7 5 2", 0, at(no)])
     ui.check("保存データの set に残る", ui.saved(raw=True)["set"], {"easy": 1, "tap": 0})
     ui.check("スイッチは押されている状態を名乗る（aria-pressed）",
              ui.ev("['t-easy','t-tap'].map(i=>document.getElementById(i).getAttribute('aria-pressed'))"), ["true", "false"])
@@ -330,9 +330,9 @@ def run(ui):
 
     # ══ タップ配置のまま: 開き直し（途中）と、ギブアップ ══
     ui.open(now=at(no), tz=TZ, perf=True,
-            store={"v": 1, "days": {}, "cur": {"no": no, "ms": 42000, "h": 0, "sh": 0}, "set": {"easy": 0, "tap": 1}})
+            store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no) - 42000, "h": 0, "sh": 0}, "set": {"easy": 0, "tap": 1}})
     ui.check("途中で開き直す: タップ配置のまま・盤は空・時間は続きから",
-             [ui.ev("tapMode"), ui.ev(TOKS), ui.ev("held"), ui.ev("Math.round(seenMs)")], [True, "8 7 5 2", None, 42000])
+             [ui.ev("tapMode"), ui.ev(TOKS), ui.ev("held"), ui.ev("Date.now()-startAt")], [True, "8 7 5 2", None, 42000])
     tap(ui, plus)
     click(ui, "dgiveup")
     ui.check("記号を選んだまま、ギブアップの入口を押すと確認が出る", [ui.ev("gubox.classList.contains('show')"), ui.ev("held")], [True, "+"])

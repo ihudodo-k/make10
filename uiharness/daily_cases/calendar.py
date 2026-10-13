@@ -199,7 +199,9 @@ def run(ui):
     got = ui.saved()
     for r in got["days"].values():
         r.pop("sent", None)
-    ui.check("カレンダーを見ても、保存データは変わらない（保存の形も変えていない）", got, store)
+    # 今日はまだ遊んでいないので、解いている途中の分（最初に見た時刻。D0.24）だけが増える
+    ui.check("カレンダーを見ても、1 日ぶんの記録は変わらない（増えるのは、今日の「最初に見た時刻」だけ）", got,
+             dict(store, cur={"no": today, "start": at(T), "h": 0, "sh": 0}))
     ui.check_no_errors("カレンダーを操作して JS エラー 0")
 
     # ══ 年をまたぐ月・月末 ══
@@ -248,7 +250,7 @@ def run(ui):
         click("#dstats", 0.3)
         click("#dcal-grid .dc[data-no='44']")
         a = ui.ev(L.AUDIT)
-        ui.check("%s: いちばん長い 1 行（1439:59）でも、はみ出しも折り返しも無い。統計の中身は縦に動かさずに収まる" % lang,
+        ui.check("%s: いちばん長い 1 行（23:59:59）でも、はみ出しも折り返しも無い。統計の中身は縦に動かさずに収まる" % lang,
                  [a["over"], a["scroll"],
                   ui.ev("(()=>{const l=document.getElementById('dcal-line'),g=document.getElementById('dcal-legend'),b=dstatbody,p=app.getBoundingClientRect();"
                         "return [l.scrollWidth<=l.clientWidth+1,l.getClientRects().length,g.scrollWidth<=g.clientWidth+1,"
@@ -266,7 +268,7 @@ def run(ui):
                 click("#dcal-grid .dc[data-no='%d']" % n)
                 got.append(ui.ev(LINE))
             ui.check("en: 1 行（hints は 2・1・0 で単数と複数。ギブアップ・遊んでいない）", got,
-                     ["#44 · Tue, Feb 17 · 1439:59 · 2 hints", "#43 · Mon, Feb 16 · 1:01 · 1 hint", "#42 · Sun, Feb 15 · 0:59 · 0 hints",
+                     ["#44 · Tue, Feb 17 · 23:59:59 · 2 hints", "#43 · Mon, Feb 16 · 1:01 · 1 hint", "#42 · Sun, Feb 15 · 0:59 · 0 hints",
                       "#40 · Fri, Feb 13 · Gave up", "#38 · Wed, Feb 11 · Not played"])
             ui.check("en: カレンダーに日本語の文字が無い",
                      [x for x in a["texts"] + a["labels"] if L.JP.search(x)], [])
