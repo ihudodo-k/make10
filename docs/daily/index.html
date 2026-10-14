@@ -181,12 +181,18 @@ body.daily{align-items:center}
 #dinfo span{font-size:11px;letter-spacing:.01em}
 /* ギブアップの入口。上のバー左の席（?）の真下。解く前だけ出す（13-2・13-3）。位置は本編の共有ボタンと同じ決め方 */
 #dgiveup{position:absolute;top:calc(100% + var(--shareGap));left:0;z-index:1}
-/* ギブアップの確認。ヒントの箱の場所（本編の .hintbox と同じ箱）に、文と「はい／いいえ」*/
-#gubox .gurow{height:var(--hintBtnH);padding-right:4px}
-#gubox .gutext{flex:1 1 auto;text-align:center}
-#gubox button{flex:0 0 auto;height:var(--hintBtnH);padding:0 14px;font-size:13px;font-weight:700;
+/* ギブアップの確認（13-3・13-12。D0.28）。統計・遊び方・設定と同じポップアップ（幕とカード）で出す。
+   カードは式の下 ―― 式の下端から --guGap 空けた所から、トレイの下端までの間の中央（上端は guPlace() が --guTop に入れる）。
+   式は隠さない: 開いている間（body.gu）は、問題の所（制約の行・読み出し行・式）を幕の上に出す。明るさは変えない。
+   出した所は押せない（後ろは inert。押すと幕に当たって閉じる＝「いいえ」と同じ）。式との間 --guGap は、ポップアップの html の規則が持つ */
+#dgusheet{justify-content:flex-start;padding-top:var(--guTop,var(--popTop))}
+#dgusheet .dcard{padding:16px 6px 6px}
+#gu-text{margin:0 0 6px;font-size:15px;line-height:1.6;font-weight:700;text-align:center}
+#dgusheet .gubtns{display:flex;justify-content:center;gap:8px}
+#dgusheet .gubtns button{height:var(--hintBtnH);min-width:96px;padding:0 14px;font-size:13px;font-weight:700;
  background:none;border:0;border-radius:9px;color:var(--paper)}
-#gubox button:active{background:var(--edge)}
+#dgusheet .gubtns button:active{background:var(--edge)}
+body.gu #banline,body.gu .readout,body.gu #field{position:relative;z-index:61;pointer-events:none}
 /* ── 解いた後・ギブアップの後（13-5・13-6）。画面を切り替えず、式の下に結果を並べる ──
    下の段（丸ボタンとトレイ）は消すが、場所は取ったままにする（visibility）―― 式の位置を動かさないため。
    結果の並びは、式の下端から重ねて置く（top は layoutResult() が入れる）。左右は列の端まで */
@@ -259,7 +265,7 @@ body.daily{align-items:center}
    動きを減らす設定では、上の全体の決まり（animation:none）で、動かずに出て消える。
    統計の中の 4 項目は本編の統計の 2 列（#statlist・.stat）*/
 html{--popDim:78%;--popBlur:none;
-  --popPad:12px;--popTop:24px;--popW:400px;--popR:16px;--popIn:.24s;--popOut:.16s}
+  --popPad:12px;--popTop:24px;--popW:400px;--popR:16px;--popIn:.24s;--popOut:.16s;--guGap:16px}
 @keyframes popfade{from{opacity:0}}
 @keyframes popin{from{opacity:0;transform:translateY(10px)}}
 @keyframes popfadeout{to{opacity:0}}
@@ -497,12 +503,6 @@ body.pop #app{z-index:3}
     </div>
     <div class="bottom">
       <div class="overlays">
-        <!-- ギブアップの確認（ヒントの箱の場所）-->
-        <div class="hintbox" id="gubox"><div class="hintrow gurow">
-          <span class="gutext" data-i18n="daily.giveup_confirm"></span>
-          <button id="gu-yes" data-i18n="daily.yes"></button>
-          <button id="gu-no" data-i18n="daily.no"></button>
-        </div></div>
         <!-- ヒントの箱（もらう前の知らせ・1 回目・2 回目）。中身は hintBox() が組む -->
         <div class="hintbox" id="hintbox"></div>
       </div>
@@ -587,11 +587,19 @@ body.pop #app{z-index:3}
       <button class="toggle" id="t-tap"><span data-i18n="daily.set_tap"></span><span class="sw"></span></button>
     </div></div>
   </div></div>
+  <!-- ギブアップの確認（ポップアップ。D0.28）。カードは式の下に出す（guPlace()）。見出しと × は持たない ―― 「いいえ」が閉じる -->
+  <div id="dgusheet" class="dsheet hide"><div class="dcard" role="alertdialog" aria-modal="true" aria-labelledby="gu-text" tabindex="-1">
+    <p id="gu-text" data-i18n="daily.giveup_confirm"></p>
+    <div class="gubtns">
+      <button id="gu-yes" data-i18n="daily.yes"></button>
+      <button id="gu-no" data-i18n="daily.no"></button>
+    </div>
+  </div></div>
   <div id="dfoot"><span id="dtest" class="hide" data-i18n="daily.testmode"></span><span id="dver"></span></div>
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.27";
+const DAILY_VERSION="0.28";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2676,7 +2684,7 @@ function giveUp(){
    解いた直後は盤がそのまま自分の式なので、組み直さない */
 function showResult(redraw){
   const rec=dayRecord();if(!rec)return;
-  $("gubox").classList.remove("show");
+  if(popNow==="dgusheet")popHide();
   hintBox(null);
   $("play").classList.add("done");
   if(redraw){
@@ -2880,7 +2888,6 @@ function hintBox(what){
   const b=$("hintbox");
   if(what===null){b.classList.remove("show");b.innerHTML=""}
   else{
-    $("gubox").classList.remove("show");
     const close=`<button class="hbtn" id="hint-close" aria-label="${t("hint.close")}">${ICON_HCLOSE}</button>`;
     b.innerHTML=`<div class="hintrow"><span class="hbody"><span class="hbin">`+
       (what==="lock"?t("daily.hint_locked"):hintHtml(PUZZLE,what))+`</span></span>`+
@@ -2996,10 +3003,21 @@ function toast(msg){
   clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("show"),1600);
 }
 
-/* ═══ ギブアップの入口と確認（13-3）═══ */
-$("dgiveup").onclick=()=>{if(!playing())return;hintBox(null);$("gubox").classList.toggle("show")};
-$("gu-no").onclick=()=>$("gubox").classList.remove("show");
-$("gu-yes").onclick=()=>giveUp();
+/* ═══ ギブアップの入口と確認（13-3。D0.28 からポップアップ）═══
+   カードの上端を決める: 式の下端から --guGap 空けた所から、トレイの下端までの間の中央。
+   収まらなければ、式の下端に付けて置き、それでも画面の下にはみ出すなら、画面の下端（--popTop ぶん空ける）に合わせる。
+   寸法は CSS の変数から読む（JS に数を書かない）。開いた時と、画面の大きさが変わった時に 1 回だけ測る */
+function guPlace(){
+  const sh=$("dgusheet"),c=popCard("dgusheet"),cs=getComputedStyle(document.documentElement);
+  const gap=parseFloat(cs.getPropertyValue("--guGap"))||0,pad=parseFloat(cs.getPropertyValue("--popTop"))||0;
+  const lo=$("expr").getBoundingClientRect().bottom+gap,hi=$("tray").getBoundingClientRect().bottom,h=c.offsetHeight;
+  let top=lo+Math.max(0,(hi-lo-h)/2);
+  if(top+h>innerHeight-pad)top=Math.max(lo,innerHeight-pad-h);
+  sh.style.setProperty("--guTop",Math.round(top)+"px");
+}
+$("dgiveup").onclick=()=>{if(!playing())return;hintBox(null);document.body.classList.add("gu");popShow("dgusheet");guPlace()};
+$("gu-no").onclick=()=>popHide();
+$("gu-yes").onclick=()=>{popHide();giveUp()};
 
 /* ═══ 統計 ═══ */
 /* ═══ ポップアップ（13-12。D0.26）═══
@@ -3007,7 +3025,7 @@ $("gu-yes").onclick=()=>giveUp();
    開いている間は、後ろ（列の中身と、広い画面の見出し）を inert にして、押せず・キーボードでも移れないようにする。
    Tab は、カードの中の押せる物を巡る（inert が効かないブラウザーでも留まるように、端で折り返す）。
    閉じたら、開く前に居た所へフォーカスを戻す。寸法と動きの長さは CSS の :root（--pop…）が持つ ―― JS には書かない */
-const POPS=["dstatsheet","dhelpsheet","dsetsheet"];
+const POPS=["dstatsheet","dhelpsheet","dsetsheet","dgusheet"];
 let popNow=null, popBack=null, popTimer=0;
 const popStill=()=>matchMedia("(prefers-reduced-motion:reduce)").matches;
 const popCard=id=>$(id).querySelector(".dcard");
@@ -3020,6 +3038,7 @@ function popMore(){
 }
 function popEnd(id){
   $(id).classList.remove("closing");$(id).classList.add("hide");
+  if(id==="dgusheet"&&popNow!=="dgusheet")document.body.classList.remove("gu");
   if(!popNow)document.body.classList.remove("pop");
 }
 function popShow(id){
@@ -3185,7 +3204,7 @@ $("t-tap").onclick=()=>toggleSet("tap");
 $("dset").onclick=()=>{drawSet();popShow("dsetsheet")};
 $("dset-close").onclick=()=>popHide();
 
-window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();drawCal();popMore();
+window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();drawCal();popMore();if(popNow==="dgusheet")guPlace();
   if(dayRecord()){drawSols();layoutResult()}});
 
 loadDaily();applySet();

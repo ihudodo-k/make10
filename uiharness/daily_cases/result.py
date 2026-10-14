@@ -330,19 +330,17 @@ def run(ui):
              ui.ev("(function(){const g=dgiveup.getBoundingClientRect(),s=dhelp"
                    ".getBoundingClientRect(),b=dstats.getBoundingClientRect();"
                    "return [g.left-s.left,g.top-s.bottom,g.width-s.width,g.height-b.height]})()"), [0, 8, 0, 0])
-    ui.check("確認は、押すまで出ない", ui.ev(SEEN % "#gubox"), False)
+    ui.check("確認は、押すまで出ない", ui.ev(SEEN % "#dgusheet"), False)
     ui.ev("dgiveup.click()")
-    ui.check("入口を押すと、ヒントの箱の場所に確認が出る",
-             [ui.ev(SEEN % "#gubox"),
-              ui.ev("[...document.querySelectorAll('#gubox .gutext,#gubox button')].map(e=>e.textContent)")],
+    ui.check("入口を押すと、確認がポップアップで出る（D0.28。形・位置・閉じ方はケース giveup）",
+             [ui.ev(SEEN % "#dgusheet"),
+              ui.ev("[...document.querySelectorAll('#dgusheet .dcard p,#dgusheet button')].map(e=>e.textContent)")],
              [True, ["ギブアップしますか？", "はい", "いいえ"]])
-    ui.check("確認の箱は高さ 58px で、丸ボタンの 8px 上。式には重ならない",
-             ui.ev("(function(){const g=gubox.getBoundingClientRect(),f=document.querySelector('.foot')"
-                   ".getBoundingClientRect(),e=expr.getBoundingClientRect();"
-                   "return [g.height,Math.round((f.top-g.bottom)*10)/10,g.top>=e.bottom]})()"), [58, 8, True])
+    ui.check("確認のカードは、式に重ならない",
+             ui.ev("document.querySelector('#dgusheet .dcard').getBoundingClientRect().top>=expr.getBoundingClientRect().bottom"), True)
     ui.ev("document.getElementById('gu-no').click()")
     ui.check("「いいえ」で確認が消え、そのまま解ける",
-             [ui.ev(SEEN % "#gubox"), ui.ev(SEEN % "#tray"), ui.saved()],
+             [ui.ev(SEEN % "#dgusheet"), ui.ev(SEEN % "#tray"), ui.saved()],
              [False, True, {"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 0, "sh": 0}}])       # 保存にあるのは「最初に見た時刻」だけ
     ui.tick(20000)
     ui.ev("dgiveup.click();document.getElementById('gu-yes').click()")
@@ -361,7 +359,7 @@ def run(ui):
               ui.ev("document.querySelector('#solbox .hsub').textContent")],
              ["ほかの解き方：" + pretty(multi["sols"][1]), "1/%d" % (n - 1)])
     ui.check("ギブアップの後: トレイ・「全部消す」・入口・確認が消える",
-             [ui.ev(SEEN % "#tray"), ui.ev(SEEN % "#clear"), ui.ev(SEEN % "#dgiveup"), ui.ev(SEEN % "#gubox")],
+             [ui.ev(SEEN % "#tray"), ui.ev(SEEN % "#clear"), ui.ev(SEEN % "#dgiveup"), ui.ev(SEEN % "#dgusheet")],
              [False, False, False, False])
     ui.check("ギブアップの記録（時間は持たない）", ui.saved(),
              {"v": 1, "days": {str(no): {"r": "g", "t": None, "h": 0, "sh": 0}}, "cur": None})

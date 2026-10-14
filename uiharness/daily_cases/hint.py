@@ -291,10 +291,9 @@ def run(ui):
 
     # ══ ギブアップの確認とヒントの箱は、同時に出ない ══
     click("dgiveup")
-    ui.check("ギブアップの入口を押すと、ヒントの箱は閉じる", [ui.ev(BOX), ui.ev(SEEN % "#gubox")], [None, True])
-    click("hint")
-    ui.check("ヒントを押すと、ギブアップの確認は消える", [ui.ev(BOX) is not None, ui.ev(SEEN % "#gubox")], [True, False])
-    click("dgiveup")
+    ui.check("ギブアップの入口を押すと、ヒントの箱は閉じる", [ui.ev(BOX), ui.ev(SEEN % "#dgusheet")], [None, True])
+    ui.check("確認が出ている間は、後ろ（ヒントの丸ボタン）は押せない（D0.28 からポップアップ。ケース giveup）",
+             ui.ev("play.inert"), True)
     click("gu-yes")
     click("share")
     ui.check("ギブアップの後の共有文", ui.ev("__SH[__SH.length-1]"),

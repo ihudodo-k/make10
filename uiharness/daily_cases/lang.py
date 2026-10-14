@@ -48,14 +48,14 @@ AUDIT = r"""(function(){
       if(vis(e))out.labels.push(e.getAttribute('aria-label')||e.getAttribute('title'));
   }
   // 中身が箱より広くなっていないこと
-  for(const sel of ['#dinfo','#banline','.sub','.hintrow .hbody','.rcol','.rshare','.applink','#gubox .gutext',
+  for(const sel of ['#dinfo','#banline','.sub','.hintrow .hbody','.rcol','.rshare','.applink','#gu-text',
                     '#toast.show','#dhelpbody','#dhelpbody p','.stat','#dver','#dtest','.dsheet h2','#nopuzzle',
                     '#dsetsheet .toggle'])
     for(const e of document.querySelectorAll(sel))
       if(vis(e)&&e.scrollWidth>e.clientWidth+1)out.over.push('箱より広い: '+sel+' '+e.textContent.trim().slice(0,30));
   // 1 行のはずの所が折り返していないこと（中の文字の上端から下端までが、いちばん大きい字の 1.9 倍以内）
   for(const sel of ['#dinfo','#banline','.sub','#hintbox .hbin','#solbox .hbin','.rcol .rn','.rcol .rv','.rshare',
-                    '.applink','#gubox .gutext','#toast.show','.stat .sk','.stat .sv','#dver','#dtest','.dsheet h2',
+                    '.applink','#gu-text','#toast.show','.stat .sk','.stat .sv','#dver','#dtest','.dsheet h2',
                     '#dhelpbody code','#nopuzzle','#dsetsheet .toggle>span:first-child'])
     for(const e of document.querySelectorAll(sel)){
       if(!vis(e)||!e.textContent.trim())continue;

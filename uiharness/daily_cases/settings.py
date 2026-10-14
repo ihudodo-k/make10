@@ -334,7 +334,7 @@ def run(ui):
              [ui.ev("tapMode"), ui.ev(TOKS), ui.ev("held"), ui.ev("Date.now()-startAt")], [True, "8 7 5 2", None, 42000])
     tap(ui, plus)
     click(ui, "dgiveup")
-    ui.check("記号を選んだまま、ギブアップの入口を押すと確認が出る", [ui.ev("gubox.classList.contains('show')"), ui.ev("held")], [True, "+"])
+    ui.check("記号を選んだまま、ギブアップの入口を押すと確認が出る", [ui.ev("popNow"), ui.ev("held")], ["dgusheet", "+"])
     click(ui, "gu-yes", 0.5)
     ui.check("ギブアップ: 解答例が盤に出て、選択と枠は残らない",
              [ui.text("eq"), ui.ev(TOKS), ui.ev("held"), ui.ev(LIVE), ui.ev("play.classList.contains('done')")],

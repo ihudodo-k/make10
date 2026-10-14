@@ -128,8 +128,7 @@ def run(ui):
     ui.check("CSS: デイリーだけの規則", sorted(own),
              sorted(["body.daily", "#app.daily", "#banline", "#nopuzzle", "#dfoot",
                      # D0.3
-                     "#dinfo span", "#dgiveup", "#gubox .gurow", "#gubox .gutext", "#gubox button",
-                     "#gubox button:active", "#play.dplay", "#play.done .bottom",
+                     "#dinfo span", "#dgiveup", "#play.dplay", "#play.done .bottom",
                      "#play.done #expr,#play.locked #expr,#play.locked #tray", "#play.done #dgiveup",
                      ".eq.gaveup", "#result", ".rcols", ".rcol .rv", ".rcol .rv b", ".rcol .rv b.none",
                      ".rcol .rv .ru", ".rcol .rn", "#solbox", "#solbox .hintrow", ".applink",
@@ -175,4 +174,7 @@ def run(ui):
                      # D0.26（ポップアップ。変数は html に置く ―― 本編から複製した :root とセレクタを分ける）
                      "html", "@keyframes popfade", "@keyframes popin", "@keyframes popfadeout", "@keyframes popout",
                      ".dcard", ".dsheet.closing", ".dsheet.closing>.dcard", "body.pop #app",
-                     ".dcard>:last-child", ".dcard>.more"]))
+                     ".dcard>:last-child", ".dcard>.more",
+                     # D0.28（ギブアップの確認をポップアップに。D0.3 の #gubox の 4 規則は消した）
+                     "#dgusheet", "#dgusheet .dcard", "#gu-text", "#dgusheet .gubtns", "#dgusheet .gubtns button",
+                     "#dgusheet .gubtns button:active", "body.gu #banline,body.gu .readout,body.gu #field"]))

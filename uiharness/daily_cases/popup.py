@@ -133,7 +133,7 @@ def run(ui):
     if ui.ev("!document.elementFromPoint(%d,%d).closest('.dcard')" % (gx, gy)):
         press(gx, gy)
         ui.check("遊び方を開いたまま、ギブアップの場所を押す: 確かめの箱は出ず、遊び方が閉じるだけ",
-                 [ui.ev(OPEN), ui.visible("gubox")], [[], False])
+                 ui.ev(OPEN), [])
     else:
         click("dhelp-close")
 

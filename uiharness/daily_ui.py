@@ -415,7 +415,7 @@ class UI:
                 "keep" なら前に開いたときのまま／"blocked" なら保存できない環境にする
         perf … True なら、performance.now も差し替える（tick() で一緒に進む）
         motion … False（既定）なら、ポップアップの開く・閉じる動きの長さを 0 秒にする（D0.26。開いた直後に位置を測っても、
-                 動きの途中の値にならないように）。動きそのものを見るケース（`popup`）だけが True で開く
+                 動きの途中の値にならないように）。動きそのものを見るケース（`popup`・`giveup`）だけが True で開く
         hidden … True なら、隠れたまま読み込まれたことにする（裏のタブで開いた。visibility("visible") で見せる）
         api … 集計の送り先の返事の決め方（上の API の __APIMODE）。None なら {"mode": "fail"}（通信できない）。
               出た要求は api_calls() で読む"""
