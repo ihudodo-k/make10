@@ -32,7 +32,7 @@
 <style>
 /* ── 本編から複製した規則（セレクタごとに本編と同じ。手を入れない）── */
 :root{--zoneEase:cubic-bezier(.22,.72,.3,1); --dur:.3s; --hotDur:.2s; --bannerH:52px; --bannerGap:14px}
-body[data-theme="ai"]{--ink:#0A1220;--panel:#121D31;--edge:#24344F;--paper:#F4F1E8; --teal:#4FC3B0;--slate:#55688A;--coral:#E2705F;--gold:#E3C16F;--line:159,180,214; --dim:#8FA3C4; --ring:color-mix(in srgb,var(--paper) 22%,transparent); --bannerText:#2F4163}
+body[data-theme="ai"]{--ink:#121213;--panel:#121213;--edge:#3A3A3C;--paper:#FFFFFF; --teal:#4FC3B0;--slate:#5F6064;--coral:#E26A57;--gold:#DCBD6E;--line:154,156,161; --dim:#9A9CA1; --ring:color-mix(in srgb,var(--paper) 22%,transparent); --bannerText:#404145}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden}
 body{background:var(--ink); color:var(--paper); font-family:"Zen Kaku Gothic New",system-ui,-apple-system,"Hiragino Sans",sans-serif; font-weight:500;display:flex;justify-content:center;overscroll-behavior:none;touch-action:manipulation}
@@ -296,9 +296,9 @@ body.pop #app{z-index:3}
 /* カレンダー（13-8。D0.11）。囲まない ―― 4 つの数字との間は細い線 1 本。週は月曜始まり。
    日の見分けは形でも分ける: 解いた日 = 塗りつぶした丸（--paper）／ギブアップ = 輪だけの丸（--dim）／
    遊ばなかった日 = 数字の下の小さな点（--calDot）／今日 = 外側に枠／問題が無い日 = 印なし（数字は無効の色）。金も赤も使わない。
-   --calDot（D0.12）は、副次色 --dim を地の色に 55% 混ぜた色。--edge（地との比 1.5）では暗い画面で見落とすので、
-   見える濃さ（比 3.2）にした。輪（--dim。比 7.4）と塗った丸（--paper）よりは沈む。色は既存の変数から作る */
-#dcal{margin:12px 15px 0;padding-top:6px;border-top:1px solid var(--edge);--calDot:color-mix(in srgb,var(--dim) 55%,var(--ink))}
+   --calDot（D0.12）は、副次色 --dim を地の色に 60% 混ぜた色（D0.28 までは 55%。D0.29 の黒と白では 55% だと比 2.88 になるので上げた）。
+   --edge（地との比 1.65）では暗い画面で見落とすので、見える濃さ（比 3.2）にした。輪（--dim。比 6.8）と塗った丸（--paper）よりは沈む。色は既存の変数から作る */
+#dcal{margin:12px 15px 0;padding-top:6px;border-top:1px solid var(--edge);--calDot:color-mix(in srgb,var(--dim) 60%,var(--ink))}
 #dcal .chead{display:flex;align-items:center;justify-content:space-between}
 #dcal .chead b{font-size:14px;font-weight:700}
 #dcal .chead button:disabled{color:var(--slate);opacity:.5;cursor:default}
@@ -599,7 +599,7 @@ body.pop #app{z-index:3}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.28";
+const DAILY_VERSION="0.29";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、

@@ -15,7 +15,7 @@ NAME = "ヒントと共有"
 
 TZ = "Asia/Tokyo"
 URL = "https://make10.app/daily/"
-SLATE = "rgb(85, 104, 138)"
+SLATE = "rgb(95, 96, 100)"
 GLYPH = {"+": "+", "-": "−", "*": "×", "/": "÷", "^": "^", "!": "!"}
 SEEN = ("(function(){const e=document.querySelector(%r);if(!e)return false;const s=getComputedStyle(e);"
         "return s.display!=='none'&&s.visibility!=='hidden'&&e.offsetHeight>0})()")

@@ -161,7 +161,7 @@ def run(ui):
     mine = ui.ev(made % ("dsetsheet", "dsetsheet"))
     bw = ui.ev("dstats.getBoundingClientRect().width")          # ボタンの大きさ（--btnW。normal 52px・compact 44px）
     ui.check("幕は画面いっぱい。× はカードの右上（端から 7px）で、上のバーのボタンと同じ大きさ。見出しは 17px・太字",
-             [mine[0], mine[2], mine[4]], [[0, 0, ui.size[0], ui.size[1]], [7, 7, bw, bw], "17px|700|rgb(244, 241, 232)"])
+             [mine[0], mine[2], mine[4]], [[0, 0, ui.size[0], ui.size[1]], [7, 7, bw, bw], "17px|700|rgb(255, 255, 255)"])
     click(ui, "dset-close")
     ui.check("× で閉じる", ui.ev(SHOWN), False)
     click(ui, "dstats")
@@ -202,7 +202,7 @@ def run(ui):
                    "document.body.appendChild(d);const c=getComputedStyle(d).color;d.remove();return c});"
                    "return [...document.querySelectorAll('#dsetsheet *')].filter(e=>{const c=getComputedStyle(e);"
                    "return bad.includes(c.color)||bad.includes(c.backgroundColor)}).length+'|'+bad.join('|')})()"),
-             "0|rgb(227, 193, 111)|" + ui.ev("(function(){const d=document.createElement('i');d.style.color='var(--coral)';"
+             "0|rgb(220, 189, 110)|" + ui.ev("(function(){const d=document.createElement('i');d.style.color='var(--coral)';"
                                              "document.body.appendChild(d);const c=getComputedStyle(d).color;d.remove();return c})()"))
     click(ui, "dset-close")
 

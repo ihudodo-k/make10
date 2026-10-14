@@ -18,9 +18,9 @@ from uiharness.daily_cases import lang as L
 NAME = "カレンダー"
 
 TZ = "Asia/Tokyo"
-PAPER, DIM, EDGE, SLATE, INK = ("rgb(244, 241, 232)", "rgb(143, 163, 196)", "rgb(36, 52, 79)", "rgb(85, 104, 138)",
-                                "rgb(10, 18, 32)")
-GOLD, CORAL = "rgb(227, 193, 111)", "rgb(255, 122, 92)"
+PAPER, DIM, EDGE, SLATE, INK = ("rgb(255, 255, 255)", "rgb(154, 156, 161)", "rgb(58, 58, 60)", "rgb(95, 96, 100)",
+                                "rgb(18, 18, 19)")
+GOLD, CORAL = "rgb(220, 189, 110)", "rgb(255, 122, 92)"
 # 出ている月の、日ごとの [日, 列（左から 0〜6）, 段, 問題番号（ボタンでなければ null）, クラス]
 GRID = ("(()=>{const g=document.getElementById('dcal-grid'),cs=[...g.querySelectorAll('.dc')];"
         "const xs=[...g.querySelectorAll('.dw')].map(e=>Math.round(e.getBoundingClientRect().left+e.getBoundingClientRect().width/2));"
@@ -99,9 +99,9 @@ def run(ui):
              ui.ev("(()=>{const s=getComputedStyle(document.querySelector('#dcal-grid .dc.g i'));"
                    "return [s.backgroundColor,s.borderTopColor,s.borderTopStyle,parseFloat(s.borderTopWidth)>=1,s.borderRadius,s.color]})()"),
              ["rgba(0, 0, 0, 0)", DIM, "solid", True, "50%", DIM])      # 線は 1.5px。1 倍の密度の画面では 1px に丸まる
-    # 点の色（D0.12）は、副次色を地の色に 55% 混ぜた色。期待値はここで別に計算する（ページの変数は読まない）
+    # 点の色（D0.12）は、副次色を地の色に 60% 混ぜた色（D0.29 で 55% から）。期待値はここで別に計算する（ページの変数は読まない）
     rgb = lambda c: [int(v) for v in re.findall(r"\d+", c)[:3]]                       # noqa: E731
-    mix = [(d * 0.55 + k * 0.45) / 255 for d, k in zip(rgb(DIM), rgb(INK))]
+    mix = [(d * 0.60 + k * 0.40) / 255 for d, k in zip(rgb(DIM), rgb(INK))]
 
     def lum(c):
         f = lambda v: v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4      # noqa: E731
@@ -116,7 +116,7 @@ def run(ui):
     got = [float(v) for v in re.findall(r"[\d.]+", d[3].split("srgb")[-1])[:3]] if "srgb" in d[3] else [v / 255 for v in rgb(d[3])]
     ui.check("見た目: 遊ばなかった日は、数字の下の小さな点（5px）。丸は無い。凡例の点も同じ色と大きさ",
              [d[0], d[1], d[2], d[4], d[5], d[6] == d[3], d[7]], ['""', "5px", "5px", "rgba(0, 0, 0, 0)", "0px", True, "5px"])
-    ui.check("点の色は、副次色を地の色に 55% 混ぜた色（別に計算した値と同じ）",
+    ui.check("点の色は、副次色を地の色に 60% 混ぜた色（別に計算した値と同じ）",
              [round(a - b, 3) for a, b in zip(got, mix)], [0, 0, 0])
     ui.check("点は見える濃さ（地との比が 3 以上）で、輪（副次色）と塗った丸（--paper）よりは沈む",
              [ratio(got) >= 3, ratio(got) < ratio([v / 255 for v in rgb(DIM)]) / 2, ratio(got) < ratio([v / 255 for v in rgb(PAPER)]) / 4],

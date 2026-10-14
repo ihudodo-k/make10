@@ -15,7 +15,7 @@ NAME = "みんなの結果と計測"
 
 TZ = "Asia/Tokyo"
 URL = "https://api.make10.app/r"
-GOLD = "rgb(227, 193, 111)"
+GOLD = "rgb(220, 189, 110)"
 AGG = {"s": 412, "g": 96, "s0": 268, "b": [38, 121, 147, 82, 24]}        # 508 件
 SEEN = ("(function(){const e=document.getElementById(%r);if(!e)return false;const s=getComputedStyle(e);"
         "return s.display!=='none'&&s.visibility!=='hidden'&&e.offsetHeight>0})()")
@@ -87,7 +87,7 @@ def run(ui):
                    "c(me.querySelector('span')).color,c(ot.querySelector('i')).backgroundColor,c(ot.querySelector('i')).opacity,"
                    "[a,...a.querySelectorAll('*')].some(e=>[c(e).color,c(e).backgroundColor,c(e).borderTopColor].includes(%r)),"
                    "/平均|:\\d\\d$/.test(a.querySelector('.ar').firstChild.textContent)]})()" % GOLD),
-             ["rgb(244, 241, 232)", "1", "rgb(244, 241, 232)", "rgb(143, 163, 196)", "0.4", False, False])
+             ["rgb(255, 255, 255)", "1", "rgb(255, 255, 255)", "rgb(154, 156, 161)", "0.4", False, False])
     ui.check("並びは、全解答 → みんなの結果 → 導線（重ならない・画面の左右に収まる）",
              ui.ev("(function(){const r=e=>e.getBoundingClientRect(),a=r(aggbox),s=r(solbox),l=r(applink),p=r(app);"
                    "return [a.top>=s.bottom-0.5,l.top>=a.bottom-0.5,a.left>=p.left&&a.right<=p.right,"

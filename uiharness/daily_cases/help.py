@@ -318,7 +318,7 @@ def run(ui):
     ui.check("#1 の解答例は、括弧・演算・数字がそろう式（比べる相手がある）", rows[0]["sol"], "( 8 - 7 ) * 5 * 2")
     ui.check("見本の数字・演算・括弧・枠・吸着した枠・トレイ・「10」・「正解」・運ぶ記号は、盤の実物と同じ見た目",
              look["bad"], [])
-    ui.check("見本の大きさの倍率と、金の色（盤の変数から取れている）", [look["dk"], look["gold"]], [0.55, "rgb(227, 193, 111)"])
+    ui.check("見本の大きさの倍率と、金の色（盤の変数から取れている）", [look["dk"], look["gold"]], [0.55, "rgb(220, 189, 110)"])
     # 金を使うのは「10」だけ（1 章）。遊び方の中では、見本の「10」の 1 つだけ（play・result の金の確かめは、遊び方の外を見ている）
     ui.check("遊び方の中で金を使っているのは、見本の「10」だけ",
              ui.ev("[...document.querySelectorAll('#dhelpsheet *')].filter(e=>getComputedStyle(e).color===%r)"

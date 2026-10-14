@@ -16,7 +16,7 @@ from uiharness import daily_ui as dui
 NAME = "名前（Make10 DAILY）"
 
 TZ = "Asia/Tokyo"
-GOLD = "rgb(227, 193, 111)"
+GOLD = "rgb(220, 189, 110)"
 AGG = {"s": 412, "g": 96, "s0": 268, "b": [38, 121, 147, 82, 24]}
 PEND = {"s": 20, "g": 9, "s0": 3, "b": [1, 5, 9, 4, 1]}
 RECT = ("(function(){const e=document.querySelector(%r);if(!e)return null;const r=e.getBoundingClientRect();"

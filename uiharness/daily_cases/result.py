@@ -12,8 +12,8 @@ from uiharness import daily_ui as dui
 
 NAME = "解いた後・保存・連続日数"
 
-GOLD = "rgb(227, 193, 111)"
-DIM = "rgb(143, 163, 196)"
+GOLD = "rgb(220, 189, 110)"
+DIM = "rgb(154, 156, 161)"
 TZ = "Asia/Tokyo"
 CLOCK_WAIT = 5.6           # 見回り（CLOCK_WATCH_MS = 5 秒おき）が 1 回は走るのを待つ秒
 RECT = ("(function(){const r=document.querySelector(%r).getBoundingClientRect();"

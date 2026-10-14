@@ -34,7 +34,7 @@ def run(ui):
     ui.check("リンクは副次色の小さい字で、下線がある",
              ui.ev("(function(){const s=getComputedStyle(dprivacy);"
                    "return [s.color,s.fontSize,s.textDecorationLine]})()"),
-             ["rgb(143, 163, 196)", "12px", "underline"])
+             ["rgb(154, 156, 161)", "12px", "underline"])
     href = ui.ev("dprivacy.href")
     ui.check_no_errors("遊び方を開いて JS エラー 0")
 

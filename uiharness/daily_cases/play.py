@@ -22,7 +22,7 @@ def center(ui, sel):
     return ui.ev("(()=>{const b=document.querySelector(%r).getBoundingClientRect();"
                  "return [b.left+b.width/2,b.top+b.height/2]})()" % sel)
 
-GOLD = "rgb(227, 193, 111)"                      # --gold（藍）。金を使うのは正解の「10」だけ
+GOLD = "rgb(220, 189, 110)"                      # --gold（黒と白。D0.29 まで藍）。金を使うのは正解の「10」だけ
 OPS = {"A": "+", "S": "−", "M": "×", "D": "÷", "P": "^", "F": "!"}     # 画面に出る記号
 RAW = {"A": "+", "S": "-", "M": "*", "D": "/", "P": "^", "F": "!"}     # トレイの data-op
 STATE = ("(function(){const e=document.getElementById('eq');return ["

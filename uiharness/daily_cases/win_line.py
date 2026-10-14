@@ -223,7 +223,7 @@ def run(ui):
         ys = sorted({f[7] for f in frames})
         ui.check("動きを減らす設定: 正解になる（金の「10」と「正解」は出る）",
                  [ui.text("eq") + "|" + ui.text("sub"), ui.ev("getComputedStyle(eq).color"), ui.ev("play.classList.contains('done')")],
-                 ["10|正解", "rgb(227, 193, 111)", True])
+                 ["10|正解", "rgb(220, 189, 110)", True])
         ui.check("動きを減らす設定: 数字は動かず、光らない。線は 1 コマも見えない。動いているアニメーションは 0",
                  [moved, not_none, lit, max(f[5] for f in frames), max(f[3] for f in after)], [[], 0, 0, 0, 0])
         ui.check("動きを減らす設定: 読み出し行は、途中のコマ無しで行き先に着く（寄る前か、寄った後のどちらかだけ）",
