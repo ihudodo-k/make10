@@ -2,9 +2,8 @@
 """遊び方（D0.5。DAILY-SPEC 13-10・16-4）。
 
 - 上のバー左の「?」から開く。× か Esc で閉じる
-- 初回だけ自動で出す（保存データの印 help）。?date=（テスト表示）では自動で出さない。
-  保存できない環境では、開くたびに出る
-- 初回に自動で出た遊び方を読んでいる間は、時間を数えない
+- 自動では出さない（D0.25。初めて来た人にも・保存できない環境でも）。保存データに help の印は無い
+- 時間は、初めて来た人も、問題の画面が見えた時から数える。遊び方を読んでいる間も止めない
 """
 import datetime
 import time
@@ -93,11 +92,17 @@ def run(ui):
         ui.ev("document.getElementById(%r).click()" % el_id)
         time.sleep(wait)
 
-    # ══ 初めて来た人: 自動で出る ══
-    ui.open(now=at(no), tz=TZ, perf=True, first=True)
-    ui.check("初回: 遊び方が自動で出る", ui.ev(SHOWN), True)
-    ui.check("初回: 出した時点で、保存データに印が付く", ui.saved(raw=True),
-             {"v": 1, "days": {}, "cur": None, "help": 1, "set": {"easy": 0, "tap": 0}})
+    # ══ 初めて来た人: 自動では出ない。時間は、開いた時から数える（D0.25）══
+    ui.open(now=at(no), tz=TZ, perf=True)
+    ui.check("初回: 遊び方は自動で出ない（盤が見えていて、押せる）",
+             [ui.ev(SHOWN), ui.ev("(function(){const r=expr.getBoundingClientRect();"
+                                  "return !!document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2).closest('#exprwrap')})()")],
+             [False, True])
+    ui.check("初回から時間を数える: 開いた時が「最初に見た時刻」。保存データに help の印は無い", ui.saved(raw=True),
+             {"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 0, "sh": 0}, "set": {"easy": 0, "tap": 0}})
+    ui.check("ページの保存データの形に help が無い", ui.ev("Object.keys(DATA).sort().join(' ')"), "cur days set v")
+    click("dhelp")
+    ui.check("「?」を押すと出る", ui.ev(SHOWN), True)
     ui.check("見出しと、9 つの文（最初の 1 行・見本の説明 2 つ・^・!・0!・ヒント・ギブアップ・毎日 0 時）",
              [ui.ev("document.querySelector('#dhelpsheet h2').textContent"),
               ui.ev("[...document.querySelectorAll('#dhelpbody p:not(.hlink)')].map(e=>e.textContent.trim())")],
@@ -182,23 +187,20 @@ def run(ui):
     ui.check("式は折り返さない指定（white-space:nowrap）で、太字",
              ui.ev("(function(){const s=getComputedStyle(document.querySelector('#dhelpbody code'));"
                    "return [s.whiteSpace,s.fontWeight]})()"), ["nowrap", "700"])
-    # 読んでいる間は時間を数えない
+    # 読んでいる間も時間は止めない（D0.25）
     ui.tick(30000)
-    ui.check("初回: 読んでいる間は時間を数え始めない（最初に見た時刻が無く、保存もしない）",
-             [ui.ev("startAt"), ui.saved(raw=True)["cur"]], [None, None])
+    ui.check("初回: 遊び方を読んでいる間も、時間を数えている（30 秒）",
+             [ui.ev("Date.now()-startAt"), ui.saved(raw=True)["cur"]["start"]], [30000, at(no)])
     ui.visibility("hidden")
     ui.visibility("visible")
     ui.tick(5000)
-    ui.check("初回: 画面を隠して戻しても、閉じるまで数え始めない",
-             [ui.ev("startAt"), ui.saved(raw=True)["cur"]], [None, None])
     click("dhelp-close")
     ui.check("× で閉じる", ui.ev(SHOWN), False)
     ui.check("閉じたら、見本の動きは止まる（動いているものが 0 個）", ui.ev(HD + ".length"), 0)
     ui.tick(4000)
-    ui.check("閉じた時が「問題を最初に見た時刻」（読んでいた 35 秒は入らない）。その日の分として保存される",
-             [ui.ev("startAt"), ui.saved(raw=True)["cur"]],
-             [at(no) + 35000, {"no": no, "start": at(no) + 35000, "h": 0, "sh": 0}])
-    ui.check("閉じたところから時間を数える", ui.ev("Date.now()-startAt"), 4000)
+    ui.check("閉じても、最初に見た時刻は動かない（読んでいた 35 秒も入って 39 秒）",
+             [ui.ev("startAt"), ui.saved(raw=True)["cur"], ui.ev("Date.now()-startAt")],
+             [at(no), {"no": no, "start": at(no), "h": 0, "sh": 0}, 39000])
 
     # ══ 「?」から開く ══
     ui.check("「?」は上のバーの左端（統計と左右対称・同じ高さ・同じ大きさ）。絵柄は丸で囲んだ ?",
@@ -215,7 +217,7 @@ def run(ui):
               ui.ev("document.getElementById('dhelp-close').getAttribute('aria-label')")], [True, "閉じる"])
     ui.tick(3000)
     ui.check("「?」から開いた遊び方では、時間は止めない（最初に見た時刻も動かない）",
-             [ui.ev("Date.now()-startAt"), ui.saved(raw=True)["cur"]["start"]], [7000, at(no) + 35000])
+             [ui.ev("Date.now()-startAt"), ui.saved(raw=True)["cur"]["start"]], [42000, at(no)])
     ui.ev(ESC)
     ui.check("Esc で閉じる。見本の動きも止まる", [ui.ev(SHOWN), ui.ev(HD + ".length")], [False, 0])
     click("dstats")
@@ -225,7 +227,7 @@ def run(ui):
     ui.check("統計の × は、遊び方を閉じない", ui.ev(SHOWN), True)
     ui.ev(ESC)
 
-    # ══ 2 回目からは自動で出ない ══
+    # ══ 開き直しても・次の日も、自動では出ない ══
     ui.open(now=at(no, 12), tz=TZ, store="keep")
     ui.check("開き直す: 自動では出ない", ui.ev(SHOWN), False)
     click("dhelp")
@@ -241,29 +243,29 @@ def run(ui):
              [ui.visible("dhelp"), ui.ev("(document.getElementById('dhelp').click(),%s)" % SHOWN)], [True, True])
 
     # ══ ?date=（テスト表示）では自動で出さない ══
-    ui.open(date=day(no).isoformat(), first=True)
+    ui.open(date=day(no).isoformat())
     ui.check("?date=: 自動では出ない。保存もしない", [ui.ev(SHOWN), ui.saved(raw=True)], [False, None])
     click("dhelp")
     ui.check("?date=: 「?」からは見られる", ui.ev(SHOWN), True)
 
-    # ══ 保存できない環境では、開くたびに出る ══
+    # ══ 保存できない環境でも、自動では出ない（D0.24 までは、印が残らないので開くたびに出ていた）══
     ui.open(now=at(no), tz=TZ, store="blocked")
     first = ui.ev(SHOWN)
-    click("dhelp-close")
     ui.open(now=at(no), tz=TZ, store="blocked")
-    ui.check("保存できない環境: 開くたびに自動で出る", [first, ui.ev(SHOWN)], [True, True])
-    click("dhelp-close")
-    ui.check("保存できない環境: 閉じれば、そのまま遊べる", ui.solve(rows[no - 1]["sol"]), "10|正解")
+    ui.check("保存できない環境: 何度開いても自動では出ない。時間は開いた時から数える",
+             [first, ui.ev(SHOWN), ui.ev("startAt")], [False, False, at(no)])
+    ui.check("保存できない環境: そのまま遊べる", ui.solve(rows[no - 1]["sol"]), "10|正解")
     ui.check_no_errors("保存できない環境で JS エラー 0")
 
     # ══ 問題が無い日は出さない（「?」も無い）══
-    ui.open(now=at(0), tz=TZ, first=True)
-    ui.check("問題が無い日: 遊び方を出さず、印も付けない",
+    ui.open(now=at(0), tz=TZ)
+    ui.check("問題が無い日: 遊び方を出さず、何も保存しない",
              [ui.visible("nopuzzle"), ui.ev(SHOWN), ui.visible("dhelp"), ui.saved(raw=True)],
              [True, False, False, None])
 
     # ══ 英語 ══
-    ui.open(now=at(no), tz=TZ, lang="en", first=True)
+    ui.open(now=at(no), tz=TZ, lang="en")
+    click("dhelp")
     ui.check("英語: 見出しと 9 つの文",
              [ui.ev("document.querySelector('#dhelpsheet h2').textContent"),
               ui.ev("[...document.querySelectorAll('#dhelpbody p:not(.hlink)')].map(e=>e.textContent.trim())"),
@@ -282,7 +284,8 @@ def run(ui):
     click("dhelp-close")
 
     # ══ 収まり: 日本語でも、縦にも横にも動かさずに収まる（文の所が中身より低くない）══
-    ui.open(now=at(no), tz=TZ, first=True)
+    ui.open(now=at(no), tz=TZ)
+    click("dhelp")
     ui.check("日本語: 遊び方は、縦に動かさずに収まる。横にもはみ出さない",
              ui.ev("[dhelpbody.scrollHeight<=dhelpbody.clientHeight+1,document.documentElement.scrollWidth<=innerWidth,"
                    "[...dhelpbody.querySelectorAll('.hdemo')].every(d=>{const r=d.getBoundingClientRect(),b=dhelpbody.getBoundingClientRect();"

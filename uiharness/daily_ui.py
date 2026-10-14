@@ -402,7 +402,7 @@ class UI:
         self._tz = None
 
     def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
-             store=None, perf=False, first=False, api=None, hidden=False):
+             store=None, perf=False, api=None, hidden=False):
         """ページを開く。
 
         date … ?date=YYYY-MM-DD（テスト表示）。None なら付けない
@@ -414,9 +414,6 @@ class UI:
         store … 保存データ。None なら空にしてから開く／dict ならその中身を仕込む／
                 "keep" なら前に開いたときのまま／"blocked" なら保存できない環境にする
         perf … True なら、performance.now も差し替える（tick() で一緒に進む）
-        first … True なら、初めて来た人として開く（遊び方が自動で出る）。既定は False ――
-                保存データに「遊び方を見た」の印（help:1）を仕込んでおき、遊び方が盤を覆わないようにする。
-                store="keep"・"blocked" のときは仕込まない
         hidden … True なら、隠れたまま読み込まれたことにする（裏のタブで開いた。visibility("visible") で見せる）
         api … 集計の送り先の返事の決め方（上の API の __APIMODE）。None なら {"mode": "fail"}（通信できない）。
               出た要求は api_calls() で読む"""
@@ -431,9 +428,6 @@ class UI:
         elif store == "blocked":
             st = NO_STORAGE
         else:
-            if not first:
-                store = dict(store if store is not None else {"v": 1, "days": {}, "cur": None})
-                store.setdefault("help", 1)
             st = "try{localStorage.clear();%s}catch(e){}" % (
                 "" if store is None else "localStorage.setItem(%s,%s)" % (
                     json.dumps(SAVE_KEY), json.dumps(json.dumps(store, ensure_ascii=False))))
@@ -474,14 +468,12 @@ class UI:
 
     def saved(self, raw=False):
         """保存データ（無ければ None）。
-        既定では「遊び方を見た」の印（help）と、既定のままの設定（set が 2 つとも 0。D0.13）を外して返し、
-        ほかに何も入っていなければ None にする（open() が仕込んだ印だけの状態を「まだ何も保存していない」と
-        読むため）。設定を切り替えてあれば、set は外さない。raw=True でそのまま返す"""
+        既定では、既定のままの設定（set が 2 つとも 0。D0.13）を外して返し、
+        ほかに何も入っていなければ None にする。設定を切り替えてあれば、set は外さない。raw=True でそのまま返す"""
         text = self.c.ev("localStorage.getItem(%s)" % json.dumps(SAVE_KEY))
         data = json.loads(text) if text else None
         if raw or data is None:
             return data
-        data.pop("help", None)
         if data.get("set") == SET_DEFAULT:
             data.pop("set")
         return None if data == {"v": 1, "days": {}, "cur": None} else data

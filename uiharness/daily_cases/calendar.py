@@ -294,7 +294,7 @@ def run(ui):
              [g == want_grid(T.year, T.month, today, {}), sorted({c[4] for c in g}), ui.ev(LINE), ui.errors()],
              [True, ["n", "t today", "x"], "#45　2月18日（水）　遊んでいません", []])
     click("#dcal-prev")
-    sv = ui.saved() or {}                                 # 空か、「遊び方は見た」の印だけ（前に開いた画面による）
+    sv = ui.saved() or {}                                 # 空（前に開いた画面による）
     ui.check("?date=: 前の月へも移れる。記録は増えない", [ui.ev(HEAD)[0], sv.get("days", {}), sv.get("cur")], ["2099年1月", {}, None])
     # 解いた直後に開くと、今日が「解いた日」になる
     ui.open(now=at(T), tz=TZ, perf=True, store=store)

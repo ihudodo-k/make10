@@ -3,6 +3,7 @@
 
 `?date=` は保存しないので、ここでは端末の時計と時間帯を差し替えて「本物の今日」として開く。
 時間は端末の時計（Date）で数える（D0.24）ので、その時計をケースから進める（`tick()`）。
+60 分を過ぎたら数え直す（D0.25）。遊んでいる間の見回りは本物のタイマーなので、そこだけ実際に待つ。
 """
 import datetime
 import time
@@ -14,6 +15,7 @@ NAME = "解いた後・保存・連続日数"
 GOLD = "rgb(227, 193, 111)"
 DIM = "rgb(143, 163, 196)"
 TZ = "Asia/Tokyo"
+CLOCK_WAIT = 5.6           # 見回り（CLOCK_WATCH_MS = 5 秒おき）が 1 回は走るのを待つ秒
 RECT = ("(function(){const r=document.querySelector(%r).getBoundingClientRect();"
         "return [r.left,r.top,r.right,r.bottom].map(v=>Math.round(v*10)/10)})()")
 BOARD = "T().map(x=>x.t==='num'?x.v:x.t==='op'?x.v:x.t==='fac'?'!':x.t==='lp'?'(':')').join(' ')"
@@ -188,18 +190,80 @@ def run(ui):
     ui.solve(multi["sol"], wait=0.9)
     ui.check("途中で開き直す: 閉じていた間も数える（20 分 + 12 秒 = 20:12）",
              [ui.text("r-time"), ui.saved()["days"][str(no)]["t"]], ["20:12", 1212])
-    # 2 回開き直して、1 時間を超える（表示は h:mm:ss）
+    # ══ 60 分で数え直す（D0.25）══
+    cur0 = lambda t, h=0, sh=0: {"no": no, "start": t, "h": h, "sh": sh}          # noqa: E731
+    MIN = 60000
+    # (1) 開き直したとき: 2 回開き直して、最初に見てから 62 分。開き直した時から数え直す
     ui.open(now=at(no), tz=TZ, perf=True)
     ui.open(now=at(no, 10, 30), tz=TZ, perf=True, store="keep")
+    ui.check("30 分で開き直す: まだ置き直さない（最初に見た時刻のまま）", [ui.ev("startAt"), ui.saved()["cur"]], [at(no), cur0(at(no))])
     ui.open(now=at(no, 11, 2), tz=TZ, perf=True, store="keep")
+    ui.check("62 分で開き直す: 開き直した時刻に置き直し、保存も直す",
+             [ui.ev("startAt"), ui.saved()["cur"]], [at(no, 11, 2), cur0(at(no, 11, 2))])
     ui.tick(5000)
     ui.solve(multi["sol"], wait=0.9)
-    ui.check("1 時間を超えた時間は 1:02:05 の形（62:05 にしない）。記録は 3725 秒",
-             [ui.ev(COLS), ui.saved()["days"][str(no)]["t"]], [["1:02:05", "0回", "1日"], 3725])
+    ui.check("62 分で開き直して 5 秒で解く: 0 から数え直した 0:05（1:02:05 にしない）。記録は 5 秒",
+             [ui.ev(COLS), ui.saved()["days"][str(no)]["t"]], [["0:05", "0回", "1日"], 5])
+    # (2) 画面に戻ってきたとき: 隠して 61 分。戻った時から数え直す。ヒントと共有の回数は残る
+    ui.open(now=at(no), tz=TZ, perf=True, store={"v": 1, "days": {}, "cur": cur0(at(no), 1, 3)})
+    ui.visibility("hidden")
+    ui.tick(61 * MIN)
+    time.sleep(CLOCK_WAIT)
+    ui.check("隠れている間は、60 分を過ぎても置き直さない（見回りも何もしない）",
+             [ui.ev("startAt"), ui.saved()["cur"]], [at(no), cur0(at(no), 1, 3)])
+    ui.visibility("visible")
+    ui.check("61 分たって画面に戻る: 戻った時刻に置き直し、保存も直す。ヒントと共有の回数は残る",
+             [ui.ev("startAt"), ui.saved()["cur"], ui.ev("[hintUsed,shareCount]")],
+             [at(no, 11, 1), cur0(at(no, 11, 1), 1, 3), [1, 3]])
+    ui.tick(42000)
+    ui.solve(multi["sol"], wait=0.9)
+    rec = ui.saved()["days"][str(no)]
+    ui.check("戻ってから 42 秒で解く: 0:42。記録にヒント 1 回・共有 3 回が残る",
+             [ui.text("r-time"), rec["t"], rec["h"], rec["sh"]], ["0:42", 42, 1, 3])
+    # (3) 遊んでいる間の見回り: 画面を見せたまま 60 分を過ぎると、見回りが置き直す
+    ui.open(now=at(no), tz=TZ, perf=True)
+    ui.check("見回りの間隔と、60 分の定数", ui.ev("[CLOCK_WATCH_MS,CLOCK_MAX_MS]"), [5000, 3600000])
+    ui.tick(60 * MIN - 1)
+    time.sleep(CLOCK_WAIT)
+    ui.check("59 分 59.999 秒: 見回りは置き直さない", [ui.ev("startAt"), ui.saved()["cur"]], [at(no), cur0(at(no))])
+    ui.tick(1)
+    time.sleep(CLOCK_WAIT)
+    ui.check("ちょうど 60 分: 画面を見せたままでも、見回りが置き直す（保存も直す）",
+             [ui.ev("startAt"), ui.saved()["cur"]], [at(no, 11), cur0(at(no, 11))])
+    ui.tick(59 * MIN + 59000)
+    time.sleep(CLOCK_WAIT)
+    ui.solve(multi["sol"], wait=0.9)
+    ui.check("置き直してから 59 分 59 秒で解く: 59:59（記録は 60 分未満）",
+             [ui.text("r-time"), ui.saved()["days"][str(no)]["t"]], ["59:59", 3599])
+    kept = ui.saved()
+    ui.tick(2 * 60 * MIN)
+    ui.visibility("hidden")
+    ui.visibility("visible")
+    time.sleep(CLOCK_WAIT)
+    ui.check("解いたその画面のまま 2 時間たっても、記録は動かない（戻ってきても・見回りでも）",
+             [ui.saved(), ui.text("r-time")], [kept, "59:59"])
+    # (4) 見回りの合間に 60 分を過ぎて解いても、記録は 60 分未満
+    for extra, want in ((0, 1), (2000, 1), (-400, 3599), (-1000, 3599)):
+        ui.open(now=at(no), tz=TZ, perf=True)
+        ui.ev("for(let i=1;i<1e4;i++)clearInterval(i)")          # 見回りを止めて、合間を作る
+        ui.tick(60 * MIN + extra)
+        ui.solve(multi["sol"], wait=0.9)
+        t = ui.saved()["days"][str(no)]["t"]
+        ui.check("見回りの合間に、60 分%+d ミリ秒で解く: 記録は %d 秒（60 分未満）" % (extra, want),
+                 [t, t < 3600, ui.text("r-time")], [want, True, dui.fmt_time(want)])
+    # (5) 何度置き直しても、ヒントと共有の回数は残る。別の日・解いた後・ギブアップの後は置き直さない
+    ui.open(now=at(no, 15), tz=TZ, perf=True, store={"v": 1, "days": {}, "cur": cur0(at(no), 2, 5)})
+    ui.check("5 時間たって開き直す: 開き直した時刻に置き直す。ヒント 2 回・共有 5 回は残る",
+             [ui.saved()["cur"], ui.ev("[hintUsed,shareCount]")], [cur0(at(no, 15), 2, 5), [2, 5]])
+    done = {"v": 1, "cur": None, "days": {str(no): {"r": "s", "t": 77, "h": 0, "sh": 0, "e": multi["sol"], "sent": 1}}}
+    ui.open(now=at(no), tz=TZ, perf=True, store=done)
+    ui.tick(3 * 60 * MIN)
+    ui.visibility("hidden")
+    ui.visibility("visible")
+    time.sleep(CLOCK_WAIT)
+    ui.check("解いた後は、何時間たっても記録が動かない（見回りは何もしない）", ui.saved(), done)
     FIT = ("(()=>{const r=[...document.querySelectorAll('.rcol .rv')].map(e=>e.getBoundingClientRect());"
            "return r[0].right<=r[1].left&&r[0].left>=0})()")
-    ui.check("1 時間を超えた時間でも、3 列は重ならず、スクロールも出ない",
-             [ui.ev(FIT), ui.scrolls(), ui.ev("app.classList.contains('scrolly')")], [True, False, False])
     # 時間の表示の決まり（期待値は、ページの関数を使わずに組む）
     secs = [1, 59, 60, 61, 599, 3599, 3600, 3661, 36000, 86399, 86400, 359999, 360000]
     ui.check("時間の表示: 1 時間までは m:ss、1 時間からは h:mm:ss（24 時間を超えても時のまま）",
@@ -441,8 +505,6 @@ def run(ui):
 
     # ══ 保存できない環境: 知らせずに、そのまま遊べる ══
     ui.open(now=at(no), tz=TZ, store="blocked", perf=True)
-    # 保存できない環境では、遊び方が開くたびに自動で出る（D0.5）。閉じたところから時間を数える
-    ui.ev("document.getElementById('dhelp-close').click()")
     ui.tick(15000)
     ui.visibility("hidden")
     ui.visibility("visible")

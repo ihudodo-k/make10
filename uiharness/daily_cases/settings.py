@@ -362,7 +362,6 @@ def run(ui):
 
     # ══ 保存できない環境・形の違う保存データ ══
     ui.open(now=at(no), tz=TZ, store="blocked")
-    click(ui, "dhelp-close")
     click(ui, "dset")
     click(ui, "t-tap")
     click(ui, "dset-close")

@@ -170,13 +170,28 @@ def run(ui):
     ui.check("ギブアップの後も、印が付く", ui.saved()["days"][str(no)].get("sent"), 1)
 
     # ══ ヒントの回数と、時間の上限 ══
+    # 60 分で数え直す（D0.25）ので、解いて送る時間は 59:59 まで。最初に見てから 59 分 58 秒で解く
     ui.open(now=at(no), tz=TZ, perf=True, api=ok(),
-            store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no) - 90000000, "h": 2, "sh": 2}})
+            store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no) - 3597000, "h": 2, "sh": 2}})
     solve(1)
     c = ui.api_calls()
-    ui.check("ヒントを 2 回使って、25 時間かかった: 時間は上限の 86400 秒で送り、ヒントは 2",
-             json.loads(c[0]["body"]) if c else None, {"n": no, "r": "s", "t": 86400, "h": 2})
+    ui.check("ヒントを 2 回使って、59 分 58 秒かかった: 時間は 3598 秒で送り、ヒントは 2",
+             json.loads(c[0]["body"]) if c else None, {"n": no, "r": "s", "t": 3598, "h": 2})
     ui.check("自分の帯は、いちばん右（5:00+）", (ui.ev(BOX) or {}).get("me"), [4])
+    # 25 時間たってから解いても、数え直した時間（1 秒）を送る
+    ui.open(now=at(no), tz=TZ, perf=True, api=ok(),
+            store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no) - 90000000, "h": 0, "sh": 0}})
+    solve(1)
+    c = ui.api_calls()
+    ui.check("最初に見てから 25 時間たって開き直し、1 秒で解く: 数え直した 1 秒を送る",
+             json.loads(c[0]["body"]) if c else None, {"n": no, "r": "s", "t": 1, "h": 0})
+    # 送る時間の上限（AGG_T_MAX）は残してある: 記録の時間が 1 日より長くても（手で書き換えた保存データ）、切って送る
+    ui.open(now=at(no), tz=TZ, perf=True, api=ok(),
+            store={"v": 1, "cur": None, "days": {str(no): {"r": "s", "t": 90000, "h": 1, "sh": 0, "e": sol}}})
+    time.sleep(0.4)
+    c = [x for x in ui.api_calls() if x["method"] == "POST"]
+    ui.check("送れていない記録の時間が 1 日より長い: 上限の 86400 秒で送る",
+             json.loads(c[0]["body"]) if c else None, {"n": no, "r": "s", "t": 86400, "h": 1})
 
     # 帯の境目ちょうどの時間（30 秒は 2 つ目・60 秒は 3 つ目・300 秒は 5 つ目。サーバーと同じ分け方）
     got = []
@@ -256,7 +271,6 @@ def run(ui):
 
     # ══ 保存できない環境でも送る ══
     ui.open(now=at(no), tz=TZ, perf=True, store="blocked", api=ok())
-    ui.ev("document.getElementById('dhelp-close').click()")
     solve(75)
     ui.check("保存できない環境: 送って、数字を出す。JS エラーなし",
              [[c["method"] for c in ui.api_calls()], (ui.ev(BOX) or {}).get("nums"), ui.errors()],

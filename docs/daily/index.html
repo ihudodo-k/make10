@@ -520,7 +520,7 @@ body.daily{align-items:center}
       </div>
     </div>
   </div>
-  <!-- 遊び方（列の中に重ねる 1 枚の画面。初回だけ自動で出し、以後は「?」から）-->
+  <!-- 遊び方（列の中に重ねる 1 枚の画面。「?」から開く。自動では出さない ―― D0.25）-->
   <div id="dhelpsheet" class="dsheet hide">
     <div class="shead"><h2 data-i18n="daily.help_title"></h2>
       <button id="dhelp-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
@@ -561,7 +561,7 @@ body.daily{align-items:center}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.24";
+const DAILY_VERSION="0.25";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2510,19 +2510,18 @@ function applyLang(){
      days[番号] = {r:"s"（解いた）/"g"（ギブアップ）, t:時間（秒。ギブアップは null）, h:使ったヒントの回数,
                   sh:共有の回数, e:解いた式（解いたときだけ。開き直したときに盤へ戻す）}
      cur = {no:問題番号, start:問題を最初に見た時刻（端末の時計。1970 年からのミリ秒）, h:使ったヒントの回数, sh:共有の回数}
-     help = 遊び方を自動で出したら 1（初回だけ出すための印。D0.5）
      days[…].sent = 集計へ送れたら 1（送り直さないための印。D0.8。17-2）
      set = 設定 {easy:途中の値を表示する 0/1, tap:タップで配置する 0/1}（D0.13。13-11）
    ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる。
    公開までは保存の形の互換を気にしない（古い形の記録は読めなくてよい。移行の処理は作らない。10 章）*/
 const DAILY_KEY="make10.daily.v1";
-let DATA={v:1,days:{},cur:null,help:0,set:{easy:0,tap:0}};
+let DATA={v:1,days:{},cur:null,set:{easy:0,tap:0}};
 function loadDaily(){
   if(TEST_MODE)return;
   try{
     const x=JSON.parse(localStorage.getItem(DAILY_KEY)||"null");
     if(x&&typeof x==="object"&&x.days&&typeof x.days==="object")
-      DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null,help:x.help?1:0,
+      DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null,
         set:{easy:x.set&&x.set.easy?1:0,tap:x.set&&x.set.tap?1:0}};
   }catch(e){}
 }
@@ -2534,13 +2533,13 @@ function saveDaily(){
 const dayRecord=()=>PUZZLE?DATA.days[PUZZLE.no]:undefined;
 const playing=()=>!!PUZZLE&&!dayRecord();
 
-/* ═══ 時間（7 章。D0.24）═══
+/* ═══ 時間（7 章。D0.24・D0.25）═══
    問題を最初に見た時刻から、解いた時刻までの、実際の経過時間。画面を隠しても・ページを閉じても・
    端末を眠らせても数え続ける（端末の時計の引き算なので、止まる所が無い）。
    最初に見た時刻は、その日の分として保存する。開き直したら、保存した時刻から数える
-   （保存できない環境と ?date= では残らないので、開き直すとその時から）*/
-let startAt=null;                  // 問題を最初に見た時刻（端末の時計のミリ秒）。まだ見ていなければ null
-let helpHold=false;                // 初回に自動で出た遊び方を読んでいる間。閉じるまで時間を数え始めない（13-10）
+   （保存できない環境と ?date= では残らないので、開き直すとその時から）。
+   60 分を過ぎたら、その時から数え直す（D0.25。下の lapClock()）*/
+let startAt=null;                  // 数え始めた時刻（端末の時計のミリ秒）。まだ見ていなければ null
 /* 解いている途中の、使ったヒントの回数と共有の回数（その日の分。解いた・ギブアップした時点で記録へ移す）*/
 let hintUsed=0, shareCount=0;
 /* 解いている途中の分を残す（最初に見た時刻・ヒントの回数・共有の回数）。まだ見ていなければ残さない */
@@ -2549,15 +2548,33 @@ function keepCur(){
   DATA.cur={no:PUZZLE.no,start:startAt,h:hintUsed,sh:shareCount};
   saveDaily();
 }
-/* 数え始める。問題の画面が初めて見えた瞬間に 1 度だけ ―― 遊び方を読んでいる間（helpHold）と、
-   隠れたまま読み込まれた間（裏のタブで開いた）は、まだ見ていないので始めない。その場で保存する */
+/* 数え始める。問題の画面が初めて見えた瞬間に 1 度だけ ―― 隠れたまま読み込まれた間（裏のタブで開いた）は、
+   まだ見ていないので始めない。その場で保存する */
 function startClock(){
-  if(startAt!==null||helpHold||!playing()||document.visibilityState!=="visible")return;
+  if(startAt!==null||!playing()||document.visibilityState!=="visible")return;
   startAt=Date.now();keepCur();
 }
-document.addEventListener("visibilitychange",()=>startClock());
-/* いまの経過時間（秒）。1 秒より短くても 1 秒。端末の時計が戻されてマイナスになっても 1 秒 */
-const elapsedSec=()=>startAt===null?1:Math.max(1,Math.round((Date.now()-startAt)/1000));
+/* 60 分で数え直す（D0.25）。数え始めてから 60 分を過ぎていたら、数え始めた時刻を今に置き直して、保存も直す。
+   1 時間も考え続けることは少なく、多くは途中で離れたか諦めたかなので、その分は数えない。
+   ヒントの回数と共有の回数は置き直さない（keepCur() が今の回数のまま書く）*/
+const CLOCK_MAX_MS=3600000;        // 60 分
+const CLOCK_WATCH_MS=5000;         // 遊んでいる間の見回りの間隔
+function lapClock(){
+  if(startAt===null||!playing()||Date.now()-startAt<CLOCK_MAX_MS)return;
+  startAt=Date.now();keepCur();
+}
+/* 見回り: 画面に戻ってきたとき・開き直したとき・遊んでいる間の CLOCK_WATCH_MS おき。
+   隠れている間は何もしない（戻ってきた時に置き直す。隠れている間に置き直すと、離れていた分を数えてしまう）*/
+function watchClock(){
+  if(document.visibilityState!=="visible")return;
+  startClock();lapClock();
+}
+document.addEventListener("visibilitychange",()=>watchClock());
+setInterval(watchClock,CLOCK_WATCH_MS);
+/* いまの経過時間（秒）。1 秒より短くても 1 秒。端末の時計が戻されてマイナスになっても 1 秒。
+   60 分未満（上は 59:59。見回りの合間や、秒への丸めで 60 分に届かないように）*/
+const elapsedSec=()=>startAt===null?1:
+  Math.min(CLOCK_MAX_MS/1000-1,Math.max(1,Math.round((Date.now()-startAt)/1000)));
 /* 時間の表示。1 時間までは 1:42、1 時間からは 1:02:05（時は桁を詰めない。24 時間を超えても時のまま）*/
 function fmtTime(sec){
   const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=String(sec%60).padStart(2,"0");
@@ -2609,6 +2626,7 @@ function placeExpr(expr){
 /* 正解した後の処理（本編の win() にあたる。名前は変えてある）。記録はここで 1 回だけ確定する */
 function dailySolved(){
   if(!solved||!playing())return;
+  lapClock();                                // 見回りの合間に 60 分を過ぎていたら、ここで数え直す
   DATA.days[PUZZLE.no]={r:"s",t:elapsedSec(),h:hintUsed,sh:shareCount,e:exprOf()};
   DATA.cur=null;saveDaily();
   aggSend(PUZZLE.no);
@@ -3032,8 +3050,7 @@ $("dstats").onclick=()=>{drawStats();calOpen();$("dstatsheet").classList.remove(
 $("dstats-close").onclick=()=>$("dstatsheet").classList.add("hide");
 
 /* ═══ 遊び方（13-10）═══
-   上のバー左の「?」から開く。初回だけは自動で出す ―― 保存データに印（help）が無いとき。
-   ?date=（テスト表示）では自動で出さない。保存できない環境では印が残らないので、開くたびに出る。
+   上のバー左の「?」から開く。自動では出さない（D0.25。D0.5〜D0.24 は初回だけ自動で出していた）。
    絵柄は Figma「20 デイリー」の D01（丸で囲んだ ?）*/
 const ICON_HELP=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.6C9.7 9.18 9.82 8.77 10.03 8.41C10.24 8.04 10.55 7.74 10.91 7.53C11.28 7.33 11.69 7.22 12.11 7.22C12.53 7.22 12.95 7.34 13.31 7.55C13.67 7.76 13.97 8.06 14.18 8.43C14.39 8.79 14.5 9.21 14.5 9.63C14.5 10.05 14.39 10.46 14.18 10.82C13.97 11.19 13.66 11.49 13.3 11.7C12.5 12.2 12 12.7 12 13.6"/><path d="M12 16.6h.01"/></svg>`;
 $("dhelp").innerHTML=ICON_HELP;
@@ -3042,10 +3059,7 @@ $("hi-hint").appendChild($("hint").querySelector("svg").cloneNode(true));
 $("hi-giveup").appendChild($("dgiveup").querySelector("svg").cloneNode(true));
 $("dhelp-close").innerHTML=ICON_HCLOSE;
 function helpShow(){$("dhelpsheet").classList.remove("hide")}
-function helpHide(){
-  $("dhelpsheet").classList.add("hide");
-  if(helpHold){helpHold=false;startClock()}
-}
+function helpHide(){$("dhelpsheet").classList.add("hide")}
 $("dhelp").onclick=()=>helpShow();
 $("dhelp-close").onclick=()=>helpHide();
 /* ═══ 設定（13-11。D0.13）═══
@@ -3104,13 +3118,7 @@ if(PUZZLE){
     clearAll();
     drawHintBtn();
   }
-  // 遊び方を、初回だけ自動で出す。読んでいる間は時間を数えない（閉じたところから数え始める）
-  if(!TEST_MODE&&!DATA.help){
-    if(playing())helpHold=true;
-    DATA.help=1;saveDaily();
-    helpShow();
-  }
-  startClock();
+  watchClock();                              // 数え始める。保存した時刻から 60 分を過ぎていたら、今から数え直す
 }
 else{$("nopuzzle").classList.remove("hide");$("nobrand").classList.remove("hide")}
 // みんなの結果: 送れていない日を送り直し、今日の分は読み直す（17-2）。?date= では何もしない
