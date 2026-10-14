@@ -149,35 +149,37 @@ Make10は知育アプリ・学習アプリではない。
 
 ## 7. Visual Direction
 
-第一候補として、
+### Black × White × Accent Gold
 
-### Deep Navy × Off White × Accent Gold
+を採用する（8.6。それまでは Deep Navy × Off White × Accent Gold）。
 
-を採用する。
+Wordle のダークモードのように、黒い地と白い字だけで組み、
+色を使うのは意味のある所（金と、注意の赤）だけにする。
+深い紺は、似た配色の作品が多く、同じくくりに見られやすいのでやめた。
 
 ### Base Color
-Deep Navy
+Black（真っ黒ではなく、ごくわずかに明るい黒）
 
 例:
-#0A1220
+#121213
 
 ### Main Text / Number
-Warm Off White
+White
 
 例:
-#F4F1E8
+#FFFFFF
 
 ### Secondary UI
-Muted Blue Gray
+Neutral Gray（青みを入れない）
 
 例:
-#8FA3C4
+#9A9CA1
 
 ### Accent
 Muted Gold
 
 例:
-#E3C16F
+#DCBD6E
 
 ただし、Goldは大量に使用しない。
 

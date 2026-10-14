@@ -316,7 +316,7 @@ def win_display(ui):
     ui.check("白テーマで本当に色が変わっている（藍と比べる意味がある）",
              ui.ev("getComputedStyle($('wnext')).color"), "rgb(30, 37, 48)")
     ui.ev("G.theme='ai'; applyTheme()")
-    ui.check("藍テーマの文字の色（7.3 の --paper）", ui.ev("getComputedStyle($('wnext')).color"), "rgb(244, 241, 232)")
+    ui.check("既定のテーマ（ai。8.6 から黒と白）の文字の色（--paper）", ui.ev("getComputedStyle($('wnext')).color"), "rgb(255, 255, 255)")
     # ── 正解の 10 の大きさ ───────────────────────────────
     scale = TEN_SCALE
     ui.check("10: 既定の倍率は 1.8（devVars.tenScale・実機で決めた値）", ui.ev("DEV_DEFAULT.tenScale"), 1.8)

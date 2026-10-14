@@ -189,7 +189,7 @@ def run(ui):
             pre = "動きを減らす設定・段階 %d: " % lv
             ui.check(pre + "正解になる（金の「10」と「正解」は出る）",
                      [ui.ev("$('eq').textContent+'|'+$('sub').textContent"), ui.ev("getComputedStyle($('eq')).color"), ui.ev("hitLv")],
-                     ["10|正解", "rgb(227, 193, 111)", lv])
+                     ["10|正解", "rgb(220, 189, 110)", lv])
             ui.check(pre + "数字は動かず、光らない。演算子も光らない。線は 1 コマも見えない。動いているアニメーションは 0",
                      [moved, not_none, lit, sum(1 for f in after for x in f[2] if x), max(f[5] for f in frames), max(f[3] for f in after)],
                      [[], 0, 0, 0, 0, 0])
