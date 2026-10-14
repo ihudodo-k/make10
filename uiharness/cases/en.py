@@ -223,18 +223,18 @@ def run(ui):
         "const l=$('t-lang').firstElementChild.getBoundingClientRect(),r=$('t-lang-v').getBoundingClientRect();"
         "if(l.right>r.left-4||r.height>24)bad.push(v)}G.lang='auto';applyLang(true);return bad})()"), [])
 
-    # ── 遊び方の 2 行（7.7。日本語にも出る）
-    for lang, want in [("ja", ["^ は累乗です（2 ^ 3 = 8）", "! は階乗です（3! = 6）"]),
-                       ("en", ["^ is power (2 ^ 3 = 8)", "! is factorial (3! = 6)"])]:
+    # ── 遊び方の 3 行（7.7 で ^ と !、8.5 で 0! を足した。! の例も 8.5 で 4! にした。日本語にも出る）
+    for lang, want in [("ja", ["^ は累乗です（2 ^ 3 = 8）", "! は階乗です（4! = 4 × 3 × 2 × 1 = 24）", "0! は 1 です（0! = 1）"]),
+                       ("en", ["^ is power (2 ^ 3 = 8)", "! is factorial (4! = 4 × 3 × 2 × 1 = 24)", "0! is 1 (0! = 1)"])]:
         ui.open(lang=lang)
         ui.ev("go('help')")
-        ui.check("遊び方（%s）:「計算のきまり」の先頭 2 行が ^ と ! の意味" % lang, ui.ev(
+        ui.check("遊び方（%s）:「計算のきまり」の先頭 3 行が ^ と ! の意味と 0! は 1" % lang, ui.ev(
             "(()=>{const h=[...document.querySelectorAll('#help h3')].find(x=>x.textContent===t('help.sec_rules'));"
-            "return [...h.nextElementSibling.children].slice(0,2).map(x=>x.textContent)})()"), want)
-        ui.check("遊び方（%s）:「計算のきまり」は 6 行で、3 行目は今までの先頭（^ は右から）" % lang, ui.ev(
+            "return [...h.nextElementSibling.children].slice(0,3).map(x=>x.textContent)})()"), want)
+        ui.check("遊び方（%s）:「計算のきまり」は 7 行で、4 行目は 7.6 までの先頭（^ は右から）" % lang, ui.ev(
             "(()=>{const h=[...document.querySelectorAll('#help h3')].find(x=>x.textContent===t('help.sec_rules'));"
-            "const li=[...h.nextElementSibling.children];return [li.length,li[2].innerHTML===t('help.r1_html')]})()"),
-            [6, True])
+            "const li=[...h.nextElementSibling.children];return [li.length,li[3].innerHTML===t('help.r1_html')]})()"),
+            [7, True])
         # 式（<code>）は行の途中で折り返さない。折り返さなくしても、行からはみ出さない
         for size in ([None] if ui.viewport == "normal" else [None, (360, 640)]):
             tag = "" if size is None else "・360×640"
@@ -252,8 +252,8 @@ def run(ui):
                     "const a=__over();h.scrollTop=9999;const b=__over();h.scrollTop=0;"
                     "return [cs.length,wrap,out,a.concat(b),h.scrollWidth>h.clientWidth,"
                     "document.documentElement.scrollWidth>innerWidth]})()")
-                ui.check("遊び方（%s%s）: 式 7 つがどれも折り返さず、行からも画面からもはみ出さない・横に動かない"
-                         % (lang, tag), r, [7, [], [], [], False, False])
+                ui.check("遊び方（%s%s）: 式 8 つがどれも折り返さず、行からも画面からもはみ出さない・横に動かない"
+                         % (lang, tag), r, [8, [], [], [], False, False])
             finally:
                 if size:
                     ui.c.metrics(360, 690)

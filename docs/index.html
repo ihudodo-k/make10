@@ -755,6 +755,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
     <ul>
       <li data-i18n-html="help.r_pow_html"></li>
       <li data-i18n-html="help.r_fac_html"></li>
+      <li data-i18n-html="help.r_zero_fac_html"></li>
       <li data-i18n-html="help.r1_html"></li>
       <li data-i18n-html="help.r2_html"></li>
       <li data-i18n-html="help.r3_html"></li>
@@ -851,7 +852,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="8.4";
+const APP_VERSION="8.5";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1007,7 +1008,8 @@ const STR_APP={ja:{
   "help.c4_html":"括弧は <b>( と ) を別々に</b>置きます。相手がいない括弧は赤くなります",
   "help.sec_rules":"計算のきまり",
   "help.r_pow_html":"<b>^ は累乗</b>です（<code>2 ^ 3 = 8</code>）",
-  "help.r_fac_html":"<b>! は階乗</b>です（<code>3! = 6</code>）",
+  "help.r_fac_html":"<b>! は階乗</b>です（<code>4! = 4 × 3 × 2 × 1 = 24</code>）",
+  "help.r_zero_fac_html":"<b>0! は 1</b> です（<code>0! = 1</code>）",
   "help.r1_html":"<b>^ は右から</b>計算します。<code>2 ^ 3 ^ 2</code> は <code>2 ^ ( 3 ^ 2 )</code>",
   "help.r2_html":"<code>0 ^ 0</code> は <b>1</b> です",
   "help.r3_html":"階乗は <b>12! まで</b>。<code>3!!</code> とは書けません。<code>( 3! )!</code> と書きます",
@@ -1107,7 +1109,8 @@ en:{
   "help.c4_html":"Place <b>( and ) separately</b>. Unmatched parentheses turn red.",
   "help.sec_rules":"Rules",
   "help.r_pow_html":"<b>^ is power</b> (<code>2 ^ 3 = 8</code>)",
-  "help.r_fac_html":"<b>! is factorial</b> (<code>3! = 6</code>)",
+  "help.r_fac_html":"<b>! is factorial</b> (<code>4! = 4 × 3 × 2 × 1 = 24</code>)",
+  "help.r_zero_fac_html":"<b>0! is 1</b> (<code>0! = 1</code>)",
   "help.r1_html":"<b>^ is evaluated right to left</b>. <code>2 ^ 3 ^ 2</code> means <code>2 ^ ( 3 ^ 2 )</code>",
   "help.r2_html":"<code>0 ^ 0</code> is <b>1</b>",
   "help.r3_html":"Factorials go up to <b>12!</b>. You can't write <code>3!!</code>; write <code>( 3! )!</code>",
