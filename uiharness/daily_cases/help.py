@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """遊び方（D0.5。DAILY-SPEC 13-10・16-4）。
 
-- 上のバー左の「?」から開く。× か Esc で閉じる
+- 上のバー左の「?」から開く。× か Esc で閉じる。盤の上に重ねるカード（ポップアップ。D0.26。形と閉じ方はケース popup）
 - 自動では出さない（D0.25。初めて来た人にも・保存できない環境でも）。保存データに help の印は無い
 - 時間は、初めて来た人も、問題の画面が見えた時から数える。遊び方を読んでいる間も止めない
 """
@@ -72,7 +72,7 @@ LOOK = r"""(function(){
   same('運んでいる記号',q('#ghost'),q('.hd1 .dghost'),['color','fontWeight']);
   ratio('運んでいる記号',q('#ghost'),q('.hd1 .dghost'),['fontSize'],dk);
   return {bad,dk,gold:cs(d.querySelector('.deq')).color}})()"""
-SHOWN = "!document.getElementById('dhelpsheet').classList.contains('hide')"
+SHOWN = "(s=>!s.classList.contains('hide')&&!s.classList.contains('closing'))(document.getElementById('dhelpsheet'))"
 ESC = "document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))"
 RECT = ("(function(){const r=document.getElementById(%r).getBoundingClientRect();"
         "return [r.left,r.top,r.width,r.height].map(Math.round)})()")
@@ -82,6 +82,7 @@ def run(ui):
     start, rows = dui.page_data()
     day = lambda n: start + datetime.timedelta(days=n - 1)          # noqa: E731
     no = 4
+    low = ui.size[1] <= 640           # 360×640 だけは、遊び方がカードに収まらず、カードの中が縦に動く（D0.26）
 
     def at(n, hour=10):
         d = day(n)
@@ -167,19 +168,18 @@ def run(ui):
              ui.ev("[document.querySelectorAll('#dhelpbody h3').length,"
                    "[...document.querySelectorAll('#dhelpbody a')].map(a=>a.id).join(' '),"
                    "dhelpbody.lastElementChild.contains(dprivacy)]"), [0, "dprivacy", True])
-    ui.check("遊び方は列いっぱいに重なり、盤を覆う",
-             [ui.ev(RECT % "dhelpsheet") == ui.ev(RECT % "app"),
+    ui.check("遊び方は、盤の上に重なるカード（幕は画面いっぱい。式の場所を指すと、幕かカードに当たる）",
+             [ui.ev(RECT % "dhelpsheet"),
               ui.ev("(function(){const r=expr.getBoundingClientRect();"
                     "return !!document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2).closest('#dhelpsheet')})()")],
-             [True, True])
-    ui.check("行は画面の中に収まり、横にはみ出さず、式は折り返さない。中を縦に動かす必要も無い",
-             ui.ev("(function(){const b=dhelpbody,a=app.getBoundingClientRect();"
+             [[0, 0, ui.size[0], ui.size[1]], True])
+    ui.check("行はカードの中に収まり、横にはみ出さず、式は折り返さない。中を縦に動かすのは 360×640 だけ",
+             ui.ev("(function(){const b=dhelpbody,a=document.querySelector('#dhelpsheet .dcard').getBoundingClientRect();"
                    "const ps=[...b.querySelectorAll('p')],cs=[...b.querySelectorAll('code')];"
                    "return [ps.every(p=>{const r=p.getBoundingClientRect();return r.left>=a.left&&r.right<=a.right"
                    "&&p.scrollWidth<=p.clientWidth+1}),cs.every(c=>c.getClientRects().length===1),"
-                   "b.scrollHeight<=b.clientHeight+1,"
-                   "ps[ps.length-1].getBoundingClientRect().bottom<=dver.getBoundingClientRect().top]})()"),
-             [True, True, True, True])
+                   "b.scrollHeight<=b.clientHeight+1]})()"),
+             [True, True, not low])
     ui.check("文の大きさ・行間・明るさは本編の遊び方と同じ（13px・1.75・85%）",
              ui.ev("(function(){const s=getComputedStyle(document.querySelector('#dhelpbody p:not(.hlink)'));"
                    "return [s.fontSize,Math.round(parseFloat(s.lineHeight)*100)/100,s.opacity]})()"),
@@ -212,19 +212,18 @@ def run(ui):
     ui.check("「?」の名前（title・aria-label）", ui.ev("[dhelp.title,dhelp.getAttribute('aria-label')]"), ["遊び方", "遊び方"])
     click("dhelp")
     ui.check("「?」を押すと出る。見本の動きも、また始まる", [ui.ev(SHOWN), ui.ev(HD + ".length")], [True, 12])
-    ui.check("閉じるボタンは統計の入口と同じ場所（右上）で、名前は「閉じる」",
-             [ui.ev(RECT % "dhelp-close") == ui.ev(RECT % "dstats"),
-              ui.ev("document.getElementById('dhelp-close').getAttribute('aria-label')")], [True, "閉じる"])
+    ui.check("閉じるボタンはカードの右上（端から 7px）で、名前は「閉じる」",
+             [ui.ev("(function(){const c=document.querySelector('#dhelpsheet .dcard').getBoundingClientRect(),"
+                    "b=document.getElementById('dhelp-close').getBoundingClientRect();return [Math.round(c.right-b.right),Math.round(b.top-c.top)]})()"),
+              ui.ev("document.getElementById('dhelp-close').getAttribute('aria-label')")], [[7, 7], "閉じる"])
     ui.tick(3000)
     ui.check("「?」から開いた遊び方では、時間は止めない（最初に見た時刻も動かない）",
              [ui.ev("Date.now()-startAt"), ui.saved(raw=True)["cur"]["start"]], [42000, at(no)])
     ui.ev(ESC)
     ui.check("Esc で閉じる。見本の動きも止まる", [ui.ev(SHOWN), ui.ev(HD + ".length")], [False, 0])
-    click("dstats")
-    click("dstats-close")
     click("dhelp")
-    click("dstats-close")
-    ui.check("統計の × は、遊び方を閉じない", ui.ev(SHOWN), True)
+    ui.check("遊び方を開いている間、統計と設定の × は見えない（押せるのは、遊び方の × だけ）",
+             [ui.visible("dstats-close"), ui.visible("dset-close"), ui.visible("dhelp-close")], [False, False, True])
     ui.ev(ESC)
 
     # ══ 開き直しても・次の日も、自動では出ない ══
@@ -272,11 +271,11 @@ def run(ui):
               ui.ev("[...document.querySelectorAll('#dhelpbody b')].map(e=>e.textContent)"),
               ui.ev("[dhelp.title,document.getElementById('dhelp-close').getAttribute('aria-label')]")],
              ["How to play", LINES["en"], BOLD["en"], ["How to play", "Close"]])
-    ui.check("英語: 行は横にはみ出さず、式は折り返さない。版の行に重ならない",
+    ui.check("英語: 行は横にはみ出さず、式は折り返さない。中を縦に動かすのは 360×640 だけ",
              ui.ev("(function(){const b=dhelpbody,ps=[...b.querySelectorAll('p')];"
                    "return [ps.every(p=>p.scrollWidth<=p.clientWidth+1),"
                    "[...b.querySelectorAll('code')].every(c=>c.getClientRects().length===1),"
-                   "b.scrollHeight<=b.clientHeight+1]})()"), [True, True, True])
+                   "b.scrollHeight<=b.clientHeight+1]})()"), [True, True, not low])
     ui.check("英語: 見本の図の名前と、手順の番号",
              ui.ev("[...document.querySelectorAll('#dhelpbody .hfig')].map(f=>[f.querySelector('.hstep').textContent,"
                    "f.querySelector('.hdemo').getAttribute('aria-label')])"), [["1", ALTS["en"][0]], ["2", ALTS["en"][1]]])
@@ -286,10 +285,10 @@ def run(ui):
     # ══ 収まり: 日本語でも、縦にも横にも動かさずに収まる（文の所が中身より低くない）══
     ui.open(now=at(no), tz=TZ)
     click("dhelp")
-    ui.check("日本語: 遊び方は、縦に動かさずに収まる。横にもはみ出さない",
+    ui.check("日本語: 遊び方は、360×640 のほかは縦に動かさずに収まる。横にもはみ出さない",
              ui.ev("[dhelpbody.scrollHeight<=dhelpbody.clientHeight+1,document.documentElement.scrollWidth<=innerWidth,"
                    "[...dhelpbody.querySelectorAll('.hdemo')].every(d=>{const r=d.getBoundingClientRect(),b=dhelpbody.getBoundingClientRect();"
-                   "return r.left>=b.left&&r.right<=b.right})]"), [True, True, True])
+                   "return r.left>=b.left&&r.right<=b.right})]"), [not low, True, True])
     click("dhelp-close")
 
     # ══ 見本の見た目は、盤の実物と同じ（色・太さ・線）。大きさは盤の寸法 × 倍率 ══

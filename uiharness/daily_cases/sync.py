@@ -171,4 +171,8 @@ def run(ui):
                      # D0.17（名前。#dinfo の左の余白は、名前と日付を入れる #dmid へ移した）
                      ".dbrand", ".dbrand b", ".dbrand span", "#dhead", "#nobrand", "#nobrand.hide",
                      WIDE + "body.daily", WIDE + "#dhead", WIDE + "#dhead .dbrand", WIDE + "#dhead .dbrand span",
-                     WIDE + "#app.daily", WIDE + "#dmid .dbrand,#nobrand"]))
+                     WIDE + "#app.daily", WIDE + "#dmid .dbrand,#nobrand",
+                     # D0.26（ポップアップ。変数は html に置く ―― 本編から複製した :root とセレクタを分ける）
+                     "html", "@keyframes popfade", "@keyframes popin", "@keyframes popfadeout", "@keyframes popout",
+                     ".dcard", ".dsheet.closing", ".dsheet.closing>.dcard", "body.pop #app",
+                     ".dcard>:last-child", ".dcard>.more"]))

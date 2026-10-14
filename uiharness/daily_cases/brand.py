@@ -120,7 +120,7 @@ def run(ui):
     ui.open(now=at(1), tz=TZ)
     ui.ev("document.getElementById('dhelp').click()")
     time.sleep(0.3)
-    ui.check("遊び方を開くと、シートが列を覆う（名前も隠れる）",
+    ui.check("遊び方を開くと、幕が画面に掛かる（名前の場所を指すと、幕かカードに当たる）",
              ui.ev("(function(){const r=document.querySelector('#dmid .dbrand').getBoundingClientRect();"
                    "return !!document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2).closest('#dhelpsheet')})()"), True)
     ui.ev("document.getElementById('dhelp-close').click()")
@@ -172,14 +172,15 @@ def run(ui):
                             ".every(e=>{const r=e.getBoundingClientRect();"
                             "return r.left>=a.left-1&&r.right<=a.right+1&&r.top>=a.top-1&&r.bottom<=a.bottom+1})})()"), ui.scrolls()],
                      [True, False])
-            # シートは列の中だけを覆う。見出しは見えたまま
+            # ポップアップ（D0.26）: 幕は画面いっぱいで、見出しにも掛かる（見出しの字は、幕の後ろに残る）
             for sheet, btn_id in (("dhelpsheet", "dhelp"), ("dstatsheet", "dstats"), ("dsetsheet", "dset")):
                 ui.ev("document.getElementById(%r).click()" % btn_id)
                 time.sleep(0.25)
-                ui.check(pre + "%s を開く: シートは列だけを覆い、見出しは見えたまま" % sheet,
-                         [ui.ev(RECT % ("#" + sheet)) == ui.ev(RECT % "#app"),
-                          ui.ev("!!document.elementFromPoint(innerWidth/2,30).closest('#dhead')"), ui.ev(H1)],
-                         [True, True, [["dhead", "Make10DAILY"]]])
+                ui.check(pre + "%s を開く: 幕は画面いっぱいで、見出しにも掛かる。カードは幅 400px で、見出しの字は消さない" % sheet,
+                         [ui.ev("(function(){const r=%s.getBoundingClientRect();return [r.left,r.top,r.width===innerWidth,r.height===innerHeight]})()" % sheet),
+                          ui.ev("(document.elementFromPoint(innerWidth/2,30).closest('.dsheet')||{}).id"),
+                          ui.ev("document.querySelector('#%s .dcard').getBoundingClientRect().width" % sheet), ui.ev(H1)],
+                         [[0, 0, True, True], sheet, 400, [["dhead", "Make10DAILY"]]])
                 ui.ev("document.getElementById(%r).click()" % (btn_id + "-close"))
             ui.tick(45000)
             ui.solve(rows[0]["sol"], wait=1.3)

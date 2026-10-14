@@ -402,7 +402,7 @@ class UI:
         self._tz = None
 
     def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
-             store=None, perf=False, api=None, hidden=False):
+             store=None, perf=False, api=None, hidden=False, motion=False):
         """ページを開く。
 
         date … ?date=YYYY-MM-DD（テスト表示）。None なら付けない
@@ -414,6 +414,8 @@ class UI:
         store … 保存データ。None なら空にしてから開く／dict ならその中身を仕込む／
                 "keep" なら前に開いたときのまま／"blocked" なら保存できない環境にする
         perf … True なら、performance.now も差し替える（tick() で一緒に進む）
+        motion … False（既定）なら、ポップアップの開く・閉じる動きの長さを 0 秒にする（D0.26。開いた直後に位置を測っても、
+                 動きの途中の値にならないように）。動きそのものを見るケース（`popup`）だけが True で開く
         hidden … True なら、隠れたまま読み込まれたことにする（裏のタブで開いた。visibility("visible") で見せる）
         api … 集計の送り先の返事の決め方（上の API の __APIMODE）。None なら {"mode": "fail"}（通信できない）。
               出た要求は api_calls() で読む"""
@@ -451,6 +453,9 @@ class UI:
             q.append("lang=" + lang)
         self.c.goto(self.base + ("?" + "&".join(q) if q else "") + extra, ready=READY)
         self.c.ev(SOLVE)
+        if not motion:
+            self.c.ev("document.documentElement.style.setProperty('--popIn','0s');"
+                      "document.documentElement.style.setProperty('--popOut','0s')")
 
     def tick(self, ms):
         """端末の時計を進める（open(now=…) か open(perf=True) のとき。負の数で戻す）。

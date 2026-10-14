@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """設定（D0.13。DAILY-SPEC 13-11・10 章）。
 
-- 上のバーの歯車（統計の左）から、設定のシートが開く。× か Esc で閉じる。作りは統計・遊び方のシートと同じ
+- 上のバーの歯車（統計の左）から、設定のポップアップが開く。× か Esc で閉じる。作りは統計・遊び方のポップアップと同じ（D0.26。13-12）
 - スイッチは 2 つ ――「途中の値を表示する」と「タップで配置する」。文は本編の設定の文と同じ
 - 保存データの set に残り、開き直しても効いている。?date=（テスト表示）では保存しない（その場だけ効く）
 - 切り替えたら、すぐ盤に反映する（選んでいる記号は壊れない。タップ配置をやめたときだけ放す）
@@ -19,7 +19,7 @@ from uiharness import daily_ui as dui
 NAME = "設定（途中の値・タップ配置）"
 
 TZ = "Asia/Tokyo"
-SHOWN = "!document.getElementById('dsetsheet').classList.contains('hide')"
+SHOWN = "(s=>!s.classList.contains('hide')&&!s.classList.contains('closing'))(document.getElementById('dsetsheet'))"
 ESC = "document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))"
 RECT = ("(function(){const r=document.querySelector(%r).getBoundingClientRect();"
         "return [r.left,r.top,r.width,r.height].map(x=>Math.round(x*10)/10)})()")
@@ -153,23 +153,22 @@ def run(ui):
     click(ui, "dset")
     ui.check("歯車を押すと開く。見出しは「設定」", [ui.ev(SHOWN), ui.ev("document.querySelector('#dsetsheet h2').textContent")],
              [True, "設定"])
-    sheet, close, head = ui.ev(RECT % "#dsetsheet"), ui.ev(RECT % "#dset-close"), ui.ev(RECT % "#dsetsheet h2")
-    hstyle = ("(function(){const c=getComputedStyle(document.querySelector(%r));"
-              "return [c.fontSize,c.fontWeight,c.color].join('|')})()")
-    hs = ui.ev(hstyle % "#dsetsheet h2")
+    # 幕の箱と、カードの中での × と見出しの場所（カードの左上からの距離。カードの高さは中身で変わる）
+    made = ("(function(){const q=s=>document.querySelector('#%s'+s).getBoundingClientRect(),s=q(''),c=q(' .dcard'),b=q(' .shead button'),h=q(' h2');"
+            "const k=getComputedStyle(document.querySelector('#%s h2')),r=v=>Math.round(v*10)/10;"
+            "return [[s.left,s.top,s.width,s.height],[r(c.left),r(c.width)],[r(c.right-b.right),r(b.top-c.top),b.width,b.height],"
+            "[r(h.left-c.left),r(h.top-c.top)],[k.fontSize,k.fontWeight,k.color].join('|')]})()")
+    mine = ui.ev(made % ("dsetsheet", "dsetsheet"))
+    bw = ui.ev("dstats.getBoundingClientRect().width")          # ボタンの大きさ（--btnW。normal 52px・compact 44px）
+    ui.check("幕は画面いっぱい。× はカードの右上（端から 7px）で、上のバーのボタンと同じ大きさ。見出しは 17px・太字",
+             [mine[0], mine[2], mine[4]], [[0, 0, ui.size[0], ui.size[1]], [7, 7, bw, bw], "17px|700|rgb(244, 241, 232)"])
     click(ui, "dset-close")
     ui.check("× で閉じる", ui.ev(SHOWN), False)
     click(ui, "dstats")
-    ui.check("シートの箱・× の位置・見出しの位置と様式は、統計のシートと同じ",
-             [sheet, close, head[:2], hs],
-             [ui.ev(RECT % "#dstatsheet"), ui.ev(RECT % "#dstats-close"), ui.ev(RECT % "#dstatsheet h2")[:2],
-              ui.ev(hstyle % "#dstatsheet h2")])
+    ui.check("幕の箱・カードの左右・× の場所・見出しの場所と様式は、統計のポップアップと同じ", mine, ui.ev(made % ("dstatsheet", "dstatsheet")))
     click(ui, "dstats-close")
     click(ui, "dhelp")
-    ui.check("遊び方のシートとも同じ",
-             [sheet, close, head[:2], hs],
-             [ui.ev(RECT % "#dhelpsheet"), ui.ev(RECT % "#dhelp-close"), ui.ev(RECT % "#dhelpsheet h2")[:2],
-              ui.ev(hstyle % "#dhelpsheet h2")])
+    ui.check("遊び方のポップアップとも同じ", mine, ui.ev(made % ("dhelpsheet", "dhelpsheet")))
     click(ui, "dhelp-close")
     click(ui, "dset")
     ui.ev(ESC)
@@ -185,11 +184,11 @@ def run(ui):
               ui.ev("document.querySelector('#dsetsheet h2').textContent")],
              [["t-easy:" + want[0][0], "t-tap:" + want[1][0]], want[2][0]])
     ui.check("はじめは 2 つともオフ", ui.ev(ON), [False, False])
-    ui.check("行は高さ 53px（本編のスイッチの行と同じ）・左右は列の端から 12px。スイッチは 44×25px で右端から 14px",
+    ui.check("行は高さ 53px（本編のスイッチの行と同じ）・左右はカードの端から 7px（線 1px ＋ 余白 6px）。スイッチは 44×25px で右端から 14px",
              ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>{const r=b.getBoundingClientRect(),"
-                   "s=b.querySelector('.sw').getBoundingClientRect();"
-                   "return [r.height,r.left,innerWidth-r.right,s.width,s.height,Math.round(r.right-s.right)]})"),
-             [[53, 12, 12, 44, 25, 14]] * 2)
+                   "s=b.querySelector('.sw').getBoundingClientRect(),c=document.querySelector('#dsetsheet .dcard').getBoundingClientRect();"
+                   "return [r.height,r.left-c.left,c.right-r.right,s.width,s.height,Math.round(r.right-s.right)]})"),
+             [[53, 7, 7, 44, 25, 14]] * 2)
     ui.check("行の文字は 13.5px・太字。面も枠も持たない（囲まない）",
              ui.ev("(function(){const c=getComputedStyle(document.getElementById('t-easy'));"
                    "return [c.fontSize,c.fontWeight,c.backgroundColor,c.borderTopWidth].join('|')})()"),

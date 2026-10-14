@@ -247,15 +247,44 @@ body.daily{align-items:center}
 #aggbox.tight .ac span,#aggbox.tight .bar span{line-height:14px}
 /* それでも収まらない低い画面だけ、列の中を縦に動かせるようにする（13-5）*/
 #app.daily.scrolly{overflow-y:auto}
-/* 統計と遊び方。列の中に重ねる 1 枚の画面（× か Esc で閉じる）。
+/* ═══ ポップアップ（13-12。D0.26）═══
+   統計・遊び方・設定は、盤の上に重ねるカード（D0.25 までは、列いっぱいに重ねる 1 枚の画面だった）。
+   .dsheet = 画面いっぱいの幕（後ろを暗くする。外側を押すと閉じる）／.dcard = カード（中身の高さ。上下左右の中央）。
+   カードは、トーストと同じ言葉 ―― 面 --panel と細い線 --edge。影は付けない（重なる物だけが面を持つ。カードの中は囲まない）。
+   変数は html に置く（:root と同じ要素。本編から複製した :root の規則と、セレクタを分けるため ―― 18-3）。
+   後ろの見え方は、下の 2 つの変数だけで決まる（切り替えるときは、ここだけを変える）:
+     --popDim  = 幕の濃さ（地の色 --ink を何 % 重ねるか）
+     --popBlur = 後ろのぼかし（none か blur(4px) の形。none なら backdrop-filter そのものを使わない）
+   動きは、減速して止まる曲線（--zoneEase）だけ。動かすのは opacity と transform だけ。
+   動きを減らす設定では、上の全体の決まり（animation:none）で、動かずに出て消える。
    統計の中の 4 項目は本編の統計の 2 列（#statlist・.stat）*/
-.dsheet{position:absolute;inset:0;z-index:20;background:var(--ink);
- padding:12px 12px calc(var(--bannerGap) + var(--bannerH));display:flex;flex-direction:column}
+html{--popDim:78%;--popBlur:none;
+  --popPad:12px;--popTop:24px;--popW:400px;--popR:16px;--popIn:.24s;--popOut:.16s}
+@keyframes popfade{from{opacity:0}}
+@keyframes popin{from{opacity:0;transform:translateY(10px)}}
+@keyframes popfadeout{to{opacity:0}}
+@keyframes popout{to{opacity:0;transform:translateY(6px)}}
+.dsheet{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--ink) var(--popDim),transparent);
+ -webkit-backdrop-filter:var(--popBlur);backdrop-filter:var(--popBlur);
+ padding:var(--popTop) var(--popPad);display:flex;flex-direction:column;align-items:center;justify-content:center;
+ animation:popfade var(--popIn) var(--zoneEase) both}
+.dcard{width:100%;max-width:var(--popW);max-height:100%;min-height:0;display:flex;flex-direction:column;
+ background:var(--panel);border:1px solid var(--edge);border-radius:var(--popR);padding:6px 6px 14px;outline:none;
+ animation:popin var(--popIn) var(--zoneEase) both}
+/* 閉じる動き（JS が closing を付け、終わったら hide にする）。閉じ始めたら、もう押せない */
+.dsheet.closing{animation:popfadeout var(--popOut) var(--zoneEase) both;pointer-events:none}
+.dsheet.closing>.dcard{animation:popout var(--popOut) var(--zoneEase) both}
+/* 開いている間は、列を広い画面の見出し（#dhead。z-index 2）より手前に出して、幕が見出しにも掛かるようにする */
+body.pop #app{z-index:3}
 .dsheet .shead{display:flex;align-items:center;justify-content:space-between;height:var(--btnW);
- flex:0 0 auto;margin-bottom:8px}
+ flex:0 0 auto;margin-bottom:2px}
 .dsheet h2{font-size:17px;font-weight:700;margin:0;padding-left:15px}
-/* 統計の中身（4 つの数字とカレンダー）。画面に収まらなければ、この中だけ縦に動く */
-#dstatbody{flex:1 1 0;min-height:0;overflow-y:auto}
+/* カードは中身の高さ。画面より高ければ、見出しと × は残して、中身（#dstatbody・#dhelpbody・#dsetbody）だけが縦に動く。
+   中身が下に続いているときは、下の端を薄くして示す（JS が more を付ける）*/
+.dcard>:last-child{overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--edge) transparent}
+.dcard>.more{-webkit-mask-image:linear-gradient(#000 calc(100% - 28px),transparent);mask-image:linear-gradient(#000 calc(100% - 28px),transparent)}
+/* 統計の中身（4 つの数字とカレンダー）*/
+#dstatbody{flex:0 1 auto;min-height:0;overflow-y:auto}
 /* 4 つの数字の左右を、見出しとカレンダーの左右（15px）にそろえる（D0.12。本編から複製した #statlist は 14px） */
 #dstatbody #statlist{padding:6px 15px 0}
 /* カレンダー（13-8。D0.11）。囲まない ―― 4 つの数字との間は細い線 1 本。週は月曜始まり。
@@ -305,7 +334,7 @@ body.daily{align-items:center}
 .toggle.on span.sw::after{transform:translateX(19px);background:var(--paper)}
 .group .toggle:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;
  bottom:0;height:1px;background:var(--edge)}
-#dsetbody{flex:1 1 0;min-height:0;overflow-y:auto}
+#dsetbody{flex:0 1 auto;min-height:0;overflow-y:auto}
 /* 歯車を統計の左に足したぶん、中央の文字が左へ寄る。左に同じ幅（ボタン 1 つと間隔）を空けて、
    文字を画面の軸に戻す。折り返さない（4 桁の問題番号の日本語がいちばん長い。360px で 117px）*/
 #dmid{padding-left:calc(var(--btnW) + 9px);white-space:nowrap}
@@ -339,7 +368,7 @@ body.daily{align-items:center}
 }
 /* 遊び方の文（本編の遊び方の文と同じ大きさ・行間・明るさ）。式は折り返さない（本編 7.7 と同じ）。
    低い画面で収まらなければ、この中だけ縦に動く */
-#dhelpbody{flex:1 1 0;min-height:0;overflow-y:auto;padding:0 15px}
+#dhelpbody{flex:0 1 auto;min-height:0;overflow-y:auto;padding:0 15px 4px}
 #dhelpbody p{margin:0 0 6px;font-size:13px;line-height:1.75;color:var(--paper);opacity:.85}
 #dhelpbody code{font-family:inherit;font-weight:700;white-space:nowrap}
 /* 遊び方の見本の盤（13-10。D0.16）。画像は使わず、盤と同じ部品（数字・記号・枠・「10」と「正解」）を小さく描く。
@@ -501,9 +530,9 @@ body.daily{align-items:center}
   <!-- 「問題がありません」の日の名前（上のバーが無いので、その場所に出す。スマホだけ。D0.17）-->
   <h1 id="nobrand" class="dbrand hide"><b>Make10</b><span>DAILY</span></h1>
   <div id="nopuzzle" class="hide" data-i18n="daily.nopuzzle"></div>
-  <!-- 統計（列の中に重ねる 1 枚の画面）-->
-  <div id="dstatsheet" class="dsheet hide">
-    <div class="shead"><h2 data-i18n="daily.stats_title"></h2>
+  <!-- 統計（ポップアップ。幕 .dsheet の中のカード .dcard。13-12）-->
+  <div id="dstatsheet" class="dsheet hide"><div class="dcard" role="dialog" aria-modal="true" aria-labelledby="dstat-title" tabindex="-1">
+    <div class="shead"><h2 id="dstat-title" data-i18n="daily.stats_title"></h2>
       <button id="dstats-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
     <div id="dstatbody">
       <div id="statlist"></div>
@@ -519,10 +548,10 @@ body.daily{align-items:center}
         <div id="dcal-line"></div>
       </div>
     </div>
-  </div>
-  <!-- 遊び方（列の中に重ねる 1 枚の画面。「?」から開く。自動では出さない ―― D0.25）-->
-  <div id="dhelpsheet" class="dsheet hide">
-    <div class="shead"><h2 data-i18n="daily.help_title"></h2>
+  </div></div>
+  <!-- 遊び方（ポップアップ。「?」から開く。自動では出さない ―― D0.25）-->
+  <div id="dhelpsheet" class="dsheet hide"><div class="dcard" role="dialog" aria-modal="true" aria-labelledby="dhelp-title" tabindex="-1">
+    <div class="shead"><h2 id="dhelp-title" data-i18n="daily.help_title"></h2>
       <button id="dhelp-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
     <div id="dhelpbody">
       <p data-i18n="daily.help_1"></p>
@@ -547,21 +576,21 @@ body.daily{align-items:center}
       <!-- この間に、キーボードの一覧（パソコンでだけ。公開の後）を置く。リンクはいちばん下のまま -->
       <p class="hlink"><a id="dprivacy" href="../privacy/" target="_blank" rel="noopener" data-i18n="daily.help_privacy"></a></p>
     </div>
-  </div>
-  <!-- 設定（列の中に重ねる 1 枚の画面。2 つのスイッチ。id は本編の設定と同じ t-easy・t-tap）-->
-  <div id="dsetsheet" class="dsheet hide">
-    <div class="shead"><h2 data-i18n="daily.set_title"></h2>
+  </div></div>
+  <!-- 設定（ポップアップ。2 つのスイッチ。id は本編の設定と同じ t-easy・t-tap）-->
+  <div id="dsetsheet" class="dsheet hide"><div class="dcard" role="dialog" aria-modal="true" aria-labelledby="dset-title" tabindex="-1">
+    <div class="shead"><h2 id="dset-title" data-i18n="daily.set_title"></h2>
       <button id="dset-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
     <div id="dsetbody"><div class="group">
       <button class="toggle" id="t-easy"><span data-i18n="daily.set_easy"></span><span class="sw"></span></button>
       <button class="toggle" id="t-tap"><span data-i18n="daily.set_tap"></span><span class="sw"></span></button>
     </div></div>
-  </div>
+  </div></div>
   <div id="dfoot"><span id="dtest" class="hide" data-i18n="daily.testmode"></span><span id="dver"></span></div>
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.25";
+const DAILY_VERSION="0.26";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2970,6 +2999,66 @@ $("gu-no").onclick=()=>$("gubox").classList.remove("show");
 $("gu-yes").onclick=()=>giveUp();
 
 /* ═══ 統計 ═══ */
+/* ═══ ポップアップ（13-12。D0.26）═══
+   統計・遊び方・設定の 3 つ。同時に開くのは 1 つ。閉じ方は、外側（幕）を押す・×・Esc。
+   開いている間は、後ろ（列の中身と、広い画面の見出し）を inert にして、押せず・キーボードでも移れないようにする。
+   Tab は、カードの中の押せる物を巡る（inert が効かないブラウザーでも留まるように、端で折り返す）。
+   閉じたら、開く前に居た所へフォーカスを戻す。寸法と動きの長さは CSS の :root（--pop…）が持つ ―― JS には書かない */
+const POPS=["dstatsheet","dhelpsheet","dsetsheet"];
+let popNow=null, popBack=null, popTimer=0;
+const popStill=()=>matchMedia("(prefers-reduced-motion:reduce)").matches;
+const popCard=id=>$(id).querySelector(".dcard");
+const popBehind=()=>[...$("app").children,$("dhead")].filter(e=>e&&!e.classList.contains("dsheet"));
+/* 中身が下に続いているか（カードの中が縦に動くときだけ、下の端を薄くする）*/
+function popMore(){
+  if(!popNow)return;
+  const b=popCard(popNow).lastElementChild;
+  b.classList.toggle("more",b.scrollHeight-b.clientHeight-b.scrollTop>2);
+}
+function popEnd(id){
+  $(id).classList.remove("closing");$(id).classList.add("hide");
+  if(!popNow)document.body.classList.remove("pop");
+}
+function popShow(id){
+  clearTimeout(popTimer);
+  for(const k of POPS)if(k!==id)popEnd(k);
+  if(!popNow)popBack=document.activeElement;
+  popNow=id;
+  $(id).classList.remove("hide","closing");
+  document.body.classList.add("pop");
+  for(const e of popBehind())e.inert=true;
+  const card=popCard(id);
+  card.lastElementChild.scrollTop=0;popMore();
+  card.focus({preventScroll:true});
+}
+function popHide(){
+  if(!popNow)return;
+  const id=popNow;popNow=null;
+  for(const e of popBehind())e.inert=false;
+  if(popBack&&popBack.focus&&document.contains(popBack))popBack.focus({preventScroll:true});
+  popBack=null;
+  if(popStill()){popEnd(id);return}
+  $(id).classList.add("closing");
+  popTimer=setTimeout(()=>popEnd(id),parseFloat(getComputedStyle($(id)).animationDuration)*1000||0);
+}
+for(const id of POPS){
+  // 外側（幕）を押すと閉じる。カードの中で押し始めて外で離したときは、閉じない
+  let down=false;
+  $(id).addEventListener("pointerdown",e=>{down=e.target===$(id)});
+  $(id).addEventListener("click",e=>{if(e.target===$(id)&&down)popHide();down=false});
+  popCard(id).lastElementChild.addEventListener("scroll",popMore,{passive:true});
+}
+document.addEventListener("keydown",e=>{
+  if(!popNow)return;
+  if(e.key==="Escape"){popHide();return}
+  if(e.key!=="Tab")return;
+  const card=popCard(popNow);
+  const f=[...card.querySelectorAll("button,a[href]")].filter(x=>!x.disabled&&x.getClientRects().length);
+  const i=f.indexOf(document.activeElement);
+  if(!f.length){e.preventDefault();card.focus({preventScroll:true});return}
+  if(e.shiftKey?i<=0:(i<0||i===f.length-1)){e.preventDefault();f[e.shiftKey?f.length-1:0].focus()}
+});
+
 function drawStats(){
   const x=statsNow(), day="daily.unit_day";
   const rows=[["daily.stats_solved",x.solved,day],["daily.stats_streak",x.streak,day],
@@ -3046,8 +3135,8 @@ $("dcal-next").onclick=()=>calMove(1);
 $("dcal-grid").onclick=e=>{
   const b=e.target.closest(".dc[data-no]");if(!b)return;
   calSel={no:+b.dataset.no,d:+b.dataset.d};drawCal()};
-$("dstats").onclick=()=>{drawStats();calOpen();$("dstatsheet").classList.remove("hide")};
-$("dstats-close").onclick=()=>$("dstatsheet").classList.add("hide");
+$("dstats").onclick=()=>{drawStats();calOpen();popShow("dstatsheet")};
+$("dstats-close").onclick=()=>popHide();
 
 /* ═══ 遊び方（13-10）═══
    上のバー左の「?」から開く。自動では出さない（D0.25。D0.5〜D0.24 は初回だけ自動で出していた）。
@@ -3058,10 +3147,8 @@ $("dhelp").innerHTML=ICON_HELP;
 $("hi-hint").appendChild($("hint").querySelector("svg").cloneNode(true));
 $("hi-giveup").appendChild($("dgiveup").querySelector("svg").cloneNode(true));
 $("dhelp-close").innerHTML=ICON_HCLOSE;
-function helpShow(){$("dhelpsheet").classList.remove("hide")}
-function helpHide(){$("dhelpsheet").classList.add("hide")}
-$("dhelp").onclick=()=>helpShow();
-$("dhelp-close").onclick=()=>helpHide();
+$("dhelp").onclick=()=>popShow("dhelpsheet");
+$("dhelp-close").onclick=()=>popHide();
 /* ═══ 設定（13-11。D0.13）═══
    上のバーの歯車から開く。スイッチは 2 つ ――「途中の値を表示する」と「タップで配置する」（本編の設定と同じ文）。
    保存は DATA.set。盤が読むのは、本編から複製した G.easy と tapMode（applySet() が当てる）。
@@ -3090,13 +3177,10 @@ function toggleSet(key){
 }
 $("t-easy").onclick=()=>toggleSet("easy");
 $("t-tap").onclick=()=>toggleSet("tap");
-$("dset").onclick=()=>{drawSet();$("dsetsheet").classList.remove("hide")};
-$("dset-close").onclick=()=>$("dsetsheet").classList.add("hide");
-document.addEventListener("keydown",e=>{
-  if(e.key!=="Escape")return;
-  $("dstatsheet").classList.add("hide");$("dsetsheet").classList.add("hide");helpHide()});
+$("dset").onclick=()=>{drawSet();popShow("dsetsheet")};
+$("dset-close").onclick=()=>popHide();
 
-window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();drawCal();
+window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();drawCal();popMore();
   if(dayRecord()){drawSols();layoutResult()}});
 
 loadDaily();applySet();

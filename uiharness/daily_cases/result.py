@@ -455,11 +455,11 @@ def run(ui):
              ["解いた日数=5日", "連続日数=0日", "最長=3日", "平均時間=1:30"])
     # 統計の画面の開け閉め
     ui.ev("dstats.click()")
-    ui.check("統計: 見出しと、列の中に重なる 1 枚の画面",
+    ui.check("統計: 見出しと、盤の上に重なるカード（幕は画面いっぱい。カードは幕の中に収まる。D0.26）",
              [ui.ev(SEEN % "#dstatsheet"), ui.ev("document.querySelector('#dstatsheet h2').textContent"),
-              ui.ev("(function(){const a=app.getBoundingClientRect(),s=dstatsheet.getBoundingClientRect();"
-                    "return [s.left-a.left,s.top-a.top,s.width-a.width,s.height-a.height]})()")],
-             [True, "統計", [0, 0, 0, 0]])
+              ui.ev("(function(){const s=dstatsheet.getBoundingClientRect(),c=document.querySelector('#dstatsheet .dcard').getBoundingClientRect();"
+                    "return [s.left,s.top,s.width===innerWidth,s.height===innerHeight,c.top>=24&&c.bottom<=innerHeight-24&&c.left>=12]})()")],
+             [True, "統計", [0, 0, True, True, True]])
     ui.check("統計: 2 列に並ぶ（1・3 番目と 2・4 番目の左端が揃う）",
              ui.ev("(function(){const x=[...document.querySelectorAll('#statlist .stat')].map("
                    "e=>Math.round(e.getBoundingClientRect().left));return [x[0]===x[2],x[1]===x[3],x[1]>x[0]]})()"),

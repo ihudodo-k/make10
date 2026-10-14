@@ -25,11 +25,11 @@ def run(ui):
         ui.ev("dhelp.click()")
         time.sleep(0.2)
         ui.check("%s: 遊び方のいちばん下に、プライバシーポリシーへのリンク" % lang,
-                 ui.ev("(function(){const a=document.getElementById('dprivacy');const r=a.getBoundingClientRect(),"
+                 ui.ev("(function(){dhelpbody.scrollTop=1e6;const a=document.getElementById('dprivacy');const r=a.getBoundingClientRect(),"
                        "b=dhelpbody.getBoundingClientRect(),ps=[...dhelpbody.querySelectorAll('p:not(.hlink)')];"
                        "return [a.textContent,new URL(a.href).pathname,a.target,a.rel,"
                        "r.top>=ps[ps.length-1].getBoundingClientRect().bottom,r.bottom<=b.bottom+0.5&&r.right<=b.right,"
-                       "dhelpbody.scrollHeight<=dhelpbody.clientHeight+1]})()"),
+                       "dhelpbody.scrollHeight<=dhelpbody.clientHeight+1||innerHeight<=640]})()"),      # 360×640 だけは、カードの中が動く（D0.26）
                  [text, "/privacy/", "_blank", "noopener", True, True, True])
     ui.check("リンクは副次色の小さい字で、下線がある",
              ui.ev("(function(){const s=getComputedStyle(dprivacy);"
