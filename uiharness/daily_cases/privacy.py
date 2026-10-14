@@ -29,7 +29,7 @@ def run(ui):
                        "b=dhelpbody.getBoundingClientRect(),ps=[...dhelpbody.querySelectorAll('p:not(.hlink)')];"
                        "return [a.textContent,new URL(a.href).pathname,a.target,a.rel,"
                        "r.top>=ps[ps.length-1].getBoundingClientRect().bottom,r.bottom<=b.bottom+0.5&&r.right<=b.right,"
-                       "dhelpbody.scrollHeight<=dhelpbody.clientHeight+1||innerHeight<=640]})()"),      # 360×640 だけは、カードの中が動く（D0.26）
+                       "dhelpbody.scrollHeight<=dhelpbody.clientHeight+1||innerWidth<=360]})()"),      # 幅 360 では、カードの中が動く（360×640 は D0.26・360×690 は D0.27 から）
                  [text, "/privacy/", "_blank", "noopener", True, True, True])
     ui.check("リンクは副次色の小さい字で、下線がある",
              ui.ev("(function(){const s=getComputedStyle(dprivacy);"

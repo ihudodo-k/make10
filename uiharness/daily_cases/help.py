@@ -15,26 +15,33 @@ NAME = "遊び方"
 TZ = "Asia/Tokyo"
 LINES = {
     "ja": ["4 つの数字を順番どおりに全部使って 10 を作ります。",
-           "記号を数字のあいだへドラッグして置きます（設定でタップ配置にもできます）",
+           "記号を数字のあいだへドラッグして置きます\n（設定でタップ配置にもできます）",
            "括弧の中から先に計算します。10 になれば正解です",
            "^ は累乗です（2 ^ 3 = 8）",
-           "! は階乗です（3! = 6）",
+           "0 ^ 0 は 1 です（0 ^ 0 = 1）",
+           "! は階乗です（4! = 4 × 3 × 2 × 1 = 24）",
            "0! は 1 です（0! = 1）",
            "ヒント：共有でもらえます（1 日 2 回まで）",
            "ギブアップ：解答例を見て、その日を終えます",
            "毎日 0 時（端末の時刻）に新しい問題になります。"],
     "en": ["Make 10 using all four numbers in order.",
-           "Drag a symbol between the numbers (or turn on Tap to place in Settings)",
+           "Drag a symbol between the numbers\n(or turn on Tap to place in Settings)",
            "Parentheses are calculated first. Make 10 and it's solved",
            "^ is power (2 ^ 3 = 8)",
-           "! is factorial (3! = 6)",
+           "0 ^ 0 is 1 (0 ^ 0 = 1)",
+           "! is factorial (4! = 4 × 3 × 2 × 1 = 24)",
            "0! is 1 (0! = 1)",
            "Hint · Share to get one (up to 2 a day)",
            "Give up · See a solution and end the day's puzzle",
            "A new puzzle every day at midnight, your local time."],
 }
-BOLD = {"ja": ["^ は累乗", "! は階乗", "0! は 1", "ヒント", "ギブアップ"],
-        "en": ["^ is power", "! is factorial", "0! is 1", "Hint", "Give up"]}
+BOLD = {"ja": ["^ は累乗", "0 ^ 0 は 1", "! は階乗", "0! は 1", "ヒント", "ギブアップ"],
+        "en": ["^ is power", "0 ^ 0 is 1", "! is factorial", "0! is 1", "Hint", "Give up"]}
+# 式（<code>）。^ の行の次に 0 ^ 0 の行、! の行の次に 0! の行（D0.27）
+CODES = ["2 ^ 3 = 8", "0 ^ 0 = 1", "4! = 4 × 3 × 2 × 1 = 24", "0! = 1"]
+# 手順 1 の説明の行の数（文の区切りの改行で必ず 2 行にし、それ以外では折り返さない ―― D0.27）
+PLACE_LINES = ("(function(){const p=document.querySelector('#dhelpbody .hd1').parentElement.querySelector('.hcap');"
+               "return [getComputedStyle(p).whiteSpace,Math.round(p.getBoundingClientRect().height/parseFloat(getComputedStyle(p).lineHeight))]})()")
 # 見本の図の名前（読み上げ用。D0.16）
 ALTS = {"ja": ["見本: 8 7 5 2 の、8 と 7 のあいだに − を置く", "見本: ( 8 − 7 ) × 5 × 2 は、括弧の中から計算して 10。正解"],
         "en": ["Example: placing − between 8 and 7 in 8 7 5 2",
@@ -82,7 +89,7 @@ def run(ui):
     start, rows = dui.page_data()
     day = lambda n: start + datetime.timedelta(days=n - 1)          # noqa: E731
     no = 4
-    low = ui.size[1] <= 640           # 360×640 だけは、遊び方がカードに収まらず、カードの中が縦に動く（D0.26）
+    low = ui.size[0] <= 360           # 幅 360 では、遊び方がカードに収まらず、カードの中が縦に動く（360×640 は D0.26・360×690 は D0.27 から）
 
     def at(n, hour=10):
         d = day(n)
@@ -92,6 +99,10 @@ def run(ui):
     def click(el_id, wait=0.2):
         ui.ev("document.getElementById(%r).click()" % el_id)
         time.sleep(wait)
+        for _ in range(30):              # 開いた後にフォントが届くと行が折り返す。届いてから測る（D0.27）
+            if ui.ev("document.fonts.status") == "loaded":
+                break
+            time.sleep(0.1)
 
     # ══ 初めて来た人: 自動では出ない。時間は、開いた時から数える（D0.25）══
     ui.open(now=at(no), tz=TZ, perf=True)
@@ -104,14 +115,16 @@ def run(ui):
     ui.check("ページの保存データの形に help が無い", ui.ev("Object.keys(DATA).sort().join(' ')"), "cur days set v")
     click("dhelp")
     ui.check("「?」を押すと出る", ui.ev(SHOWN), True)
-    ui.check("見出しと、9 つの文（最初の 1 行・見本の説明 2 つ・^・!・0!・ヒント・ギブアップ・毎日 0 時）",
+    ui.check("見出しと、10 の文（最初の 1 行・見本の説明 2 つ・^・0 ^ 0・!・0!・ヒント・ギブアップ・毎日 0 時）",
              [ui.ev("document.querySelector('#dhelpsheet h2').textContent"),
               ui.ev("[...document.querySelectorAll('#dhelpbody p:not(.hlink)')].map(e=>e.textContent.trim())")],
              ["遊び方", LINES["ja"]])
-    ui.check("太字と式（式は 2 ^ 3 = 8・3! = 6・0! = 1）",
+    ui.check("太字と式（式は 2 ^ 3 = 8・0 ^ 0 = 1・4! = 4 × 3 × 2 × 1 = 24・0! = 1）",
              [ui.ev("[...document.querySelectorAll('#dhelpbody b')].map(e=>e.textContent)"),
               ui.ev("[...document.querySelectorAll('#dhelpbody code')].map(e=>e.textContent)")],
-             [BOLD["ja"], ["2 ^ 3 = 8", "3! = 6", "0! = 1"]])
+             [BOLD["ja"], CODES])
+    ui.check("手順 1 の説明は、文の区切りで改行して、ちょうど 2 行（画面の幅で折り返し位置が変わらない）",
+             ui.ev(PLACE_LINES), ["pre-line", 2])
     # ── 見本の盤（D0.16）──
     ui.check("見本は 2 組。手順の番号 1・2 と、図（role=img と名前）と、説明の文",
              ui.ev("[...document.querySelectorAll('#dhelpbody .hfig')].map(f=>[f.querySelector('.hstep').textContent,"
@@ -173,7 +186,7 @@ def run(ui):
               ui.ev("(function(){const r=expr.getBoundingClientRect();"
                     "return !!document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2).closest('#dhelpsheet')})()")],
              [[0, 0, ui.size[0], ui.size[1]], True])
-    ui.check("行はカードの中に収まり、横にはみ出さず、式は折り返さない。中を縦に動かすのは 360×640 だけ",
+    ui.check("行はカードの中に収まり、横にはみ出さず、式は折り返さない。中を縦に動かすのは幅 360 だけ",
              ui.ev("(function(){const b=dhelpbody,a=document.querySelector('#dhelpsheet .dcard').getBoundingClientRect();"
                    "const ps=[...b.querySelectorAll('p')],cs=[...b.querySelectorAll('code')];"
                    "return [ps.every(p=>{const r=p.getBoundingClientRect();return r.left>=a.left&&r.right<=a.right"
@@ -265,13 +278,16 @@ def run(ui):
     # ══ 英語 ══
     ui.open(now=at(no), tz=TZ, lang="en")
     click("dhelp")
-    ui.check("英語: 見出しと 9 つの文",
+    ui.check("英語: 見出しと 10 の文",
              [ui.ev("document.querySelector('#dhelpsheet h2').textContent"),
               ui.ev("[...document.querySelectorAll('#dhelpbody p:not(.hlink)')].map(e=>e.textContent.trim())"),
               ui.ev("[...document.querySelectorAll('#dhelpbody b')].map(e=>e.textContent)"),
               ui.ev("[dhelp.title,document.getElementById('dhelp-close').getAttribute('aria-label')]")],
              ["How to play", LINES["en"], BOLD["en"], ["How to play", "Close"]])
-    ui.check("英語: 行は横にはみ出さず、式は折り返さない。中を縦に動かすのは 360×640 だけ",
+    ui.check("英語: 式は 4 つで、日本語と同じ",
+             ui.ev("[...document.querySelectorAll('#dhelpbody code')].map(e=>e.textContent)"), CODES)
+    ui.check("英語: 手順 1 の説明は、文の区切りで改行して、ちょうど 2 行", ui.ev(PLACE_LINES), ["pre-line", 2])
+    ui.check("英語: 行は横にはみ出さず、式は折り返さない。中を縦に動かすのは幅 360 だけ",
              ui.ev("(function(){const b=dhelpbody,ps=[...b.querySelectorAll('p')];"
                    "return [ps.every(p=>p.scrollWidth<=p.clientWidth+1),"
                    "[...b.querySelectorAll('code')].every(c=>c.getClientRects().length===1),"
@@ -285,7 +301,7 @@ def run(ui):
     # ══ 収まり: 日本語でも、縦にも横にも動かさずに収まる（文の所が中身より低くない）══
     ui.open(now=at(no), tz=TZ)
     click("dhelp")
-    ui.check("日本語: 遊び方は、360×640 のほかは縦に動かさずに収まる。横にもはみ出さない",
+    ui.check("日本語: 遊び方は、幅 360 のほかは縦に動かさずに収まる。横にもはみ出さない",
              ui.ev("[dhelpbody.scrollHeight<=dhelpbody.clientHeight+1,document.documentElement.scrollWidth<=innerWidth,"
                    "[...dhelpbody.querySelectorAll('.hdemo')].every(d=>{const r=d.getBoundingClientRect(),b=dhelpbody.getBoundingClientRect();"
                    "return r.left>=b.left&&r.right<=b.right})]"), [not low, True, True])

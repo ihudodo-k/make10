@@ -198,23 +198,30 @@ def run(ui):
         ui.check("%s: 閉じたら、フォーカスは開く前の所（入口のボタン）に戻る" % title, [ui.ev(OPEN), ui.ev("document.activeElement.id")], [[], btn])
 
     # ══ カードの中だけが縦に動く ══
-    # 収まらないのは、360×640 の遊び方だけ（見出しと × を残して、中身が動く）
+    # 収まらないのは、幅 360 の遊び方だけ（360×640 と、D0.27 で行が増えた 360×690。見出しと × を残して、中身が動く）
+    # 開いた後にフォントが届いて行が折り返すので、届くのを待ってから見る（届いた時に薄れを決め直すことも、これで見る）
     for lang in ("ja", "en"):
         ui.open(now=at(no), tz=TZ, store=store, lang=lang)
         for sid, btn, close, title in SHEETS:
             click(btn)
+            for _ in range(30):
+                if ui.ev("document.fonts.status") == "loaded":
+                    break
+                time.sleep(0.1)
+            time.sleep(0.1)
             body = "document.querySelector('#%s .dcard').lastElementChild" % sid
             m = ui.ev("(function(){const b=%s;return [b.scrollHeight>b.clientHeight+1,b.classList.contains('more'),getComputedStyle(b).overflowY]})()" % body)
-            want = sid == "dhelpsheet" and H <= 640
-            ui.check("%s %s: カードの中が縦に動くのは、360×640 の遊び方だけ（動くときだけ、下の端を薄くする）" % (lang, title), m, [want, want, "auto"])
+            want = sid == "dhelpsheet" and W <= 360
+            ui.check("%s %s: カードの中が縦に動くのは、幅 360 の遊び方だけ（動くときだけ、下の端を薄くする。フォントが届いた後も）" % (lang, title), m, [want, want, "auto"])
             if m[0]:
                 head0, first0 = ui.ev(RECT % ("#%s h2" % sid)), ui.ev(RECT % ("#%s .dcard>:last-child>:first-child" % sid))
                 card0 = ui.ev(RECT % ("#%s .dcard" % sid))
-                ui.ev("%s.scrollTop=20" % body)
+                step = min(20, ui.ev("(b=>b.scrollHeight-b.clientHeight)(%s)" % body))   # 360×690 は 6〜9px しか動かない
+                ui.ev("%s.scrollTop=%d" % (body, step))
                 time.sleep(0.1)
-                ui.check("%s %s: 中身を 20px 送る: 見出しと × とカードは動かず、中身だけが 20px 上がる" % (lang, title),
+                ui.check("%s %s: 中身を送る（20px か、送れるだけ）: 見出しと × とカードは動かず、中身だけが上がる" % (lang, title),
                          [ui.ev(RECT % ("#%s h2" % sid)), ui.ev(RECT % ("#%s .dcard" % sid)),
-                          round(first0[1] - ui.ev(RECT % ("#%s .dcard>:last-child>:first-child" % sid))[1])], [head0, card0, 20])
+                          round(first0[1] - ui.ev(RECT % ("#%s .dcard>:last-child>:first-child" % sid))[1])], [head0, card0, step])
                 ui.ev("%s.scrollTop=1e6" % body)
                 time.sleep(0.1)
                 ui.check("%s %s: いちばん下まで送ると、下の端の薄れが消え、最後の行（リンク）がカードの中に見える" % (lang, title),

@@ -382,7 +382,7 @@ body.pop #app{z-index:3}
    手順は番号で示す（囲まない。箱の地や枠で区切らない）*/
 .hfig{position:relative;margin:2px 0 8px;text-align:center}
 .hstep{position:absolute;left:0;top:0;font-size:13px;line-height:1.75;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums}
-#dhelpbody .hfig .hcap{margin:3px 0 0;font-size:12.5px;line-height:1.6}
+#dhelpbody .hfig .hcap{margin:3px 0 0;font-size:12.5px;line-height:1.6;white-space:pre-line}
 .hdemo{position:relative;display:inline-flex;flex-direction:column;align-items:center;pointer-events:none;user-select:none;
  --dk:.55;--dnW:calc(var(--numW)*var(--dk));--dnMx:calc(var(--numMx)*var(--dk));--dH:calc(var(--tokH)*var(--dk));
  --dnF:calc(var(--numF)*var(--dk));--doW:calc(var(--opW)*var(--dk));--doF:calc(var(--opF)*var(--dk));
@@ -568,6 +568,7 @@ body.pop #app{z-index:3}
         <p class="hcap" data-i18n="daily.help_solve"></p>
       </div>
       <p data-i18n-html="daily.help_pow_html"></p>
+      <p data-i18n-html="daily.help_zero_pow_html"></p>
       <p data-i18n-html="daily.help_fac_html"></p>
       <p data-i18n-html="daily.help_zero_fac_html"></p>
       <p class="hico"><span class="hi" id="hi-hint" aria-hidden="true"></span><span data-i18n-html="daily.help_hint_html"></span></p>
@@ -590,7 +591,7 @@ body.pop #app{z-index:3}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.26";
+const DAILY_VERSION="0.27";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -696,14 +697,15 @@ const STR_DAILY={ja:{
   "daily.toast_copy_failed":"コピーできません",
   "daily.help_title":"遊び方",
   "daily.help_1":"4 つの数字を順番どおりに全部使って 10 を作ります。",
-  "daily.help_place":"記号を数字のあいだへドラッグして置きます（設定でタップ配置にもできます）",
+  "daily.help_place":"記号を数字のあいだへドラッグして置きます\n（設定でタップ配置にもできます）",
   "daily.help_solve":"括弧の中から先に計算します。10 になれば正解です",
   "daily.help_demo1_alt":"見本: 8 7 5 2 の、8 と 7 のあいだに − を置く",
   "daily.help_demo2_alt":"見本: ( 8 − 7 ) × 5 × 2 は、括弧の中から計算して 10。正解",
   "daily.help_hint_html":"<b>ヒント</b>：共有でもらえます（1 日 2 回まで）",
   "daily.help_giveup_html":"<b>ギブアップ</b>：解答例を見て、その日を終えます",
   "daily.help_pow_html":"<b>^ は累乗</b>です（<code>2 ^ 3 = 8</code>）",
-  "daily.help_fac_html":"<b>! は階乗</b>です（<code>3! = 6</code>）",
+  "daily.help_zero_pow_html":"<b>0 ^ 0 は 1</b> です（<code>0 ^ 0 = 1</code>）",
+  "daily.help_fac_html":"<b>! は階乗</b>です（<code>4! = 4 × 3 × 2 × 1 = 24</code>）",
   "daily.help_zero_fac_html":"<b>0! は 1</b> です（<code>0! = 1</code>）",
   "daily.help_4":"毎日 0 時（端末の時刻）に新しい問題になります。",
   "daily.help_privacy":"プライバシーポリシー",
@@ -772,14 +774,15 @@ en:{
   "daily.toast_copy_failed":"Couldn't copy",
   "daily.help_title":"How to play",
   "daily.help_1":"Make 10 using all four numbers in order.",
-  "daily.help_place":"Drag a symbol between the numbers (or turn on Tap to place in Settings)",
+  "daily.help_place":"Drag a symbol between the numbers\n(or turn on Tap to place in Settings)",
   "daily.help_solve":"Parentheses are calculated first. Make 10 and it's solved",
   "daily.help_demo1_alt":"Example: placing − between 8 and 7 in 8 7 5 2",
   "daily.help_demo2_alt":"Example: ( 8 − 7 ) × 5 × 2 is calculated from the parentheses and makes 10. Solved!",
   "daily.help_hint_html":"<b>Hint</b> · Share to get one (up to 2 a day)",
   "daily.help_giveup_html":"<b>Give up</b> · See a solution and end the day's puzzle",
   "daily.help_pow_html":"<b>^ is power</b> (<code>2 ^ 3 = 8</code>)",
-  "daily.help_fac_html":"<b>! is factorial</b> (<code>3! = 6</code>)",
+  "daily.help_zero_pow_html":"<b>0 ^ 0 is 1</b> (<code>0 ^ 0 = 1</code>)",
+  "daily.help_fac_html":"<b>! is factorial</b> (<code>4! = 4 × 3 × 2 × 1 = 24</code>)",
   "daily.help_zero_fac_html":"<b>0! is 1</b> (<code>0! = 1</code>)",
   "daily.help_4":"A new puzzle every day at midnight, your local time.",
   "daily.help_privacy":"Privacy Policy",
@@ -3048,6 +3051,8 @@ for(const id of POPS){
   $(id).addEventListener("click",e=>{if(e.target===$(id)&&down)popHide();down=false});
   popCard(id).lastElementChild.addEventListener("scroll",popMore,{passive:true});
 }
+/* 開いた後にフォントが届くと、行が折り返して中身の高さが変わる（D0.27 で見つけた）。そのときも下の端の薄れを決め直す */
+if(document.fonts)document.fonts.addEventListener("loadingdone",popMore);
 document.addEventListener("keydown",e=>{
   if(!popNow)return;
   if(e.key==="Escape"){popHide();return}
