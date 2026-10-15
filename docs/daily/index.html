@@ -212,6 +212,7 @@ body.gu #banline,body.gu .readout,body.gu #field{position:relative;z-index:61;po
 #play.done #expr,#play.locked #expr,#play.locked #tray{pointer-events:none}
 #play.done #dgiveup{display:none}
 /* ギブアップの後は、「10」の場所に副次色で「ギブアップ」（金は使わない）*/
+.eq.goal{color:var(--slate)}
 .eq.gaveup{font-size:20px;font-weight:500;color:var(--dim);letter-spacing:.08em;text-indent:.08em}
 #result{position:absolute;left:-12px;right:-12px;top:var(--resTop,0px);
  display:flex;flex-direction:column;align-items:stretch;gap:var(--resGap,24px)}
@@ -624,7 +625,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.34";
+const DAILY_VERSION="0.35";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -2240,8 +2241,9 @@ function render(closing){
       eq.className="eq part";eq.textContent=p.join("  ·  ");
       su.className="sub";su.textContent=""}
     // 何も置いていないときの案内文「演算子を式の中へ」は 6.5 で廃止（トレイの見出しが同じことを
-    // 言っている）。空にしても .readout の高さは flex で決まるので式・トレイは動かない
-    else{eq.className="eq idle";eq.textContent="";su.className="sub";su.textContent=""}}
+    // 言っている）。デイリーは、式が出来るまで目標の「10」を薄く置いておく（D0.35。13-1）。
+    // 正解した瞬間は、同じ場所の「10」が金になって大きくなるだけで、何も無い所に急に出てこない
+    else{eq.className="eq goal";eq.textContent="10";su.className="sub";su.textContent=""}}
   else if(!bal){eq.className="eq idle";eq.textContent=t("read.paren_mismatch");
     su.className="sub warn";su.textContent=t("read.paren_extra")}
   else{

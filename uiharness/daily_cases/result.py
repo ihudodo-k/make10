@@ -344,6 +344,7 @@ def run(ui):
              [False, True, {"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 0, "sh": 0}}])       # 保存にあるのは「最初に見た時刻」だけ
     ui.tick(20000)
     ui.ev("dgiveup.click();document.getElementById('gu-yes').click()")
+    time.sleep(0.3)        # D0.35: 薄い「10」（--slate）から副次色へ、.eq の色の遷移（0.18 秒）が走るので、終わってから測る
     ui.check("「はい」: 「10」の場所に「ギブアップ」（副次色。金は使わない）",
              [ui.text("eq"), ui.text("sub"), ui.ev("getComputedStyle(eq).color"),
               ui.ev("eq.classList.contains('hit')")], ["ギブアップ", "", DIM, False])

@@ -182,4 +182,6 @@ def run(ui):
                      "html:not(.dark)", 'html:not(.dark) body[data-theme="ai"]', "html:not(.dark) #dcal",
                      "html:not(.dark) #toast", "html:not(.dark) #ghost", "html:not(.dark) .dghost", "html:not(.dark) .dcard",
                      # D0.31（統計を 3 つ横並び）
-                     "#dstatbody #statlist .stat", "#dstatbody #statlist .stat .sv"]))
+                     "#dstatbody #statlist .stat", "#dstatbody #statlist .stat .sv",
+                     # D0.35（式が出来るまでの薄い「10」）
+                     ".eq.goal"]))

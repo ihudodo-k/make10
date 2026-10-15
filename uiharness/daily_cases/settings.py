@@ -210,7 +210,7 @@ def run(ui):
 
     # ══ 途中の値を表示する ══
     ui.ev("put('+',1);render()")
-    ui.check("オフ: 記号を 1 つ置いても、読み出し行は空", [ui.ev(TOKS), ui.text("eq")], ["8 + 7 5 2", ""])
+    ui.check("オフ: 記号を 1 つ置いても、読み出し行は目標の「10」のまま（D0.35）", [ui.ev(TOKS), ui.text("eq"), ui.ev("eq.className")], ["8 + 7 5 2", "10", "eq goal"])
     click(ui, "dset")
     click(ui, "t-easy")
     ui.check("オンにすると、その場で盤に途中の値が出る（シートを開いたまま）",
@@ -231,8 +231,8 @@ def run(ui):
     click(ui, "dset")
     ui.check("開き直した後のスイッチは、オン・オフ", ui.ev(ON), [True, False, False])
     click(ui, "t-easy")
-    ui.check("オフに戻すと、その場で読み出し行が空に戻り、保存も戻る",
-             [ui.text("eq"), ui.saved(raw=True)["set"]], ["", {"easy": 0, "tap": 0, "dark": 0}])
+    ui.check("オフに戻すと、その場で読み出し行が目標の「10」に戻り、保存も戻る",
+             [ui.text("eq"), ui.ev("eq.className"), ui.saved(raw=True)["set"]], ["10", "eq goal", {"easy": 0, "tap": 0, "dark": 0}])
     click(ui, "dset-close")
     ui.check_no_errors("途中の値: JS エラー 0")
 

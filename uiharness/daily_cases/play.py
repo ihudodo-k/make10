@@ -63,10 +63,10 @@ def run(ui):
              [r["d"], r["rc"], "!" in r["sol"], "^" in r["sol"], [x["id"] for x in rows].count(r["id"])],
              [6, "N", False, False, 1])
     ui.open(date=iso(1))
-    ui.check("解く前: 読み出し行は空で、金はどこにも無い",
+    ui.check("解く前: 読み出し行は目標の「10」だけ（D0.35。薄い色）で、金はどこにも無い",
              [ui.ev(STATE)[:2], ui.ev("[...document.querySelectorAll('#app *')].filter("
                                       "e=>!e.closest('#dhelpsheet')&&getComputedStyle(e).color===%r).length" % GOLD)],
-             [["", ""], 0])
+             [["10", ""], 0])
     ui.solve(r["sol"], wait=0.9)
     ui.check("正解: 「10」と「正解」", ui.ev(STATE), ["10", "正解", True, False, False])
     ui.check("正解: 「10」は金", ui.ev("getComputedStyle(eq).color"), GOLD)
@@ -96,7 +96,7 @@ def run(ui):
                  [got, ui.ev(STATE)[2:], ui.ev("solved")], ["%d|" % total, [False, False, True], False])
     ui.ev("clearAll()")
     ui.ev("put('+',1);render()")
-    ui.check("記号が 3 つ揃うまでは、読み出し行は空", ui.ev(STATE)[:2], ["", ""])
+    ui.check("記号が 3 つ揃うまでは、読み出し行は目標の「10」のまま（D0.35）", ui.ev(STATE)[:2], ["10", ""])
     ui.ev("clearAll();put('lp',0);put('+',2);put('+',4);put('+',6);render()")
     ui.check("括弧が対応していないときの注意", ui.ev(STATE)[:2],
              ["括弧が対応していません", "赤い括弧が余っています"])

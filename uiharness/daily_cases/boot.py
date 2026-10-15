@@ -36,7 +36,7 @@ def run(ui):
     ui.check("トレイの記号は 8 つ",
              ui.ev("[...document.querySelectorAll('#tray .chip')].map(e=>e.dataset.op).join(' ')"),
              "+ - * / ^ ! lp rp")
-    ui.check("読み出し行は空", [ui.text("eq"), ui.text("sub")], ["", ""])
+    ui.check("読み出し行は、目標の「10」だけを薄く出す（D0.35）", [ui.text("eq"), ui.ev("eq.className"), ui.text("sub")], ["10", "eq goal", ""])
     ui.check("縦にも横にもスクロールしない", ui.scrolls(), False)
     ui.check("版の行は、トレイより下で、画面の中",
              ui.ev("(function(){const t=tray.getBoundingClientRect(),v=dver.getBoundingClientRect();"
