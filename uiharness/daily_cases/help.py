@@ -111,7 +111,7 @@ def run(ui):
                                   "return !!document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2).closest('#exprwrap')})()")],
              [False, True])
     ui.check("初回から時間を数える: 開いた時が「最初に見た時刻」。保存データに help の印は無い", ui.saved(raw=True),
-             {"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 0, "sh": 0}, "set": {"easy": 0, "tap": 0}})
+             {"v": 1, "days": {}, "cur": {"no": no, "start": at(no), "h": 0, "sh": 0}, "set": {"easy": 0, "tap": 0, "dark": 0}})
     ui.check("ページの保存データの形に help が無い", ui.ev("Object.keys(DATA).sort().join(' ')"), "cur days set v")
     click("dhelp")
     ui.check("「?」を押すと出る", ui.ev(SHOWN), True)

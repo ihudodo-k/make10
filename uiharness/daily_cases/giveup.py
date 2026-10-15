@@ -143,6 +143,24 @@ def run(ui):
                    "[...new Set(es.map(e=>getComputedStyle(e).color))]]})()"), [True, [paper]])
     layout("%d×%d" % (W, H), W, H)
 
+    # ══ 押している間（D0.31）: ボタンの面は変わらず、文字の色だけが副次色になる。大きさも変わらない ══
+    BTN = ("(function(){const e=document.getElementById(%r),s=getComputedStyle(e),r=e.getBoundingClientRect();"
+           "return [s.backgroundColor,s.color,Math.round(r.width*10)/10,Math.round(r.height*10)/10]})()")
+    dim = ui.ev(COLOR % "var(--dim)")
+    for bid in ("gu-yes", "gu-no"):
+        still = ui.ev(BTN % bid)
+        bx, by = ui.ev(CENTER % ("#" + bid))
+        mouse("mousePressed", bx, by)
+        held = ui.ev(BTN % bid)
+        mouse("mouseMoved", 2, 2)                  # 外へずらしてから離す（押したことにしない）
+        mouse("mouseReleased", 2, 2)
+        time.sleep(0.2)
+        if not ui.ev(OPEN):                         # 外で離して閉じたら開き直す
+            ui.ev("dgiveup.click()")
+            time.sleep(0.1)
+        ui.check("「%s」を押している間: 面は透明のまま・文字は副次色・大きさは同じ" % ("はい" if bid == "gu-yes" else "いいえ"),
+                 [still[0], held[0], held[1], held[2:] == still[2:]], ["rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)", dim, True])
+
     # ══ 閉じ方: いいえ・Esc・外側・式の場所。カードの中では閉じない ══
     toks = ui.ev("JSON.stringify(S.toks)")
     press_el("#gu-no")

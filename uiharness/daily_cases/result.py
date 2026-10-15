@@ -428,15 +428,15 @@ def run(ui):
 
     cases = [
         ("3 日続けて解いて、4 日目はまだ", {1: "s", 2: "s", 3: "s"}, 4, 3,
-         ["解いた日数=3日", "連続日数=3日", "最長=3日", "平均時間=1:00"]),
+         ["解いた日数=3日", "連続日数=3日", "最長=3日"]),
         ("2 日目がギブアップ", {1: "s", 2: "g", 3: "s"}, 4, 1,
-         ["解いた日数=2日", "連続日数=1日", "最長=1日", "平均時間=1:00"]),
+         ["解いた日数=2日", "連続日数=1日", "最長=1日"]),
         ("3 日目は遊ばなかった", {1: "s", 2: "s"}, 4, 0,
-         ["解いた日数=2日", "連続日数=0日", "最長=2日", "平均時間=1:00"]),
+         ["解いた日数=2日", "連続日数=0日", "最長=2日"]),
         ("昨日がギブアップ", {1: "s", 2: "s", 3: "g"}, 4, 0,
-         ["解いた日数=2日", "連続日数=0日", "最長=2日", "平均時間=1:00"]),
+         ["解いた日数=2日", "連続日数=0日", "最長=2日"]),
         ("何も遊んでいない", {}, 4, 0,
-         ["解いた日数=0日", "連続日数=0日", "最長=0日", "平均時間=—"]),
+         ["解いた日数=0日", "連続日数=0日", "最長=0日"]),
     ]
     for name, days, today, streak, want in cases:
         ui.open(now=at(today), tz=TZ, store={"v": 1, "days": {str(k): rec(v) for k, v in days.items()}, "cur": None})
@@ -446,11 +446,11 @@ def run(ui):
         ui.open(now=at(today), tz=TZ, store={"v": 1, "days": {str(k): rec(v) for k, v in days.items()}, "cur": None})
         ui.ev("dgiveup.click();document.getElementById('gu-yes').click()")
         ui.check("%s → 今日ギブアップすると連続 0 日" % name, ui.text("r-streak"), "0")
-    # 平均時間は解いた日だけ。最長は途切れても残る
+    # 最長は途切れても残る（平均時間は D0.31 で消した）
     ui.open(now=at(9), tz=TZ, store={"v": 1, "cur": None, "days": {
         "1": rec("s", 30), "2": rec("s", 90), "3": rec("s", 120), "4": rec("g"), "6": rec("s", 200), "7": rec("s", 10)}})
-    ui.check("統計: 最長は途切れても残り、平均は解いた日だけ（450 秒 ÷ 5 = 1:30）", stats(),
-             ["解いた日数=5日", "連続日数=0日", "最長=3日", "平均時間=1:30"])
+    ui.check("統計: 最長は途切れても残る。平均時間は出さない（D0.31）", stats(),
+             ["解いた日数=5日", "連続日数=0日", "最長=3日"])
     # 統計の画面の開け閉め
     ui.ev("dstats.click()")
     ui.check("統計: 見出しと、盤の上に重なるカード（幕は画面いっぱい。カードは幕の中に収まる。D0.26）",
@@ -458,10 +458,14 @@ def run(ui):
               ui.ev("(function(){const s=dstatsheet.getBoundingClientRect(),c=document.querySelector('#dstatsheet .dcard').getBoundingClientRect();"
                     "return [s.left,s.top,s.width===innerWidth,s.height===innerHeight,c.top>=24&&c.bottom<=innerHeight-24&&c.left>=12]})()")],
              [True, "統計", [0, 0, True, True, True]])
-    ui.check("統計: 2 列に並ぶ（1・3 番目と 2・4 番目の左端が揃う）",
-             ui.ev("(function(){const x=[...document.querySelectorAll('#statlist .stat')].map("
-                   "e=>Math.round(e.getBoundingClientRect().left));return [x[0]===x[2],x[1]===x[3],x[1]>x[0]]})()"),
-             [True, True, True])
+    ui.check("統計: 3 つが横に 1 行で並ぶ（上端が揃い、左から順・同じ幅）。数字と名前は列の中央（D0.31）",
+             ui.ev("(function(){const es=[...document.querySelectorAll('#statlist .stat')],r=es.map(e=>e.getBoundingClientRect());"
+                   "const mid=e=>{const b=e.getBoundingClientRect();return b.left+b.width/2};"
+                   "return [es.length,r.every(x=>Math.round(x.top)===Math.round(r[0].top)),r[0].left<r[1].left&&r[1].left<r[2].left,"
+                   "r.every(x=>Math.abs(x.width-r[0].width)<1),"
+                   "es.every((e,i)=>[e.querySelector('.sv'),e.querySelector('.sk')].every(c=>{const g=document.createRange();"
+                   "g.selectNodeContents(c);const b=g.getBoundingClientRect();return Math.abs(b.left+b.width/2-(r[i].left+r[i].width/2))<1.5}))]})()"),
+             [3, True, True, True, True])
     ui.ev("document.getElementById('dstats-close').click()")
     ui.check("統計: × で閉じる", ui.ev(SEEN % "#dstatsheet"), False)
     ui.ev("dstats.click();document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))")

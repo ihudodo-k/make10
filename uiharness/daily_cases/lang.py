@@ -344,14 +344,14 @@ def run(ui):
     rec = {"r": "s", "t": 60, "h": 0, "sh": 0, "e": rows[0]["sol"]}
     ui.open(now=at(3), tz=TZ, lang="en", store={"v": 1, "cur": None, "days": {"1": rec, "2": rec}})
     click("dstats")
-    ui.check("英語: 統計の単位は 2 days（解いた日数・連続日数・最長）。平均時間は単位なし",
+    ui.check("英語: 統計の単位は 2 days（解いた日数・連続日数・最長）",
              ui.ev("[...document.querySelectorAll('#statlist .stat .sv')].map(e=>e.textContent)"),
-             ["2days", "2days", "2days", "1:00"])
+             ["2days", "2days", "2days"])
     ui.open(now=at(2), tz=TZ, lang="en", store={"v": 1, "cur": None, "days": {"1": rec}})
     click("dstats")
     ui.check("英語: 1 のときは 1 day",
              ui.ev("[...document.querySelectorAll('#statlist .stat .sv')].map(e=>e.textContent)"),
-             ["1day", "1day", "1day", "1:00"])
+             ["1day", "1day", "1day"])
     ui.open(now=at(2), tz=TZ, lang="en")
     click("dstats")
     ui.check("英語: 0 のときは 0 days",

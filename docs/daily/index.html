@@ -29,6 +29,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+/* 色（15 章。D0.31）。保存してある設定が「ダークモード」なら、描く前に html へ dark を付ける（白が一瞬見えないように）。
+   ?date=（テスト表示）は保存を読まないので付けない。読めなければ白のまま。下の applyDark() が同じ決まりで付け直す */
+try{if(!/[?&]date=/.test(location.search)){const x=JSON.parse(localStorage.getItem("make10.daily.v1")||"null");
+  if(x&&x.set&&x.set.dark)document.documentElement.classList.add("dark")}}catch(e){}
+</script>
 <style>
 /* ── 本編から複製した規則（セレクタごとに本編と同じ。手を入れない）── */
 :root{--zoneEase:cubic-bezier(.22,.72,.3,1); --dur:.3s; --hotDur:.2s; --bannerH:52px; --bannerGap:14px}
@@ -191,7 +197,7 @@ body.daily{align-items:center}
 #dgusheet .gubtns{display:flex;justify-content:center;gap:8px}
 #dgusheet .gubtns button{height:var(--hintBtnH);min-width:96px;padding:0 14px;font-size:13px;font-weight:700;
  background:none;border:0;border-radius:9px;color:var(--paper)}
-#dgusheet .gubtns button:active{background:var(--edge)}
+#dgusheet .gubtns button:active{background:none;color:var(--dim)}
 body.gu #banline,body.gu .readout,body.gu #field{position:relative;z-index:61;pointer-events:none}
 /* ── 解いた後・ギブアップの後（13-5・13-6）。画面を切り替えず、式の下に結果を並べる ──
    下の段（丸ボタンとトレイ）は消すが、場所は取ったままにする（visibility）―― 式の位置を動かさないため。
@@ -291,8 +297,11 @@ body.pop #app{z-index:3}
 .dcard>.more{-webkit-mask-image:linear-gradient(#000 calc(100% - 28px),transparent);mask-image:linear-gradient(#000 calc(100% - 28px),transparent)}
 /* 統計の中身（4 つの数字とカレンダー）*/
 #dstatbody{flex:0 1 auto;min-height:0;overflow-y:auto}
-/* 4 つの数字の左右を、見出しとカレンダーの左右（15px）にそろえる（D0.12。本編から複製した #statlist は 14px） */
-#dstatbody #statlist{padding:6px 15px 0}
+/* 3 つの数字の左右を、見出しとカレンダーの左右（15px）にそろえる（D0.12。本編から複製した #statlist は 14px）。
+   D0.31 で平均時間を消して 3 つにし、横に 3 つ並べて中央にそろえた（解いた後の 3 列と同じ形）*/
+#dstatbody #statlist{padding:6px 15px 0;grid-template-columns:repeat(3,1fr)}
+#dstatbody #statlist .stat{text-align:center}
+#dstatbody #statlist .stat .sv{justify-content:center}
 /* カレンダー（13-8。D0.11）。囲まない ―― 4 つの数字との間は細い線 1 本。週は月曜始まり。
    日の見分けは形でも分ける: 解いた日 = 塗りつぶした丸（--paper）／ギブアップ = 輪だけの丸（--dim）／
    遊ばなかった日 = 数字の下の小さな点（--calDot）／今日 = 外側に枠／問題が無い日 = 印なし（数字は無効の色）。金も赤も使わない。
@@ -468,20 +477,21 @@ body.pop #app{z-index:3}
   #statlist .stat{height:66px}
   #statlist .stat .sv b,#statlist .stat .sv .none{font-size:22px}
 }
-/* ═══ ライトモード（15 章。D0.30）═══
-   端末の設定（prefers-color-scheme）が明るい表示のときだけ、色の変数を白（Figma「21 デイリー白（再考）」の案 A 白と墨）に替える。
-   切り替えのボタンは持たない。本編から複製した body[data-theme="ai"] には手を入れず、ここで上書きする（18-3）。
-   --teal（開発者パネル）は替えない。影は白の地では強すぎるので、ここで薄くする（形は同じ）。
+/* ═══ 色（15 章。D0.30・D0.31）═══
+   白（Figma「21 デイリー白（再考）」の案 A 白と墨）が既定。設定の「ダークモード」を入れたときだけ、html に dark を付けて黒と白にする。
+   端末の設定（prefers-color-scheme）は見ない（D0.31。D0.30 は端末に合わせていた）。
+   本編から複製した body[data-theme="ai"]（黒と白）には手を入れず、html:not(.dark) の下で白に上書きする（18-3）。
+   --teal（開発者パネル）は替えない。トーストと運ぶ記号の影は、白の地では強すぎるので薄くする（形は同じ）。
+   ポップアップのカードは、白のときだけ影を付ける（D0.31。白の地と白の面が線 1 本だけでは後ろに沈むため）。
    カレンダーの点 --calDot は、黒と白の 60% では地との比が 2.36 になるので、副次色を 75% にする（比 3.08） */
-@media (prefers-color-scheme:light){
-  html{color-scheme:light;--popDim:50%}
-  body[data-theme="ai"]{--ink:#FFFFFF;--panel:#FFFFFF;--edge:#D3D6DA;--paper:#1A1A1B;--slate:#A3A7AD;--coral:#C8372D;--gold:#8F6600;
-   --line:211,214,218;--dim:#6B6F76;--bannerText:#A3A7AD}
-  #dcal{--calDot:color-mix(in srgb,var(--dim) 75%,var(--ink))}
-  #toast{box-shadow:0 8px 22px rgba(0,0,0,.08)}
-  #ghost{text-shadow:0 3px 10px rgba(0,0,0,.15)}
-  .dghost{text-shadow:0 2px 6px rgba(0,0,0,.15)}
-}
+html:not(.dark){color-scheme:light;--popDim:50%}
+html:not(.dark) body[data-theme="ai"]{--ink:#FFFFFF;--panel:#FFFFFF;--edge:#D3D6DA;--paper:#1A1A1B;--slate:#A3A7AD;--coral:#C8372D;--gold:#8F6600;
+ --line:211,214,218;--dim:#6B6F76;--bannerText:#A3A7AD}
+html:not(.dark) #dcal{--calDot:color-mix(in srgb,var(--dim) 75%,var(--ink))}
+html:not(.dark) #toast{box-shadow:0 8px 22px rgba(0,0,0,.08)}
+html:not(.dark) #ghost{text-shadow:0 3px 10px rgba(0,0,0,.15)}
+html:not(.dark) .dghost{text-shadow:0 2px 6px rgba(0,0,0,.15)}
+html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </style>
 </head>
 <body data-theme="ai" class="daily">
@@ -592,13 +602,14 @@ body.pop #app{z-index:3}
       <p class="hlink"><a id="dprivacy" href="../privacy/" target="_blank" rel="noopener" data-i18n="daily.help_privacy"></a></p>
     </div>
   </div></div>
-  <!-- 設定（ポップアップ。2 つのスイッチ。id は本編の設定と同じ t-easy・t-tap）-->
+  <!-- 設定（ポップアップ。3 つのスイッチ。id は本編の設定と同じ t-easy・t-tap と、デイリーだけの t-dark（D0.31））-->
   <div id="dsetsheet" class="dsheet hide"><div class="dcard" role="dialog" aria-modal="true" aria-labelledby="dset-title" tabindex="-1">
     <div class="shead"><h2 id="dset-title" data-i18n="daily.set_title"></h2>
       <button id="dset-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
     <div id="dsetbody"><div class="group">
       <button class="toggle" id="t-easy"><span data-i18n="daily.set_easy"></span><span class="sw"></span></button>
       <button class="toggle" id="t-tap"><span data-i18n="daily.set_tap"></span><span class="sw"></span></button>
+      <button class="toggle" id="t-dark"><span data-i18n="daily.set_dark"></span><span class="sw"></span></button>
     </div></div>
   </div></div>
   <!-- ギブアップの確認（ポップアップ。D0.28）。カードは式の下に出す（guPlace()）。見出しと × は持たない ―― 「いいえ」が閉じる -->
@@ -613,7 +624,7 @@ body.pop #app{z-index:3}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.30";
+const DAILY_VERSION="0.31";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -696,7 +707,6 @@ const STR_DAILY={ja:{
   "daily.stats_solved":"解いた日数",
   "daily.stats_streak":"連続日数",
   "daily.stats_max":"最長",
-  "daily.stats_avg":"平均時間",
   "daily.unit_day":{other:"日"},
   "daily.unit_times":{other:"回"},
   "daily.close":"閉じる",
@@ -742,10 +752,11 @@ const STR_DAILY={ja:{
   "daily.cal_legend_none":"遊ばなかった",
   "daily.cal_solved":{other:"{time}　ヒント {n} 回"},
   "daily.cal_none":"遊んでいません",
-  // 設定（D0.13）。文は本編の設定（settings.title・settings.easy・settings.tap）と同じ
+  // 設定（D0.13）。D0.31 で「〜する」を取った（本編の設定の文とは別になった）
   "daily.set_title":"設定",
-  "daily.set_easy":"途中の値を表示する",
-  "daily.set_tap":"タップで配置する"
+  "daily.set_easy":"途中の値を表示",
+  "daily.set_tap":"タップで配置",
+  "daily.set_dark":"ダークモード"
 },
 en:{
   "daily.page_title":"Make10 Daily",
@@ -771,7 +782,6 @@ en:{
   "daily.stats_solved":"Solved",
   "daily.stats_streak":"Streak",
   "daily.stats_max":"Max streak",
-  "daily.stats_avg":"Average time",
   "daily.unit_day":{one:"day",other:"days"},
   "daily.unit_times":{one:"",other:""},                 // 英語は単位を出さない（列の名前が Hints なので数字だけ）
   "daily.close":"Close",
@@ -821,7 +831,8 @@ en:{
   "daily.cal_none":"Not played",
   "daily.set_title":"Settings",
   "daily.set_easy":"Show intermediate values",
-  "daily.set_tap":"Tap to place"
+  "daily.set_tap":"Tap to place",
+  "daily.set_dark":"Dark mode"
 }};
 const LANGS=["ja","en"];
 const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");
@@ -2565,18 +2576,18 @@ function applyLang(){
                   sh:共有の回数, e:解いた式（解いたときだけ。開き直したときに盤へ戻す）}
      cur = {no:問題番号, start:問題を最初に見た時刻（端末の時計。1970 年からのミリ秒）, h:使ったヒントの回数, sh:共有の回数}
      days[…].sent = 集計へ送れたら 1（送り直さないための印。D0.8。17-2）
-     set = 設定 {easy:途中の値を表示する 0/1, tap:タップで配置する 0/1}（D0.13。13-11）
+     set = 設定 {easy:途中の値を表示 0/1, tap:タップで配置 0/1, dark:ダークモード 0/1}（D0.13。dark は D0.31。13-11）
    ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる。
    公開までは保存の形の互換を気にしない（古い形の記録は読めなくてよい。移行の処理は作らない。10 章）*/
 const DAILY_KEY="make10.daily.v1";
-let DATA={v:1,days:{},cur:null,set:{easy:0,tap:0}};
+let DATA={v:1,days:{},cur:null,set:{easy:0,tap:0,dark:0}};
 function loadDaily(){
   if(TEST_MODE)return;
   try{
     const x=JSON.parse(localStorage.getItem(DAILY_KEY)||"null");
     if(x&&typeof x==="object"&&x.days&&typeof x.days==="object")
       DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null,
-        set:{easy:x.set&&x.set.easy?1:0,tap:x.set&&x.set.tap?1:0}};
+        set:{easy:x.set&&x.set.easy?1:0,tap:x.set&&x.set.tap?1:0,dark:x.set&&x.set.dark?1:0}};
   }catch(e){}
 }
 function saveDaily(){
@@ -2646,9 +2657,9 @@ function streakNow(){
 }
 function statsNow(){
   const d=DATA.days, nos=Object.keys(d).map(Number).filter(n=>d[n].r==="s").sort((a,b)=>a-b);
-  let max=0,run=0,prev=null,sum=0;
-  for(const n of nos){run=prev!==null&&n===prev+1?run+1:1;if(run>max)max=run;prev=n;sum+=d[n].t||0}
-  return{solved:nos.length,streak:streakNow(),max,avg:nos.length?Math.round(sum/nos.length):null};
+  let max=0,run=0,prev=null;
+  for(const n of nos){run=prev!==null&&n===prev+1?run+1:1;if(run>max)max=run;prev=n}
+  return{solved:nos.length,streak:streakNow(),max};
 }
 
 /* ═══ 盤と式の行き来 ═══ */
@@ -3100,7 +3111,7 @@ document.addEventListener("keydown",e=>{
 function drawStats(){
   const x=statsNow(), day="daily.unit_day";
   const rows=[["daily.stats_solved",x.solved,day],["daily.stats_streak",x.streak,day],
-    ["daily.stats_max",x.max,day],["daily.stats_avg",x.avg===null?null:fmtTime(x.avg),null]];
+    ["daily.stats_max",x.max,day]];   // 平均時間は D0.31 で消した（13-7）
   $("statlist").innerHTML=rows.map(([k,v,u])=>
     `<div class="stat"><div class="sv">`+(v===null?`<span class="none">—</span>`
       :`<b>${v}</b>`+(u?`<span class="su">${t(u,{n:v})}</span>`:""))+
@@ -3188,7 +3199,7 @@ $("dhelp-close").innerHTML=ICON_HCLOSE;
 $("dhelp").onclick=()=>popShow("dhelpsheet");
 $("dhelp-close").onclick=()=>popHide();
 /* ═══ 設定（13-11。D0.13）═══
-   上のバーの歯車から開く。スイッチは 2 つ ――「途中の値を表示する」と「タップで配置する」（本編の設定と同じ文）。
+   上のバーの歯車から開く。スイッチは 3 つ ――「途中の値を表示」「タップで配置」「ダークモード」（D0.31 で 3 つ目を足し、文の「〜する」を取った）。
    保存は DATA.set。盤が読むのは、本編から複製した G.easy と tapMode（applySet() が当てる）。
    切り替えたら、その場で盤を描き直す。?date=（テスト表示）では保存しない（saveDaily() が書かない）ので、その場だけ効く。
    記録・集計・共有には載せない（days にも、送る中身にも、共有文にも入れない）。
@@ -3200,28 +3211,33 @@ $("dset").innerHTML=ICON_SET;
 $("dset-close").innerHTML=ICON_HCLOSE;
 /* 保存してある設定を、盤が読む 2 つの値に当てる */
 function applySet(){G.easy=!!DATA.set.easy;tapMode=!!DATA.set.tap}
+/* 色（15 章。D0.31）。白が既定で、ダークモードのときだけ html に dark。読み込んだ時と、ダークモードを切り替えた時にだけ当てる */
+function applyDark(){document.documentElement.classList.toggle("dark",!!DATA.set.dark)}
 function drawSet(){
-  $("t-easy").classList.toggle("on",!!DATA.set.easy);$("t-easy").setAttribute("aria-pressed",DATA.set.easy?"true":"false");
-  $("t-tap").classList.toggle("on",!!DATA.set.tap);$("t-tap").setAttribute("aria-pressed",DATA.set.tap?"true":"false");
+  for(const k of ["easy","tap","dark"]){
+    $("t-"+k).classList.toggle("on",!!DATA.set[k]);$("t-"+k).setAttribute("aria-pressed",DATA.set[k]?"true":"false");
+  }
 }
 /* スイッチを切り替える。タップ配置をやめたときは、選んでいた記号を放して枠を閉じる
    （ドラッグの操作に、選んだままの記号が残らないように）。盤は、その場で描き直す */
 function toggleSet(key){
   DATA.set[key]=DATA.set[key]?0:1;
   saveDaily();applySet();drawSet();
+  if(key==="dark"){applyDark();return}      // 色だけ。盤は描き直さない
   if(!playing())return;                      // 解いた後・ギブアップの後の盤は動かさない（結果の画面はそのまま）
   if(key==="tap"&&!tapMode&&held){held=null;hideZones()}
   render();
 }
 $("t-easy").onclick=()=>toggleSet("easy");
 $("t-tap").onclick=()=>toggleSet("tap");
+$("t-dark").onclick=()=>toggleSet("dark");
 $("dset").onclick=()=>{drawSet();popShow("dsetsheet")};
 $("dset-close").onclick=()=>popHide();
 
 window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();drawCal();popMore();if(popNow==="dgusheet")guPlace();
   if(dayRecord()){drawSols();layoutResult()}});
 
-loadDaily();applySet();
+loadDaily();applySet();applyDark();
 applyLang();applyMetrics();
 // 正解の「10」の倍率。本編は開発者パネルの applyDevVars() が流す。デイリーは既定値をそのまま流す
 document.documentElement.style.setProperty("--tenScale",DEV_DEFAULT.tenScale);

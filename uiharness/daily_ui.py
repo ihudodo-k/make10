@@ -347,7 +347,14 @@ window.__API=[];window.__APIMODE=%s;
       },m.delay||0)})}})();
 """
 SAVE_KEY = "make10.daily.v1"          # デイリーの保存のキー（本編は make10.progress.v4）
-SET_DEFAULT = {"easy": 0, "tap": 0}   # 設定の既定（D0.13。途中の値を表示しない・ドラッグで置く）
+SET_DEFAULT = {"easy": 0, "tap": 0, "dark": 0}   # 設定の既定（D0.13。途中の値を表示しない・ドラッグで置く。dark は D0.31 で足した。白）
+# ダークモードで回すための仕込み（D0.31。open(dark=True)）。読み込みの最初（html ができた時）に html へ dark を付け、
+# ページの applyDark()（保存の set.dark が 0 なので classList.toggle("dark", false) を呼ぶ）には外させない。
+# 外させてから付け直す形にすると、その間に白で計算された色から黒と白へ遷移が走り、測る時刻によって色が途中の値になる（D0.31 で見つけた）
+DARK_SEED = ("(function(){const T=DOMTokenList.prototype.toggle;DOMTokenList.prototype.toggle=function(k,f){"
+             "if(k==='dark'&&document.documentElement&&this===document.documentElement.classList)f=true;return T.call(this,k,f)};"
+             "const add=()=>{const h=document.documentElement;if(!h)return false;h.classList.add('dark');return true};"
+             "if(!add()){const o=new MutationObserver(()=>{if(add())o.disconnect()});o.observe(document,{childList:true})}})();")
 # performance.now を、ケースから進められるものに差し替える。__perf がミリ秒。
 # D0.24 から、ページは時間を端末の時計（Date）で数えるので、時間の確かめには効かない（tick() は両方を進める）
 PERF = r"""
@@ -400,8 +407,8 @@ class UI:
         self.case = ""
         self._seed_id = None
         self._tz = None
-        # 端末の配色は、既定で暗い表示に固定する（D0.30。headless の Chrome は明るい表示を名乗るので、固定しないと
-        # ライトモード（15 章）で回ってしまう）。ケースごとに作り直されるので、前のケースの切り替えもここで戻る
+        # 端末の配色は、暗い表示に固定する（D0.30。ページは D0.31 から端末の設定を見ないが、見ないことをケース light が
+        # 確かめるため、ほかのケースでも同じ形にしておく）。ケースごとに作り直されるので、前のケースの切り替えもここで戻る
         self.media()
 
     def media(self, scheme="dark", reduce=False):
@@ -413,7 +420,7 @@ class UI:
         self.c.ws.call("Emulation.setEmulatedMedia", {"features": f})
 
     def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
-             store=None, perf=False, api=None, hidden=False, motion=False):
+             store=None, perf=False, api=None, hidden=False, motion=False, dark=True):
         """ページを開く。
 
         date … ?date=YYYY-MM-DD（テスト表示）。None なら付けない
@@ -428,6 +435,9 @@ class UI:
         motion … False（既定）なら、ポップアップの開く・閉じる動きの長さを 0 秒にする（D0.26。開いた直後に位置を測っても、
                  動きの途中の値にならないように）。動きそのものを見るケース（`popup`・`giveup`）だけが True で開く
         hidden … True なら、隠れたまま読み込まれたことにする（裏のタブで開いた。visibility("visible") で見せる）
+        dark … True（既定）なら、読み込みの最初から html に dark を付けたままにして、ダークモード（黒と白）で回す（D0.31。
+               ページの既定は白。ケースの色の期待値は黒と白で書いてある。DARK_SEED）。保存データは変えない ―― 設定のスイッチは切れたまま見える。
+               白と、設定から入れるダークモードそのものは、ケース light が dark=False で見る
         api … 集計の送り先の返事の決め方（上の API の __APIMODE）。None なら {"mode": "fail"}（通信できない）。
               出た要求は api_calls() で読む"""
         # 読み込みの前に走る仕込みは、Chrome に 1 つだけ残す。UI はケースごとに作り直されるので、
@@ -445,7 +455,7 @@ class UI:
                 "" if store is None else "localStorage.setItem(%s,%s)" % (
                     json.dumps(SAVE_KEY), json.dumps(json.dumps(store, ensure_ascii=False))))
         self.c._daily_seed = self._seed_id = self.c.on_new_document(SEED % {
-            "store": st + (PERF if perf else "") + (
+            "store": st + (DARK_SEED if dark else "") + (PERF if perf else "") + (
                 "Object.defineProperty(document,'visibilityState',{get:()=>'hidden',configurable:true});"
                 if hidden else ""),
             "nav": "" if nav is None else
@@ -484,7 +494,7 @@ class UI:
 
     def saved(self, raw=False):
         """保存データ（無ければ None）。
-        既定では、既定のままの設定（set が 2 つとも 0。D0.13）を外して返し、
+        既定では、既定のままの設定（set がどれも 0。D0.13）を外して返し、
         ほかに何も入っていなければ None にする。設定を切り替えてあれば、set は外さない。raw=True でそのまま返す"""
         text = self.c.ev("localStorage.getItem(%s)" % json.dumps(SAVE_KEY))
         data = json.loads(text) if text else None

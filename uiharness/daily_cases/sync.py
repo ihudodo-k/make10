@@ -39,7 +39,6 @@ REQUIRED_JS_ANON = [
 ]
 MEDIA = "@media (max-height:700px) || "
 WIDE = "@media (min-width:720px) and (min-height:768px) || "      # パソコンの見出し（D0.17。デイリーだけ）
-LIGHT = "@media (prefers-color-scheme:light) || "                 # ライトモード（D0.30。デイリーだけ）
 REQUIRED_CSS = [
     ":root", 'body[data-theme="ai"]', "*", "html,body", "body", "#bg", "@keyframes sweep", "#bg.flash",
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",
@@ -179,6 +178,8 @@ def run(ui):
                      # D0.28（ギブアップの確認をポップアップに。D0.3 の #gubox の 4 規則は消した）
                      "#dgusheet", "#dgusheet .dcard", "#gu-text", "#dgusheet .gubtns", "#dgusheet .gubtns button",
                      "#dgusheet .gubtns button:active", "body.gu #banline,body.gu .readout,body.gu #field",
-                     # D0.30（ライトモード。本編から複製した規則は変えず、@media の中で上書きする）
-                     LIGHT + "html", LIGHT + 'body[data-theme="ai"]', LIGHT + "#dcal", LIGHT + "#toast",
-                     LIGHT + "#ghost", LIGHT + ".dghost"]))
+                     # D0.30・D0.31（色。白が既定。本編から複製した規則は変えず、html:not(.dark) の下で上書きする）
+                     "html:not(.dark)", 'html:not(.dark) body[data-theme="ai"]', "html:not(.dark) #dcal",
+                     "html:not(.dark) #toast", "html:not(.dark) #ghost", "html:not(.dark) .dghost", "html:not(.dark) .dcard",
+                     # D0.31（統計を 3 つ横並び）
+                     "#dstatbody #statlist .stat", "#dstatbody #statlist .stat .sv"]))

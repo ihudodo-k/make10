@@ -81,10 +81,10 @@ def run(ui):
     click("#dstats", 0.3)
     ui.check("開いたときは今月。今月より後へは行けない。曜日の見出しは月曜始まり",
              ui.ev(HEAD), ["%d年%d月" % (T.year, T.month), False, True, "月 火 水 木 金 土 日"])
-    ui.check("カレンダーは、4 つの数字の下・版の行の上。4 つの数字はそのまま",
+    ui.check("カレンダーは、3 つの数字の下・版の行の上。3 つの数字はそのまま（D0.31 で平均時間を消した）",
              ui.ev("(()=>{const r=e=>e.getBoundingClientRect(),c=r(dcal),s=r(statlist);"
                    "return [c.top>=s.bottom,c.bottom<=r(dver).top,document.querySelectorAll('#statlist .stat').length]})()"),
-             [True, True, 4])
+             [True, True, 3])
 
     # ══ 日の見分けと、日付が正しい列に入ること（今月）══
     g = ui.ev(GRID)
