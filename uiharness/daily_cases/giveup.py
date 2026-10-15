@@ -281,7 +281,7 @@ def run(ui):
     time.sleep(0.4)
 
     # ══ 動きを減らす設定: 動かずに出て、動かずに消える ══
-    ui.c.ws.call("Emulation.setEmulatedMedia", {"features": [{"name": "prefers-reduced-motion", "value": "reduce"}]})
+    ui.media(reduce=True)
     try:
         ui.open(now=at(no), tz=TZ, store=store, motion=True)
         got = ui.ev("(function(){dgiveup.click();const c=document.querySelector('#dgusheet .dcard'),s=getComputedStyle(c);"
@@ -295,5 +295,5 @@ def run(ui):
         time.sleep(0.4)
         ui.check("動きを減らす設定: 「はい」でギブアップになる", [ui.text("eq"), ui.ev(OPEN), ui.ev(GU)], ["ギブアップ", [], False])
     finally:
-        ui.c.ws.call("Emulation.setEmulatedMedia", {"features": []})
+        ui.media()
     ui.check_no_errors()

@@ -468,6 +468,20 @@ body.pop #app{z-index:3}
   #statlist .stat{height:66px}
   #statlist .stat .sv b,#statlist .stat .sv .none{font-size:22px}
 }
+/* ═══ ライトモード（15 章。D0.30）═══
+   端末の設定（prefers-color-scheme）が明るい表示のときだけ、色の変数を白（Figma「21 デイリー白（再考）」の案 A 白と墨）に替える。
+   切り替えのボタンは持たない。本編から複製した body[data-theme="ai"] には手を入れず、ここで上書きする（18-3）。
+   --teal（開発者パネル）は替えない。影は白の地では強すぎるので、ここで薄くする（形は同じ）。
+   カレンダーの点 --calDot は、黒と白の 60% では地との比が 2.36 になるので、副次色を 75% にする（比 3.08） */
+@media (prefers-color-scheme:light){
+  html{color-scheme:light;--popDim:50%}
+  body[data-theme="ai"]{--ink:#FFFFFF;--panel:#FFFFFF;--edge:#D3D6DA;--paper:#1A1A1B;--slate:#A3A7AD;--coral:#C8372D;--gold:#8F6600;
+   --line:211,214,218;--dim:#6B6F76;--bannerText:#A3A7AD}
+  #dcal{--calDot:color-mix(in srgb,var(--dim) 75%,var(--ink))}
+  #toast{box-shadow:0 8px 22px rgba(0,0,0,.08)}
+  #ghost{text-shadow:0 3px 10px rgba(0,0,0,.15)}
+  .dghost{text-shadow:0 2px 6px rgba(0,0,0,.15)}
+}
 </style>
 </head>
 <body data-theme="ai" class="daily">
@@ -599,7 +613,7 @@ body.pop #app{z-index:3}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.29";
+const DAILY_VERSION="0.30";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、

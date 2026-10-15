@@ -326,7 +326,7 @@ def run(ui):
     click("dhelp-close")
 
     # ══ 動きを減らす設定: 動かさず、置いた後の形で止まっている ══
-    ui.c.ws.call("Emulation.setEmulatedMedia", {"features": [{"name": "prefers-reduced-motion", "value": "reduce"}]})
+    ui.media(reduce=True)
     try:
         ui.open(date=day(1).isoformat())
         click("dhelp", 0.4)
@@ -341,5 +341,5 @@ def run(ui):
                        "const g=(a,b)=>Math.round((r(b).left-r(a).right)*10)/10;const m=2*parseFloat(getComputedStyle(document.querySelector('.hd1 .dn0')).marginLeft);"
                        "return [Math.abs(g('.hd1 .dn1','.hd1 .dn2')-m)<0.1,Math.abs(g('.hd1 .dn2','.hd1 .dn3')-m)<0.1]})()"), [True, True])
     finally:
-        ui.c.ws.call("Emulation.setEmulatedMedia", {"features": []})
+        ui.media()
     ui.check_no_errors()

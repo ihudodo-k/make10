@@ -284,7 +284,7 @@ def run(ui):
                    "for(const e of document.querySelectorAll('.dsheet,.dcard')){const t=getComputedStyle(e).transitionDuration;if(t!=='0s')bad.push('transition '+t)}return bad})()"), [])
 
     # ══ 動きを減らす設定: 動かずに出て、動かずに消える ══
-    ui.c.ws.call("Emulation.setEmulatedMedia", {"features": [{"name": "prefers-reduced-motion", "value": "reduce"}]})
+    ui.media(reduce=True)
     try:
         ui.open(now=at(no), tz=TZ, store=store, motion=True)
         for sid, btn, close, title in SHEETS:
@@ -294,5 +294,5 @@ def run(ui):
                         "return a.concat([%s.classList.contains('hide'),%s.classList.contains('closing')])})()" % (btn, sid, sid, close, sid, sid))
             ui.check("動きを減らす設定 %s: 押したその場で、動かずに出ている。× を押したその場で、消えている" % title, got, [0, "1", "none", "1", True, False])
     finally:
-        ui.c.ws.call("Emulation.setEmulatedMedia", {"features": []})
+        ui.media()
     ui.check_no_errors()

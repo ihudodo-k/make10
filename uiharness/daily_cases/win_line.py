@@ -214,7 +214,7 @@ def run(ui):
     ui.check("線が引かれている途中で設定のシートを開いて閉じても、線は 1 度で終わる（印が外れ、濃さ 0）", ui.ev(LINE_OFF), ["0", False, 0])
 
     # ══ 動きを減らす設定: 何も動かず、線も出ない ══
-    ui.c.ws.call("Emulation.setEmulatedMedia", {"features": [{"name": "prefers-reduced-motion", "value": "reduce"}]})
+    ui.media(reduce=True)
     try:
         begin()
         scale, frames = solve_and_record(1.2)
@@ -229,5 +229,5 @@ def run(ui):
         ui.check("動きを減らす設定: 読み出し行は、途中のコマ無しで行き先に着く（寄る前か、寄った後のどちらかだけ）",
                  [[y for y in ys if 0.02 < y < ro[4] - 0.02], abs(ys[-1] - ro[4]) < 0.02], [[], True])
     finally:
-        ui.c.ws.call("Emulation.setEmulatedMedia", {"features": []})
+        ui.media()
     ui.check_no_errors("動きを減らす設定: JS エラー 0")

@@ -400,6 +400,17 @@ class UI:
         self.case = ""
         self._seed_id = None
         self._tz = None
+        # 端末の配色は、既定で暗い表示に固定する（D0.30。headless の Chrome は明るい表示を名乗るので、固定しないと
+        # ライトモード（15 章）で回ってしまう）。ケースごとに作り直されるので、前のケースの切り替えもここで戻る
+        self.media()
+
+    def media(self, scheme="dark", reduce=False):
+        """端末の設定を差し替える。scheme … "dark" / "light"（prefers-color-scheme）／reduce … 動きを減らす設定。
+        開いているページにもすぐ効く。戻すときは引数なしで呼ぶ"""
+        f = [{"name": "prefers-color-scheme", "value": scheme}]
+        if reduce:
+            f.append({"name": "prefers-reduced-motion", "value": "reduce"})
+        self.c.ws.call("Emulation.setEmulatedMedia", {"features": f})
 
     def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
              store=None, perf=False, api=None, hidden=False, motion=False):

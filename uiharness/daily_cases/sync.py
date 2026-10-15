@@ -39,6 +39,7 @@ REQUIRED_JS_ANON = [
 ]
 MEDIA = "@media (max-height:700px) || "
 WIDE = "@media (min-width:720px) and (min-height:768px) || "      # パソコンの見出し（D0.17。デイリーだけ）
+LIGHT = "@media (prefers-color-scheme:light) || "                 # ライトモード（D0.30。デイリーだけ）
 REQUIRED_CSS = [
     ":root", 'body[data-theme="ai"]', "*", "html,body", "body", "#bg", "@keyframes sweep", "#bg.flash",
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",
@@ -177,4 +178,7 @@ def run(ui):
                      ".dcard>:last-child", ".dcard>.more",
                      # D0.28（ギブアップの確認をポップアップに。D0.3 の #gubox の 4 規則は消した）
                      "#dgusheet", "#dgusheet .dcard", "#gu-text", "#dgusheet .gubtns", "#dgusheet .gubtns button",
-                     "#dgusheet .gubtns button:active", "body.gu #banline,body.gu .readout,body.gu #field"]))
+                     "#dgusheet .gubtns button:active", "body.gu #banline,body.gu .readout,body.gu #field",
+                     # D0.30（ライトモード。本編から複製した規則は変えず、@media の中で上書きする）
+                     LIGHT + "html", LIGHT + 'body[data-theme="ai"]', LIGHT + "#dcal", LIGHT + "#toast",
+                     LIGHT + "#ghost", LIGHT + ".dghost"]))
