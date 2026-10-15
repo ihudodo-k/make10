@@ -21,7 +21,7 @@ TZ = "Asia/Tokyo"
 VARS = ["--ink", "--panel", "--edge", "--paper", "--dim", "--slate", "--coral", "--gold"]
 LIGHT = {"--ink": "rgb(255, 255, 255)", "--panel": "rgb(255, 255, 255)", "--edge": "rgb(211, 214, 218)",
          "--paper": "rgb(26, 26, 27)", "--dim": "rgb(107, 111, 118)", "--slate": "rgb(163, 167, 173)",
-         "--coral": "rgb(200, 55, 45)", "--gold": "rgb(184, 134, 11)"}
+         "--coral": "rgb(200, 55, 45)", "--gold": "rgb(26, 26, 27)"}
 DARK = {"--ink": "rgb(18, 18, 19)", "--panel": "rgb(18, 18, 19)", "--edge": "rgb(58, 58, 60)",
         "--paper": "rgb(255, 255, 255)", "--dim": "rgb(154, 156, 161)", "--slate": "rgb(95, 96, 100)",
         "--coral": "rgb(226, 106, 87)", "--gold": "rgb(220, 189, 110)"}
@@ -166,7 +166,7 @@ def run(ui):
         # ══ 解いた後・問題が無い日（白）══
         ui.open(now=at(no), tz=TZ, dark=False)
         ui.solve(row["sol"], wait=0.9)
-        ui.check("白の解いた後: 「10」は白の金", ui.ev("getComputedStyle(eq).color"), "rgb(184, 134, 11)")
+        ui.check("白の解いた後: 「10」は白の墨（字と同じ）", ui.ev("getComputedStyle(eq).color"), "rgb(26, 26, 27)")
         scan("白の解いた後")
         ui.open(dark=False)
         ui.check("問題が無い日: 地は白", ui.ev("getComputedStyle(document.body).backgroundColor"), "rgb(255, 255, 255)")
