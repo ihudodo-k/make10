@@ -485,7 +485,7 @@ body.pop #app{z-index:3}
    ポップアップのカードは、白のときだけ影を付ける（D0.31。白の地と白の面が線 1 本だけでは後ろに沈むため）。
    カレンダーの点 --calDot は、黒と白の 60% では地との比が 2.36 になるので、副次色を 75% にする（比 3.08） */
 html:not(.dark){color-scheme:light;--popDim:50%}
-html:not(.dark) body[data-theme="ai"]{--ink:#FFFFFF;--panel:#FFFFFF;--edge:#D3D6DA;--paper:#1A1A1B;--slate:#A3A7AD;--coral:#C8372D;--gold:#1A1A1B;
+html:not(.dark) body[data-theme="ai"]{--ink:#FFFFFF;--panel:#FFFFFF;--edge:#D3D6DA;--paper:#1A1A1B;--slate:#A3A7AD;--coral:#C8372D;--gold:#E6B422;
  --line:211,214,218;--dim:#6B6F76;--bannerText:#A3A7AD}
 html:not(.dark) #dcal{--calDot:color-mix(in srgb,var(--dim) 75%,var(--ink))}
 html:not(.dark) #toast{box-shadow:0 8px 22px rgba(0,0,0,.08)}
@@ -624,7 +624,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.33";
+const DAILY_VERSION="0.34";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、

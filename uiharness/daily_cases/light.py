@@ -21,7 +21,7 @@ TZ = "Asia/Tokyo"
 VARS = ["--ink", "--panel", "--edge", "--paper", "--dim", "--slate", "--coral", "--gold"]
 LIGHT = {"--ink": "rgb(255, 255, 255)", "--panel": "rgb(255, 255, 255)", "--edge": "rgb(211, 214, 218)",
          "--paper": "rgb(26, 26, 27)", "--dim": "rgb(107, 111, 118)", "--slate": "rgb(163, 167, 173)",
-         "--coral": "rgb(200, 55, 45)", "--gold": "rgb(26, 26, 27)"}
+         "--coral": "rgb(200, 55, 45)", "--gold": "rgb(230, 180, 34)"}
 DARK = {"--ink": "rgb(18, 18, 19)", "--panel": "rgb(18, 18, 19)", "--edge": "rgb(58, 58, 60)",
         "--paper": "rgb(255, 255, 255)", "--dim": "rgb(154, 156, 161)", "--slate": "rgb(95, 96, 100)",
         "--coral": "rgb(226, 106, 87)", "--gold": "rgb(220, 189, 110)"}
@@ -50,6 +50,8 @@ SCAN = ("(function(){" + LIB + "const ink=__ink(),low=[],dark=[];"
         "&&!(k!=='color'&&parseFloat(s[k==='borderTopColor'?'borderTopWidth':k==='borderBottomColor'?'borderBottomWidth':'width'])===0))dark.push(name+' '+k+' '+c)}"
         "const own=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());if(!own||op(e)<0.5)continue;"
         "const c=__rgba(s.color),a=c[3],b=[c[0]*a+ink[0]*(1-a),c[1]*a+ink[1]*(1-a),c[2]*a+ink[2]*(1-a)];"
+        # 白の金（正解の「10」だけ。比 1.92）は、比を別に見るので外す（D0.34）
+        "if(s.color===" + json.dumps(LIGHT["--gold"]) + ")continue;"
         "const r=__ratio(b,ink);if(r<2)low.push(name+' '+e.textContent.trim().slice(0,12)+' '+r.toFixed(2))}"
         "return {low,dark}})()")
 POPDIM = "getComputedStyle(document.documentElement).getPropertyValue('--popDim').trim()"
@@ -90,9 +92,9 @@ def run(ui):
         ui.check("白: 地（body）は白・幕の濃さ 50%", [ui.ev("getComputedStyle(document.body).backgroundColor"), ui.ev(POPDIM)],
                  ["rgb(255, 255, 255)", "50%"])
         r = ui.ev(RATIOS)
-        # 金は大きい字の「10」（28px 以上の太字）にしか使わないので、大きい字の基準 3 で見る（D0.32）
-        ui.check("白: 地との比（字 7 以上・副次・赤 4.5 以上・金 3 以上・無効 2 以上・点 3 以上で副次色より下・線 1.3 以上）",
-                 [r["--paper"] >= 7, r["--dim"] >= 4.5, r["--gold"] >= 3, r["--coral"] >= 4.5, r["--slate"] >= 2,
+        # 金は大きい字の「10」（28px 以上の太字）にしか使わない。明るさを先にして、比は 1.8 以上で見る（D0.34。金色 #E6B422 は 1.92）
+        ui.check("白: 地との比（字 7 以上・副次・赤 4.5 以上・金 1.8 以上・無効 2 以上・点 3 以上で副次色より下・線 1.3 以上）",
+                 [r["--paper"] >= 7, r["--dim"] >= 4.5, r["--gold"] >= 1.8, r["--coral"] >= 4.5, r["--slate"] >= 2,
                   3 <= r["calDot"] < r["--dim"], r["--edge"] >= 1.3], [True] * 7)
         ui.check("白: ポップアップのカードに影がある", ui.ev(SHADOW) != "none", True)
         scan("白の盤")
@@ -166,7 +168,7 @@ def run(ui):
         # ══ 解いた後・問題が無い日（白）══
         ui.open(now=at(no), tz=TZ, dark=False)
         ui.solve(row["sol"], wait=0.9)
-        ui.check("白の解いた後: 「10」は白の墨（字と同じ）", ui.ev("getComputedStyle(eq).color"), "rgb(26, 26, 27)")
+        ui.check("白の解いた後: 「10」は白の金（金色）", ui.ev("getComputedStyle(eq).color"), "rgb(230, 180, 34)")
         scan("白の解いた後")
         ui.open(dark=False)
         ui.check("問題が無い日: 地は白", ui.ev("getComputedStyle(document.body).backgroundColor"), "rgb(255, 255, 255)")
