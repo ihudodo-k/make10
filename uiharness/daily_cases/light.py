@@ -57,7 +57,7 @@ SCAN = ("(function(){" + LIB + "const ink=__ink(),low=[],dark=[];"
 POPDIM = "getComputedStyle(document.documentElement).getPropertyValue('--popDim').trim()"
 IS_DARK = "document.documentElement.classList.contains('dark')"
 SHADOW = "getComputedStyle(document.querySelector('#dstatsheet .dcard')).boxShadow"
-SW = ("[...document.querySelectorAll('#dsetbody .toggle')].map(e=>[e.id,e.textContent.trim(),e.classList.contains('on'),"
+SW = ("[...document.querySelectorAll('#dsetbody .toggle:has(.sw)')].map(e=>[e.id,e.textContent.trim(),e.classList.contains('on'),"
       "e.getAttribute('aria-pressed')])")
 # html に dark が初めて付いた時に、body がもうあったか（描く前＝head の中で付いたなら false）
 WATCH = ("new MutationObserver((l,o)=>{if(document.documentElement.classList.contains('dark')&&!('__darkAt' in window)){"
@@ -126,7 +126,7 @@ def run(ui):
         time.sleep(0.5)                                               # スイッチの色の遷移（0.2 秒）が終わるのを待つ
         ui.check("ダークモードを入れると、その場で黒と白（幕 78%・影なし）・スイッチが入る・保存される",
                  [ui.ev(IS_DARK), ui.ev(COLS), ui.ev(POPDIM), ui.ev(SHADOW), ui.ev(SW)[2][2:], ui.saved(raw=True)["set"]],
-                 [True, DARK, "78%", "none", [True, "true"], {"easy": 0, "tap": 0, "dark": 1}])
+                 [True, DARK, "78%", "none", [True, "true"], {"easy": 0, "tap": 0, "dark": 1, "lang": "auto"}])
         ui.check("ダークモードを入れても、盤は描き直さない（置いた式がそのまま）", ui.ev("expr.innerHTML"), before)
         scan_dark = ui.ev(SCAN)
         ui.check("黒と白の設定: 見えている文字は、どれも地との比が 2 以上", scan_dark["low"], [])
@@ -144,13 +144,13 @@ def run(ui):
         ui.check("開き直した設定: ダークモードのスイッチが入っている", ui.ev(SW)[2][2:], [True, "true"])
         ui.ev("document.getElementById('t-dark').click()")
         ui.check("ダークモードを切ると白に戻り、保存も 0", [ui.ev(IS_DARK), ui.ev(COLS), ui.saved(raw=True)["set"]],
-                 [False, LIGHT, {"easy": 0, "tap": 0, "dark": 0}])
+                 [False, LIGHT, {"easy": 0, "tap": 0, "dark": 0, "lang": "auto"}])
         ui.ev("document.getElementById('dset-close').click()")
 
         # ══ ?date=（テスト表示）は保存を読まない ══
         wid = ui.c.on_new_document(WATCH)
         try:
-            ui.open(date=day(no).isoformat(), store={"v": 1, "days": {}, "cur": None, "set": {"easy": 0, "tap": 0, "dark": 1}}, dark=False)
+            ui.open(date=day(no).isoformat(), store={"v": 1, "days": {}, "cur": None, "set": {"easy": 0, "tap": 0, "dark": 1, "lang": "auto"}}, dark=False)
         finally:
             ui.c.remove_on_new_document(wid)
         ui.check("?date= では、保存がダークモードでも白で開く（読み込みの途中でも一度も dark が付かない）",

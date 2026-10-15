@@ -21,6 +21,8 @@ TZ = "Asia/Tokyo"
 GLYPH = {"+": "+", "-": "−", "*": "×", "/": "÷", "^": "^", "!": "!"}
 JP = re.compile(r"[　-ヿ㐀-鿿＀-￯]")      # かな・漢字・全角の記号と空白
 MARK = re.compile(r"\{(\w+)\}")
+# 英語でも日本語の字を持つキー（D0.36。言語の行の見出し「言語 / Language」と、値の「日本語」。本編 7.7 と同じ例外）
+JP_OK = {"daily.set_lang", "daily.lang_ja"}
 TAG = re.compile(r"<[a-z]")
 
 # 見えている文字と名前（aria-label / title）を集め、はみ出しと折り返しを見る
@@ -37,7 +39,8 @@ AUDIT = r"""(function(){
       if(!s||!vis(e))continue;
       const r=document.createRange();r.selectNodeContents(n);const b=r.getBoundingClientRect();
       if(!b.width)continue;
-      out.texts.push(s);
+      // 設定の言語の行（D0.36）の「言語 / Language」と「日本語」は、どの言語でもその字で出す（本編 7.7 と同じ例外）
+      if(!e.closest('#t-lang'))out.texts.push(s);
       if(e.closest('.btnlabel'))continue;                 // 読み上げ専用（1px に切ってある）
       if(b.left<A.left-0.5||b.right>A.right+0.5)out.over.push('画面の外: '+s);
       const btn=e.closest('button');
@@ -127,7 +130,7 @@ def run(ui):
                  [k for k in both if isinstance(ja[k], dict) != isinstance(en[k], dict) or
                   (isinstance(ja[k], dict) and (sorted(ja[k]) != ["other"] or sorted(en[k]) != ["one", "other"]))], [])
         ui.check("%s: 英語の文に、全角の空白も日本語の文字も無い" % name,
-                 [k for k in en if any(JP.search(x) for x in forms(en[k]))], [])
+                 [k for k in en if k not in JP_OK and any(JP.search(x) for x in forms(en[k]))], [])
         ui.check("%s: _html で終わるキーだけがタグを含む" % name,
                  [k for k in both for x in forms(ja[k]) + forms(en[k]) if bool(TAG.search(x)) != k.endswith("_html")], [])
         if name == "STR_DAILY":
@@ -169,8 +172,54 @@ def run(ui):
             (None, "ja-JP", "&lang=xx", ja_want, "?lang= の知らない値は無視する")]:
         ui.open(date=iso(3), lang=lang, nav=nav, extra=extra)
         ui.check("言語の決め方: " + what, ui.ev(state), want)
-    ui.open(date=iso(3), lang="en")
-    ui.check("言語は保存しない（デイリーの保存データに言語の項目が無い）", ui.ev("'lang' in DATA"), False)
+    # ══ 設定の言語の行（D0.36）══
+    def at(n, hour=10):
+        d = day(n)
+        tz = datetime.timezone(datetime.timedelta(hours=9))
+        return int(datetime.datetime(d.year, d.month, d.day, hour, tzinfo=tz).timestamp() * 1000)
+
+    ROW = ("[DATA.set.lang,document.documentElement.lang,document.getElementById('t-lang-v').textContent,"
+           "document.getElementById('dset-title').textContent,dinfo.textContent]")
+    saved_lang = lambda: (ui.saved(raw=True) or {}).get("set", {}).get("lang")      # noqa: E731
+    top_ja, top_en = dui.top_text(3, day(3)), dui.top_text(3, day(3), "en")
+    ui.open(now=at(3), tz=TZ, lang=None, nav="ja-JP")
+    ui.ev("dset.click()")
+    ui.check("言語の行: 見出しは「言語 / Language」。既定は自動で、端末が日本語なら「自動（日本語）」",
+             [ui.ev("document.querySelector('#t-lang>span').textContent"), ui.ev(ROW)],
+             ["言語 / Language", ["auto", "ja", "自動（日本語）", "設定", top_ja]])
+    ui.ev("document.getElementById('t-lang').click()")
+    ui.check("押すと「日本語」になり、保存する", [ui.ev(ROW), saved_lang()], [["ja", "ja", "日本語", "設定", top_ja], "ja"])
+    ui.ev("document.getElementById('t-lang').click()")
+    ui.check("もう一度押すと「English」。その場で画面が英語になり（設定の見出し・上のバー・<html lang>）、保存する",
+             [ui.ev(ROW), saved_lang(), ui.ev("document.querySelector('#t-lang>span').textContent")],
+             [["en", "en", "English", "Settings", top_en], "en", "言語 / Language"])
+    ui.ev("document.getElementById('t-lang').click()")
+    ui.check("もう一度押すと自動に戻る", [ui.ev(ROW), saved_lang()], [["auto", "ja", "自動（日本語）", "設定", top_ja], "auto"])
+    ui.open(now=at(3), tz=TZ, lang=None, nav="en-US")
+    ui.ev("dset.click()")
+    ui.check("端末が英語なら、自動は「Auto (English)」", ui.ev(ROW), ["auto", "en", "Auto (English)", "Settings", top_en])
+    ui.ev("document.getElementById('t-lang').click()")
+    ui.check("端末が英語でも「日本語」を選ぶと日本語", ui.ev(ROW), ["ja", "ja", "日本語", "設定", top_ja])
+    ui.open(now=at(3), tz=TZ, lang=None, nav="en-US", store="keep")
+    ui.check("開き直しても、保存した言語（端末より優先）", [ui.ev("document.documentElement.lang"), ui.text("dinfo")], ["ja", top_ja])
+    ui.open(now=at(3), tz=TZ, lang="en", nav="ja-JP", store="keep")
+    ui.check("?lang= は保存した言語より優先し、保存した値は書き換えない",
+             [ui.ev("document.documentElement.lang"), ui.ev("DATA.set.lang"), saved_lang()], ["en", "ja", "ja"])
+    ui.open(date=iso(3), lang=None, nav="ja-JP")
+    ui.ev("dset.click();document.getElementById('t-lang').click();document.getElementById('t-lang').click()")
+    ui.check("?date= では、切り替えはその場で効くが、保存しない",
+             [ui.ev("document.documentElement.lang"), ui.ev("localStorage.getItem('make10.daily.v1')")], ["en", None])
+    # 後から書いた文も引き直す: 制約のある日の 1 行・読み出し行・結果の並び
+    con3 = next(r for r in rows if r["rc"] != "N")
+    ui.open(now=at(con3["no"]), tz=TZ, lang=None, nav="ja-JP")
+    ui.solve(con3["sol"], wait=0.9)
+    ui.ev("dset.click();document.getElementById('t-lang').click();document.getElementById('t-lang').click()")
+    ui.check("解いた後に英語へ切り替えると、制約の 1 行・「正解」・結果の単位も英語になる",
+             [ui.text("banline") == ui.ev("STR_CORE.en['read.banned'].replace('{op}',GLYPH[conOf(PUZZLE).op])"),
+              ui.text("sub") == ui.ev("STR_CORE.en['read.solved']"), ui.text("eq"),
+              [x for x in (ui.text("banline"), ui.text("sub"), ui.text("r-streak-u"), ui.text("dinfo")) if JP.search(x)]],
+             [True, True, "10", []])
+    ui.check_no_errors("言語の行で JS エラー 0")
 
     # ══ 日付の形（7 つの曜日と、月をまたぐ日・列の最後）══
     nos = sorted(set([1, 2, 3, 4, 5, 6, 7, 28, 60, 150, 240, 331, 700, len(rows)]))

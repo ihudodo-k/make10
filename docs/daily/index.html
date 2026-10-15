@@ -336,7 +336,7 @@ body.pop #app{z-index:3}
 #dcal-line{min-height:20px;margin:8px 0 6px;text-align:center;font-size:12.5px;line-height:20px;color:var(--dim);white-space:nowrap}
 #dcal-line b{color:var(--paper);font-weight:700}
 /* 設定（13-11。D0.13）。上のバーの歯車から開く、列の中に重ねる 1 枚の画面（統計・遊び方と同じ作り）。
-   中身は 2 つのスイッチ。行・スイッチ・区切り線は本編の設定の行（.toggle）を 1 文字も変えずに複製してある。
+   中身は 3 つのスイッチと言語の行（D0.36）。行・スイッチ・区切り線・言語の値（.toggle .tv）は本編の設定の行を 1 文字も変えずに複製してある。
    囲まない ―― 本編の設定と同じで、面も枠も持たない（.group は区切り線の規則のための印だけ）*/
 .toggle{position:relative;display:flex;align-items:center;justify-content:space-between;width:100%;
  padding:14px;min-height:48px;font-size:13.5px;font-weight:700;margin-bottom:0;
@@ -348,9 +348,13 @@ body.pop #app{z-index:3}
  border-radius:50%;background:var(--slate);transition:transform .18s,background .18s}
 .toggle.on span.sw{background:color-mix(in srgb,var(--paper) 45%,transparent)}
 .toggle.on span.sw::after{transform:translateX(19px);background:var(--paper)}
+/* 行の右端に出す今の値（7.6。言語の行）。押すたびに次の値へ回る行で、スイッチも矢印も持たない */
+.toggle .tv{flex:0 0 auto;font-size:13px;font-weight:500;color:var(--dim)}
 .group .toggle:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;
  bottom:0;height:1px;background:var(--edge)}
 #dsetbody{flex:0 1 auto;min-height:0;overflow-y:auto}
+/* 言語の行（D0.36）は、スイッチの行と同じまとまりに並ぶので、値の行の高さをスイッチ（25px）にそろえ、4 行とも 53px にする */
+#dsetbody .tv{line-height:25px}
 /* 歯車を統計の左に足したぶん、中央の文字が左へ寄る。左に同じ幅（ボタン 1 つと間隔）を空けて、
    文字を画面の軸に戻す。折り返さない（4 桁の問題番号の日本語がいちばん長い。360px で 117px）*/
 #dmid{padding-left:calc(var(--btnW) + 9px);white-space:nowrap}
@@ -603,7 +607,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
       <p class="hlink"><a id="dprivacy" href="../privacy/" target="_blank" rel="noopener" data-i18n="daily.help_privacy"></a></p>
     </div>
   </div></div>
-  <!-- 設定（ポップアップ。3 つのスイッチ。id は本編の設定と同じ t-easy・t-tap と、デイリーだけの t-dark（D0.31））-->
+  <!-- 設定（ポップアップ。3 つのスイッチと言語の行。id は本編の設定と同じ t-easy・t-tap・t-lang（D0.36）と、デイリーだけの t-dark（D0.31））-->
   <div id="dsetsheet" class="dsheet hide"><div class="dcard" role="dialog" aria-modal="true" aria-labelledby="dset-title" tabindex="-1">
     <div class="shead"><h2 id="dset-title" data-i18n="daily.set_title"></h2>
       <button id="dset-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
@@ -611,6 +615,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
       <button class="toggle" id="t-easy"><span data-i18n="daily.set_easy"></span><span class="sw"></span></button>
       <button class="toggle" id="t-tap"><span data-i18n="daily.set_tap"></span><span class="sw"></span></button>
       <button class="toggle" id="t-dark"><span data-i18n="daily.set_dark"></span><span class="sw"></span></button>
+      <button class="toggle" id="t-lang"><span data-i18n="daily.set_lang"></span><span class="tv" id="t-lang-v"></span></button>
     </div></div>
   </div></div>
   <!-- ギブアップの確認（ポップアップ。D0.28）。カードは式の下に出す（guPlace()）。見出しと × は持たない ―― 「いいえ」が閉じる -->
@@ -625,7 +630,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.35";
+const DAILY_VERSION="0.36";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -757,7 +762,13 @@ const STR_DAILY={ja:{
   "daily.set_title":"設定",
   "daily.set_easy":"途中の値を表示",
   "daily.set_tap":"タップで配置",
-  "daily.set_dark":"ダークモード"
+  "daily.set_dark":"ダークモード",
+  // 言語の行（D0.36。本編 7.6 の設定の言語の行と同じ文。見出しはどちらの言語でも両方の言葉で出す ―― 読めない言語になっていても見つけられるように）
+  "daily.set_lang":"言語 / Language",
+  "daily.lang_auto":"自動",
+  "daily.lang_auto_now":"{auto}（{lang}）",
+  "daily.lang_ja":"日本語",
+  "daily.lang_en":"English"
 },
 en:{
   "daily.page_title":"Make10 Daily",
@@ -833,7 +844,12 @@ en:{
   "daily.set_title":"Settings",
   "daily.set_easy":"Show intermediate values",
   "daily.set_tap":"Tap to place",
-  "daily.set_dark":"Dark mode"
+  "daily.set_dark":"Dark mode",
+  "daily.set_lang":"言語 / Language",
+  "daily.lang_auto":"Auto",
+  "daily.lang_auto_now":"{auto} ({lang})",
+  "daily.lang_ja":"日本語",
+  "daily.lang_en":"English"
 }};
 const LANGS=["ja","en"];
 const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");
@@ -2578,18 +2594,19 @@ function applyLang(){
                   sh:共有の回数, e:解いた式（解いたときだけ。開き直したときに盤へ戻す）}
      cur = {no:問題番号, start:問題を最初に見た時刻（端末の時計。1970 年からのミリ秒）, h:使ったヒントの回数, sh:共有の回数}
      days[…].sent = 集計へ送れたら 1（送り直さないための印。D0.8。17-2）
-     set = 設定 {easy:途中の値を表示 0/1, tap:タップで配置 0/1, dark:ダークモード 0/1}（D0.13。dark は D0.31。13-11）
+     set = 設定 {easy:途中の値を表示 0/1, tap:タップで配置 0/1, dark:ダークモード 0/1, lang:"auto"/"ja"/"en"}（D0.13。dark は D0.31・lang は D0.36。13-11）
    ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる。
    公開までは保存の形の互換を気にしない（古い形の記録は読めなくてよい。移行の処理は作らない。10 章）*/
 const DAILY_KEY="make10.daily.v1";
-let DATA={v:1,days:{},cur:null,set:{easy:0,tap:0,dark:0}};
+let DATA={v:1,days:{},cur:null,set:{easy:0,tap:0,dark:0,lang:"auto"}};
 function loadDaily(){
   if(TEST_MODE)return;
   try{
     const x=JSON.parse(localStorage.getItem(DAILY_KEY)||"null");
     if(x&&typeof x==="object"&&x.days&&typeof x.days==="object")
       DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null,
-        set:{easy:x.set&&x.set.easy?1:0,tap:x.set&&x.set.tap?1:0,dark:x.set&&x.set.dark?1:0}};
+        set:{easy:x.set&&x.set.easy?1:0,tap:x.set&&x.set.tap?1:0,dark:x.set&&x.set.dark?1:0,
+          lang:x.set&&LANGS.includes(x.set.lang)?x.set.lang:"auto"}};
   }catch(e){}
 }
 function saveDaily(){
@@ -3202,6 +3219,8 @@ $("dhelp").onclick=()=>popShow("dhelpsheet");
 $("dhelp-close").onclick=()=>popHide();
 /* ═══ 設定（13-11。D0.13）═══
    上のバーの歯車から開く。スイッチは 3 つ ――「途中の値を表示」「タップで配置」「ダークモード」（D0.31 で 3 つ目を足し、文の「〜する」を取った）。
+   その下に言語の行（D0.36）。押すたびに 自動 → 日本語 → English → 自動 と回る（本編 7.6 と同じ）。自動は端末の言語が ja で始まれば日本語、
+   それ以外は英語（pickLang()）。?lang= は保存した値より優先する（保存した値は書き換えない）。
    保存は DATA.set。盤が読むのは、本編から複製した G.easy と tapMode（applySet() が当てる）。
    切り替えたら、その場で盤を描き直す。?date=（テスト表示）では保存しない（saveDaily() が書かない）ので、その場だけ効く。
    記録・集計・共有には載せない（days にも、送る中身にも、共有文にも入れない）。
@@ -3212,13 +3231,17 @@ const ICON_SET=`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="
 $("dset").innerHTML=ICON_SET;
 $("dset-close").innerHTML=ICON_HCLOSE;
 /* 保存してある設定を、盤が読む 2 つの値に当てる */
-function applySet(){G.easy=!!DATA.set.easy;tapMode=!!DATA.set.tap}
+function applySet(){G.easy=!!DATA.set.easy;tapMode=!!DATA.set.tap;G.lang=DATA.set.lang}
 /* 色（15 章。D0.31）。白が既定で、ダークモードのときだけ html に dark。読み込んだ時と、ダークモードを切り替えた時にだけ当てる */
 function applyDark(){document.documentElement.classList.toggle("dark",!!DATA.set.dark)}
 function drawSet(){
   for(const k of ["easy","tap","dark"]){
     $("t-"+k).classList.toggle("on",!!DATA.set[k]);$("t-"+k).setAttribute("aria-pressed",DATA.set[k]?"true":"false");
   }
+  // 言語の名前は、どの言語のときも自分の言葉（日本語 / English）。自動は、今どちらになっているかを括弧で出す（本編 7.7 と同じ）
+  const names={ja:t("daily.lang_ja"),en:t("daily.lang_en")};
+  $("t-lang-v").textContent=DATA.set.lang==="auto"
+    ?t("daily.lang_auto_now",{auto:t("daily.lang_auto"),lang:names[LANG]}):names[DATA.set.lang];
 }
 /* スイッチを切り替える。タップ配置をやめたときは、選んでいた記号を放して枠を閉じる
    （ドラッグの操作に、選んだままの記号が残らないように）。盤は、その場で描き直す */
@@ -3233,6 +3256,18 @@ function toggleSet(key){
 $("t-easy").onclick=()=>toggleSet("easy");
 $("t-tap").onclick=()=>toggleSet("tap");
 $("t-dark").onclick=()=>toggleSet("dark");
+/* 言語を回す（D0.36）。辞書を当て直し、JS が後から書いた文（上のバー・読み出し行・ヒントの箱・丸ボタンの読み上げ・
+   結果の並び・みんなの結果・設定の行）も引き直す。統計・カレンダーは開くたびに描くので、ここでは描かない */
+function cycleLang(){            // 本編の $("t-lang").onclick=()=>{ と 1 行目が同じ文にならないよう、名前を付けた関数にする
+  const order=["auto",...LANGS];
+  DATA.set.lang=order[(order.indexOf(DATA.set.lang)+1)%order.length];
+  saveDaily();applySet();applyLang();drawSet();
+  if(!PUZZLE)return;
+  render();drawHintBtn();
+  if(hintShown!==null)hintBox(hintShown);
+  if(dayRecord())showResult(false);
+}
+$("t-lang").onclick=cycleLang;
 $("dset").onclick=()=>{drawSet();popShow("dsetsheet")};
 $("dset-close").onclick=()=>popHide();
 

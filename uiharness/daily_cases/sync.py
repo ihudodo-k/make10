@@ -65,7 +65,7 @@ REQUIRED_CSS = [
     'button.pressed,[role="button"].pressed',
     # D0.13: 設定のスイッチの行（本編の設定の行）
     ".toggle", ".toggle:active", ".toggle span.sw", ".toggle span.sw::after", ".toggle.on span.sw",
-    ".toggle.on span.sw::after", ".group .toggle:not(:last-child)::after",
+    ".toggle.on span.sw::after", ".group .toggle:not(:last-child)::after", ".toggle .tv",
     MEDIA + ".readout", MEDIA + ".eq", MEDIA + ".eq.idle", MEDIA + ".eq.part", MEDIA + ".chip",
     MEDIA + ".foot", MEDIA + ".top", MEDIA + ".field",
     "@media (prefers-reduced-motion:reduce) || *",
@@ -184,4 +184,6 @@ def run(ui):
                      # D0.31（統計を 3 つ横並び）
                      "#dstatbody #statlist .stat", "#dstatbody #statlist .stat .sv",
                      # D0.35（式が出来るまでの薄い「10」）
-                     ".eq.goal"]))
+                     ".eq.goal",
+                     # D0.36（言語の行の高さをスイッチの行にそろえる）
+                     "#dsetbody .tv"]))

@@ -24,7 +24,7 @@ SHOWN = "(s=>!s.classList.contains('hide')&&!s.classList.contains('closing'))(do
 ESC = "document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))"
 RECT = ("(function(){const r=document.querySelector(%r).getBoundingClientRect();"
         "return [r.left,r.top,r.width,r.height].map(x=>Math.round(x*10)/10)})()")
-ON = "[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>b.classList.contains('on'))"
+ON = "[...document.querySelectorAll('#dsetsheet .toggle:has(.sw)')].map(b=>b.classList.contains('on'))"
 LIVE = "document.querySelectorAll('#expr .zone.live').length"
 TOKS = ("T().map(x=>x.t==='num'?String(x.v):x.t==='op'?x.v:x.t==='fac'?'!':x.t==='lp'?'(':')').join(' ')")
 # 見えている文字の左右（要素の箱ではなく、中の文字そのもの）
@@ -181,23 +181,29 @@ def run(ui):
     want = [["途中の値を表示", "Show intermediate values"], ["タップで配置", "Tap to place"], main_text("settings.title"),
             ["ダークモード", "Dark mode"]]
     ui.check("本編の辞書に、見出しの文が日本語と英語である（照合の相手がある）", len(want[2]), 2)
-    ui.check("スイッチは 3 つ（途中の値を表示・タップで配置・ダークモード。D0.31）。見出しは本編の設定と同じ",
+    ui.check("スイッチは 3 つ（途中の値を表示・タップで配置・ダークモード。D0.31）と言語の行（D0.36）。見出しは本編の設定と同じ",
              [ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>b.id+':'+b.textContent)"),
               ui.ev("document.querySelector('#dsetsheet h2').textContent")],
-             [["t-easy:" + want[0][0], "t-tap:" + want[1][0], "t-dark:" + want[3][0]], want[2][0]])
+             [["t-easy:" + want[0][0], "t-tap:" + want[1][0], "t-dark:" + want[3][0], "t-lang:言語 / Language自動（日本語）"], want[2][0]])
     ui.check("はじめは 3 つともオフ", ui.ev(ON), [False, False, False])
     ui.check("行は高さ 53px（本編のスイッチの行と同じ）・左右はカードの端から 7px（線 1px ＋ 余白 6px）。スイッチは 44×25px で右端から 14px",
-             ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>{const r=b.getBoundingClientRect(),"
+             ui.ev("[...document.querySelectorAll('#dsetsheet .toggle:has(.sw)')].map(b=>{const r=b.getBoundingClientRect(),"
                    "s=b.querySelector('.sw').getBoundingClientRect(),c=document.querySelector('#dsetsheet .dcard').getBoundingClientRect();"
                    "return [r.height,r.left-c.left,c.right-r.right,s.width,s.height,Math.round(r.right-s.right)]})"),
              [[53, 7, 7, 44, 25, 14]] * 3)
+    ui.check("言語の行（D0.36）も高さ 53px・左右 7px。値は 13px の副次色で、右端から 14px",
+             ui.ev("(function(){const b=document.getElementById('t-lang'),r=b.getBoundingClientRect(),v=document.getElementById('t-lang-v'),"
+                   "s=v.getBoundingClientRect(),c=document.querySelector('#dsetsheet .dcard').getBoundingClientRect(),k=getComputedStyle(v),"
+                   "d=document.createElement('i');d.style.color='var(--dim)';document.body.appendChild(d);const dim=getComputedStyle(d).color;d.remove();"
+                   "return [r.height,r.left-c.left,c.right-r.right,Math.round(r.right-s.right),k.fontSize,k.color===dim]})()"),
+             [53, 7, 7, 14, "13px", True])
     ui.check("行の文字は 13.5px・太字。面も枠も持たない（囲まない）",
              ui.ev("(function(){const c=getComputedStyle(document.getElementById('t-easy'));"
                    "return [c.fontSize,c.fontWeight,c.backgroundColor,c.borderTopWidth].join('|')})()"),
              "13.5px|700|rgba(0, 0, 0, 0)|0px")
     ui.check("区切りの線は、行の間に 1 本だけ（最後の行の下には引かない）",
              ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>getComputedStyle(b,'::after').height)"),
-             ["1px", "1px", "auto"])
+             ["1px", "1px", "1px", "auto"])
     ui.check("シートに金も赤も無い",
              ui.ev("(function(){const cs=getComputedStyle(document.body),bad=[cs.getPropertyValue('--gold'),"
                    "cs.getPropertyValue('--coral')].map(v=>{const d=document.createElement('i');d.style.color=v;"
@@ -217,7 +223,7 @@ def run(ui):
              [ui.ev(ON), ui.text("eq"), ui.ev("eq.className")], [[True, False, False], "15  ·  5  ·  2", "eq part"])
     ui.check("オンにしても、盤の式・手数・時間の数え方は変わらない",
              [ui.ev(TOKS), ui.ev("moves"), ui.ev("startAt")], ["8 + 7 5 2", 0, at(no)])
-    ui.check("保存データの set に残る", ui.saved(raw=True)["set"], {"easy": 1, "tap": 0, "dark": 0})
+    ui.check("保存データの set に残る", ui.saved(raw=True)["set"], {"easy": 1, "tap": 0, "dark": 0, "lang": "auto"})
     ui.check("スイッチは押されている状態を名乗る（aria-pressed）",
              ui.ev("['t-easy','t-tap'].map(i=>document.getElementById(i).getAttribute('aria-pressed'))"), ["true", "false"])
     click(ui, "dset-close")
@@ -232,7 +238,7 @@ def run(ui):
     ui.check("開き直した後のスイッチは、オン・オフ", ui.ev(ON), [True, False, False])
     click(ui, "t-easy")
     ui.check("オフに戻すと、その場で読み出し行が目標の「10」に戻り、保存も戻る",
-             [ui.text("eq"), ui.ev("eq.className"), ui.saved(raw=True)["set"]], ["10", "eq goal", {"easy": 0, "tap": 0, "dark": 0}])
+             [ui.text("eq"), ui.ev("eq.className"), ui.saved(raw=True)["set"]], ["10", "eq goal", {"easy": 0, "tap": 0, "dark": 0, "lang": "auto"}])
     click(ui, "dset-close")
     ui.check_no_errors("途中の値: JS エラー 0")
 
@@ -244,7 +250,7 @@ def run(ui):
     click(ui, "dset")
     click(ui, "t-tap")
     click(ui, "dset-close")
-    ui.check("オンにすると保存され、盤がタップ配置になる", [ui.saved(raw=True)["set"], ui.ev("tapMode")], [{"easy": 0, "tap": 1, "dark": 0}, True])
+    ui.check("オンにすると保存され、盤がタップ配置になる", [ui.saved(raw=True)["set"], ui.ev("tapMode")], [{"easy": 0, "tap": 1, "dark": 0, "lang": "auto"}, True])
     tap(ui, plus)
     n_live = ui.ev("livePositions('+').size")
     ui.check("記号を押すと選ばれる: トレイの記号に下線の印・置ける場所の枠が開く（置ける場所の数だけ）",
@@ -276,7 +282,7 @@ def run(ui):
     click(ui, "dset-close")
     ui.check("選んだままタップ配置をやめると、選択が外れて枠が閉じる（ドラッグに戻る）",
              [ui.ev("tapMode"), ui.ev("held"), ui.ev(LIVE), ui.ev("document.querySelectorAll('#tray .chip.sel').length"),
-              ui.saved(raw=True)["set"]], [False, None, 0, 0, {"easy": 1, "tap": 0, "dark": 0}])
+              ui.saved(raw=True)["set"]], [False, None, 0, 0, {"easy": 1, "tap": 0, "dark": 0, "lang": "auto"}])
     x, y = center(ui, plus)
     mouse(ui, "mousePressed", x, y)
     mouse(ui, "mouseMoved", x, y - 6)
@@ -312,7 +318,7 @@ def run(ui):
     ui.check("記録: 解いた式・時間・ヒントの回数・共有の回数だけ（設定は載らない）",
              {k: v for k, v in rec["days"][str(no)].items() if k != "sent"},
              {"r": "s", "t": 61, "h": 0, "sh": 0, "e": row["sol"]})
-    ui.check("保存の設定は、記録とは別の場所（set）のまま", rec["set"], {"easy": 1, "tap": 1, "dark": 0})
+    ui.check("保存の設定は、記録とは別の場所（set）のまま", rec["set"], {"easy": 1, "tap": 1, "dark": 0, "lang": "auto"})
     calls = ui.api_calls()
     ui.check("集計へ送る中身は、今までの 4 つだけ（設定は送らない）",
              [len(calls), sorted(json.loads(calls[0]["body"]).keys())], [1, ["h", "n", "r", "t"]])
@@ -326,7 +332,7 @@ def run(ui):
     click(ui, "dset-close")
     ui.check("解いた後に切り替えても、盤・「10」・結果の並びは動かない（設定だけが変わる）",
              [[ui.ev(TOKS), ui.text("eq"), ui.ev(RECT % "#result"), ui.ev(RECT % "#exprwrap")], ui.saved(raw=True)["set"]],
-             [before, {"easy": 0, "tap": 0, "dark": 0}])
+             [before, {"easy": 0, "tap": 0, "dark": 0, "lang": "auto"}])
     ui.check_no_errors("タップ配置で解く: JS エラー 0")
 
     # ══ タップ配置のまま: 開き直し（途中）と、ギブアップ ══
@@ -377,22 +383,23 @@ def run(ui):
         ui.open(now=at(no), tz=TZ, store=st)
         ui.check("保存データの set が %r: 0 か 1 に直して読む" % (bad,), [ui.ev("DATA.set"), ui.ev("G.easy"), ui.ev("tapMode")],
                  [{"easy": 1 if isinstance(bad, dict) and bad.get("easy") else 0,
-                   "tap": 1 if isinstance(bad, dict) and bad.get("tap") else 0, "dark": 0},
+                   "tap": 1 if isinstance(bad, dict) and bad.get("tap") else 0, "dark": 0, "lang": "auto"},
                   bool(isinstance(bad, dict) and bad.get("easy")), bool(isinstance(bad, dict) and bad.get("tap"))])
 
     # ══ 英語 ══
     ui.open(now=at(no), tz=TZ, lang="en")
     click(ui, "dset")
-    ui.check("英語: 見出しは本編の英語の文と同じ。3 つの文。歯車と × の名前",
+    ui.check("英語: 見出しは本編の英語の文と同じ。3 つの文と言語の行。歯車と × の名前",
              [ui.ev("document.querySelector('#dsetsheet h2').textContent"),
               ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>b.textContent)"),
               ui.ev("dset.getAttribute('aria-label')"), ui.ev("document.getElementById('dset-close').getAttribute('aria-label')")],
-             [want[2][1], [want[0][1], want[1][1], want[3][1]], "Settings", "Close"])
+             [want[2][1], [want[0][1], want[1][1], want[3][1], "言語 / LanguageAuto (English)"], "Settings", "Close"])
     ui.check("英語: 行の文字は 1 行で、スイッチに重ならない。シートは横にはみ出さない",
              ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].every(b=>{const s=b.firstElementChild.getBoundingClientRect(),"
-                   "k=b.querySelector('.sw').getBoundingClientRect();return s.height<24&&s.right<=k.left})"
+                   "k=(b.querySelector('.sw')||b.querySelector('.tv')).getBoundingClientRect();return s.height<24&&s.right<=k.left})"
                    "&&document.documentElement.scrollWidth<=innerWidth"), True)
-    ui.check("英語のシートに、日本語の文字が無い",
-             ui.ev("/[\\u3040-\\u30ff\\u4e00-\\u9fff]/.test(document.getElementById('dsetsheet').textContent)"), False)
+    ui.check("英語のシートに、日本語の文字が無い（言語の行の「言語 / Language」は、どの言語でもその字。D0.36）",
+             ui.ev("/[\\u3040-\\u30ff\\u4e00-\\u9fff]/.test([...document.querySelectorAll('#dsetsheet h2,#dsetsheet .toggle:not(#t-lang)')]"
+                   ".map(e=>e.textContent).join(''))"), False)
     ui.check("どの画面でもスクロールなし", ui.scrolls(), False)
     ui.check_no_errors("英語: JS エラー 0")

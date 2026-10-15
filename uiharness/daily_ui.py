@@ -347,7 +347,7 @@ window.__API=[];window.__APIMODE=%s;
       },m.delay||0)})}})();
 """
 SAVE_KEY = "make10.daily.v1"          # デイリーの保存のキー（本編は make10.progress.v4）
-SET_DEFAULT = {"easy": 0, "tap": 0, "dark": 0}   # 設定の既定（D0.13。途中の値を表示しない・ドラッグで置く。dark は D0.31 で足した。白）
+SET_DEFAULT = {"easy": 0, "tap": 0, "dark": 0, "lang": "auto"}   # 設定の既定（D0.13。途中の値を表示しない・ドラッグで置く。dark は D0.31 で足した。白。lang は D0.36。端末に合わせる）
 # ダークモードで回すための仕込み（D0.31。open(dark=True)）。読み込みの最初（html ができた時）に html へ dark を付け、
 # ページの applyDark()（保存の set.dark が 0 なので classList.toggle("dark", false) を呼ぶ）には外させない。
 # 外させてから付け直す形にすると、その間に白で計算された色から黒と白へ遷移が走り、測る時刻によって色が途中の値になる（D0.31 で見つけた）
