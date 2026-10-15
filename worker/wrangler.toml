@@ -25,3 +25,10 @@ binding = "DB"
 database_name = "make10-daily"
 # 本番の D1（`npx wrangler d1 create make10-daily` が出した id）。手元の試しは、手元の D1 を使うので本番には触らない
 database_id = "8f564a10-b136-4cf7-81d2-24f280856d79"
+
+# 別の端末へ移す（DAILY-SPEC 10-1。D0.37）の、コードの当てずっぽうへの備え。/x と /x/take を、1 つの IP から 1 分に 10 回まで。
+# 数えるのは Cloudflare の中だけで、IP は D1 にも記録にも残さない。namespace_id は、このアカウントの中で回数制限を見分ける番号（自分で決める）
+[[ratelimits]]
+name = "XFER_LIMIT"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }

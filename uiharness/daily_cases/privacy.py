@@ -54,13 +54,19 @@ def run(ui):
              ["mailto:%s|%s" % (MAIL, MAIL)] * 2)
     ja = ui.ev("document.getElementById('ja').textContent")
     en = ui.ev("document.getElementById('en').textContent")
-    # 書く内容（17-6）。送る 4 つ・足した数だけを保存・見分ける番号を付けない・Cloudflare に IP・クッキーなし・端末の中の記録と消し方
+    # 書く内容（17-6）。送る 4 つ・足した数だけを保存・見分ける番号を付けない・Cloudflare に IP・クッキーなし・端末の中の記録と消し方・
+    # 別の端末へ移すとき（D0.37）
     need_ja = ["問題番号", "結果（解いた／ギブアップ）", "かかった時間（秒）", "使ったヒントの回数", "足し合わせた数だけ",
                "人や端末を見分ける番号も付けません", "Cloudflare", "IP アドレス", "クッキーは使いません",
-               "localStorage", "サイトデータ", "期限を決めずに保存", "GitHub", "Google", "最終更新"]
+               "localStorage", "サイトデータ", "期限を決めずに保存", "GitHub", "Google", "最終更新",
+               # D0.37（別の端末へ移す。10-1）: 設定も端末に保存・移すときだけ預ける・10 分で消える・IP は回数を数えるだけ
+               "設定（途中の値の表示・タップで配置・ダークモード・言語）", "別の端末へ移すとき", "10 分で消えます",
+               "IP アドレスを試した回数を数えるためにだけ使い、保存はしません"]
     need_en = ["Puzzle number", "Result (solved / gave up)", "Time taken (seconds)", "Number of hints used",
                "only running totals", "No identifier for you or your device", "Cloudflare", "IP address",
-               "does not use cookies", "localStorage", "site data", "no set time limit", "GitHub", "Google", "Last updated"]
+               "does not use cookies", "localStorage", "site data", "no set time limit", "GitHub", "Google", "Last updated",
+               "your settings (intermediate values, tap to place, dark mode, and language)", "when you move to another device",
+               "deleted after 10 minutes", "used only to count attempts and is not stored"]
     ui.check("日本語の節に、書く内容がそろっている", [w for w in need_ja if w not in ja], [])
     ui.check("英語の節に、書く内容がそろっている", [w for w in need_en if w not in en], [])
     ui.check("英語の節に、日本語の文字が無い",

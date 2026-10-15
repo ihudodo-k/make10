@@ -186,4 +186,9 @@ def run(ui):
                      # D0.35（式が出来るまでの薄い「10」）
                      ".eq.goal",
                      # D0.36（言語の行の高さをスイッチの行にそろえる）
-                     "#dsetbody .tv"]))
+                     "#dsetbody .tv",
+                     # D0.37（別の端末へ移す。設定の 5 行目と、移す画面）
+                     "#t-move-g", "#t-move-g::before", "#t-move-g.hide", "#dmovebody", "#dmovebody p", "#dmovebody h3",
+                     "#dmovebody .mvsec", ".mvbtn", ".mvbtn:active", ".mvbtn:disabled", "#mv-out.hide,#mv-issue.hide",
+                     "#mv-code", "#mv-qr", "#mv-qr svg", "#mv-left", "#dmovebody .mvmsg", "#dmovebody .mvmsg:not(:empty)",
+                     "#dmovebody .mvmsg.err", "#mv-in", "#mv-in::placeholder", "#mv-in:focus"]))

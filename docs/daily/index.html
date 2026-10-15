@@ -355,6 +355,35 @@ body.pop #app{z-index:3}
 #dsetbody{flex:0 1 auto;min-height:0;overflow-y:auto}
 /* 言語の行（D0.36）は、スイッチの行と同じまとまりに並ぶので、値の行の高さをスイッチ（25px）にそろえ、4 行とも 53px にする */
 #dsetbody .tv{line-height:25px}
+/* 別の端末へ移す（10-1。D0.37）。設定の 5 行目。スイッチの 4 行とは細い線 1 本で分けた別のまとまり（行の作りは同じ）。
+   テスト表示（?date=）では保存しないので出さない（JS が hide を付ける）*/
+#t-move-g{position:relative}
+#t-move-g::before{content:"";position:absolute;left:14px;right:14px;top:0;height:1px;background:var(--edge)}
+#t-move-g.hide{display:none}
+/* 移す画面の中身。囲まない ―― 送る・受け取るの 2 つは細い線 1 本で分ける。ボタンは面も枠も持たない太字（「結果を共有」と同じ） */
+#dmovebody{flex:0 1 auto;min-height:0;overflow-y:auto;padding:0 15px}
+#dmovebody p{margin:0 0 6px;font-size:12.5px;line-height:1.7;color:var(--dim)}
+#dmovebody h3{margin:0;font-size:13.5px;font-weight:700;line-height:20px;text-align:left}
+#dmovebody .mvsec{margin-top:10px;padding-top:12px;border-top:1px solid var(--edge);text-align:center}
+.mvbtn{height:var(--btnW);min-width:120px;padding:0 14px;font-size:14px;font-weight:700;letter-spacing:.04em;
+ background:none;border:0;border-radius:0;color:var(--paper)}
+.mvbtn:active{background:none;opacity:.6}
+.mvbtn:disabled{color:var(--slate);cursor:default}
+#mv-out.hide,#mv-issue.hide{display:none}
+#mv-code{margin:4px 0 0;font-size:30px;font-weight:700;letter-spacing:.18em;text-indent:.18em;line-height:40px;
+ font-variant-numeric:tabular-nums;color:var(--paper);user-select:all}
+/* QR は、カメラが読めるように、どちらの色でも白地に黒（色の意味を持たない。読み取りのための例外）。周りの白い余白 4 マスも QR の一部 */
+#mv-qr{width:148px;height:148px;margin:6px auto 2px}
+#mv-qr svg{display:block;width:100%;height:100%}
+#mv-left{font-variant-numeric:tabular-nums}
+#dmovebody .mvmsg{margin:0}
+#dmovebody .mvmsg:not(:empty){margin:2px 0 6px;color:var(--paper)}
+#dmovebody .mvmsg.err{color:var(--coral)}
+#mv-in{display:block;width:180px;margin:8px auto 0;padding:4px 0;border:0;border-bottom:1px solid var(--dim);border-radius:0;
+ background:none;color:var(--paper);font:inherit;font-size:24px;font-weight:700;letter-spacing:.18em;text-indent:.18em;
+ text-align:center;text-transform:uppercase;outline:none}
+#mv-in::placeholder{color:var(--slate);font-weight:500;text-transform:none}
+#mv-in:focus{border-bottom-color:var(--paper)}
 /* 歯車を統計の左に足したぶん、中央の文字が左へ寄る。左に同じ幅（ボタン 1 つと間隔）を空けて、
    文字を画面の軸に戻す。折り返さない（4 桁の問題番号の日本語がいちばん長い。360px で 117px）*/
 #dmid{padding-left:calc(var(--btnW) + 9px);white-space:nowrap}
@@ -616,7 +645,36 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
       <button class="toggle" id="t-tap"><span data-i18n="daily.set_tap"></span><span class="sw"></span></button>
       <button class="toggle" id="t-dark"><span data-i18n="daily.set_dark"></span><span class="sw"></span></button>
       <button class="toggle" id="t-lang"><span data-i18n="daily.set_lang"></span><span class="tv" id="t-lang-v"></span></button>
+    </div><div class="group" id="t-move-g">
+      <button class="toggle" id="t-move"><span data-i18n="daily.set_move"></span><span class="tv" aria-hidden="true">›</span></button>
     </div></div>
+  </div></div>
+  <!-- 別の端末へ移す（ポップアップ。10-1。D0.37）。設定の「別の端末へ移す」から開く。送る（コードと QR を出す）と受け取る（コードを入れる）の 2 つ -->
+  <div id="dmovesheet" class="dsheet hide"><div class="dcard" role="dialog" aria-modal="true" aria-labelledby="dmove-title" tabindex="-1">
+    <div class="shead"><h2 id="dmove-title" data-i18n="daily.move_title"></h2>
+      <button id="dmove-close" class="plainbtn" data-i18n-label="daily.close"></button></div>
+    <div id="dmovebody">
+      <p data-i18n="daily.move_intro"></p>
+      <div class="mvsec" id="mv-send">
+        <h3 data-i18n="daily.move_send_h"></h3>
+        <button id="mv-issue" class="mvbtn" data-i18n="daily.move_issue"></button>
+        <div id="mv-out" class="hide">
+          <div id="mv-code"></div>
+          <div id="mv-qr" role="img" data-i18n-label="daily.move_qr_alt"></div>
+          <p id="mv-left"></p>
+          <p data-i18n="daily.move_code_note"></p>
+        </div>
+        <p id="mv-smsg" class="mvmsg" aria-live="polite"></p>
+      </div>
+      <div class="mvsec" id="mv-recv">
+        <h3 data-i18n="daily.move_recv_h"></h3>
+        <input id="mv-in" maxlength="9" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+          enterkeyhint="go" data-i18n-ph="daily.move_in_ph" data-i18n-label="daily.move_in_label">
+        <button id="mv-take" class="mvbtn" data-i18n="daily.move_take"></button>
+        <p id="mv-rmsg" class="mvmsg" aria-live="polite"></p>
+        <p data-i18n="daily.move_take_note"></p>
+      </div>
+    </div>
   </div></div>
   <!-- ギブアップの確認（ポップアップ。D0.28）。カードは式の下に出す（guPlace()）。見出しと × は持たない ―― 「いいえ」が閉じる -->
   <div id="dgusheet" class="dsheet hide"><div class="dcard" role="alertdialog" aria-modal="true" aria-labelledby="gu-text" tabindex="-1">
@@ -630,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.36";
+const DAILY_VERSION="0.37";
 
 /* ═══ 画面の文の辞書 ═══
    STR_CORE は本編と共通の塊（本編から複製。手を入れない）。STR_DAILY はデイリーだけの文で、
@@ -768,7 +826,28 @@ const STR_DAILY={ja:{
   "daily.lang_auto":"自動",
   "daily.lang_auto_now":"{auto}（{lang}）",
   "daily.lang_ja":"日本語",
-  "daily.lang_en":"English"
+  "daily.lang_en":"English",
+  // 別の端末へ移す（D0.37。10-1）
+  "daily.set_move":"別の端末へ移す",
+  "daily.move_title":"別の端末へ移す",
+  "daily.move_intro":"遊んだ記録と設定を、別の端末へ移せます。アカウントは要りません。",
+  "daily.move_send_h":"この端末から送る",
+  "daily.move_issue":"コードを出す",
+  "daily.move_qr_alt":"コードの QR コード",
+  "daily.move_left":"あと {time} 有効",
+  "daily.move_expired":"コードの期限が切れました",
+  "daily.move_code_note":"新しい端末でこのページを開き、設定 →「別の端末へ移す」にコードを入れるか、QR コードを読み取ってください。コードは 1 回だけ使えます。",
+  "daily.move_recv_h":"この端末で受け取る",
+  "daily.move_in_ph":"コード",
+  "daily.move_in_label":"コード（6 文字）",
+  "daily.move_take":"受け取る",
+  "daily.move_take_note":"受け取った記録は、この端末の記録に足します（同じ日は、解いたほうを残します）。設定は、送った端末のものになります。",
+  "daily.move_wait":"通信しています…",
+  "daily.move_done":{other:"受け取りました（記録 {n} 日ぶんと設定）。閉じると反映されます"},
+  "daily.move_bad":"6 文字のコードを入れてください",
+  "daily.move_nocode":"コードが見つかりません（期限切れか、受け取り済み）",
+  "daily.move_busy":"試す回数が多すぎます。1 分ほど待ってください",
+  "daily.move_net":"通信できませんでした。時間をおいて試してください"
 },
 en:{
   "daily.page_title":"Make10 Daily",
@@ -849,7 +928,27 @@ en:{
   "daily.lang_auto":"Auto",
   "daily.lang_auto_now":"{auto} ({lang})",
   "daily.lang_ja":"日本語",
-  "daily.lang_en":"English"
+  "daily.lang_en":"English",
+  "daily.set_move":"Move to another device",
+  "daily.move_title":"Move to another device",
+  "daily.move_intro":"Move your play history and settings to another device. No account needed.",
+  "daily.move_send_h":"Send from this device",
+  "daily.move_issue":"Get a code",
+  "daily.move_qr_alt":"QR code for the code",
+  "daily.move_left":"Valid for {time}",
+  "daily.move_expired":"The code has expired",
+  "daily.move_code_note":"On the new device, open this page and enter the code in Settings → Move to another device, or scan the QR code. The code works once.",
+  "daily.move_recv_h":"Receive on this device",
+  "daily.move_in_ph":"Code",
+  "daily.move_in_label":"Code (6 characters)",
+  "daily.move_take":"Receive",
+  "daily.move_take_note":"Received history is added to this device's (for the same day, the solved one is kept). Settings become the sender's.",
+  "daily.move_wait":"Connecting…",
+  "daily.move_done":{one:"Received {n} day of history and your settings. Close to apply.",other:"Received {n} days of history and your settings. Close to apply."},
+  "daily.move_bad":"Enter the 6-character code",
+  "daily.move_nocode":"Code not found (expired or already used)",
+  "daily.move_busy":"Too many tries. Please wait a minute",
+  "daily.move_net":"Couldn't connect. Please try again later"
 }};
 const LANGS=["ja","en"];
 const LANG_URL=(()=>{try{const q=new URLSearchParams(location.search).get("lang");
@@ -3065,11 +3164,11 @@ $("gu-yes").onclick=()=>{popHide();giveUp()};
 
 /* ═══ 統計 ═══ */
 /* ═══ ポップアップ（13-12。D0.26）═══
-   統計・遊び方・設定の 3 つ。同時に開くのは 1 つ。閉じ方は、外側（幕）を押す・×・Esc。
+   統計・遊び方・設定の 3 つ（と、ギブアップの確認・別の端末へ移す）。同時に開くのは 1 つ。閉じ方は、外側（幕）を押す・×・Esc。
    開いている間は、後ろ（列の中身と、広い画面の見出し）を inert にして、押せず・キーボードでも移れないようにする。
    Tab は、カードの中の押せる物を巡る（inert が効かないブラウザーでも留まるように、端で折り返す）。
    閉じたら、開く前に居た所へフォーカスを戻す。寸法と動きの長さは CSS の :root（--pop…）が持つ ―― JS には書かない */
-const POPS=["dstatsheet","dhelpsheet","dsetsheet","dgusheet"];
+const POPS=["dstatsheet","dhelpsheet","dsetsheet","dgusheet","dmovesheet"];
 let popNow=null, popBack=null, popTimer=0;
 const popStill=()=>matchMedia("(prefers-reduced-motion:reduce)").matches;
 const popCard=id=>$(id).querySelector(".dcard");
@@ -3081,6 +3180,8 @@ function popMore(){
   b.classList.toggle("more",b.scrollHeight-b.clientHeight-b.scrollTop>2);
 }
 function popEnd(id){
+  // 記録を受け取った後に移す画面を閉じたら、ページを読み直して、受け取った記録と設定で開き直す（10-1）
+  if(id==="dmovesheet"&&moveDone&&!$(id).classList.contains("hide")){location.reload();return}
   $(id).classList.remove("closing");$(id).classList.add("hide");
   if(id==="dgusheet"&&popNow!=="dgusheet")document.body.classList.remove("gu");
   if(!popNow)document.body.classList.remove("pop");
@@ -3121,7 +3222,7 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){popHide();return}
   if(e.key!=="Tab")return;
   const card=popCard(popNow);
-  const f=[...card.querySelectorAll("button,a[href]")].filter(x=>!x.disabled&&x.getClientRects().length);
+  const f=[...card.querySelectorAll("button,a[href],input")].filter(x=>!x.disabled&&x.getClientRects().length);
   const i=f.indexOf(document.activeElement);
   if(!f.length){e.preventDefault();card.focus({preventScroll:true});return}
   if(e.shiftKey?i<=0:(i<0||i===f.length-1)){e.preventDefault();f[e.shiftKey?f.length-1:0].focus()}
@@ -3271,6 +3372,212 @@ $("t-lang").onclick=cycleLang;
 $("dset").onclick=()=>{drawSet();popShow("dsetsheet")};
 $("dset-close").onclick=()=>popHide();
 
+/* ═══ 別の端末へ移す（10-1。D0.37）═══
+   アカウントを作らずに、記録と設定を別の端末へ移す。
+   送る端末: 「コードを出す」で、記録（days。送れたかの印 sent は外す）と設定（set）を集計のサーバーに預け、6 文字のコードと、
+     そのコードを入れたこのページの URL（#move=コード）の QR を出す。コードは 10 分だけ有効で、受け取られたらサーバーから消える。
+   受け取る端末: コードを入れて「受け取る」（QR から開いたときは、コードを入れた状態で移す画面が開く。押すのは人）。
+     記録は 1 日ずつ確かめて、この端末の記録に足す。同じ日が両方にあれば、解いたほうを残す（どちらも同じなら、この端末の分）。
+     受け取った日には sent を付ける ―― 集計へは送った端末が送るので、二重に数えない。設定は、送った端末のものにする。
+     解いている途中の分（cur）は移さない。受け取ったら、閉じたときにページを読み直す。
+   ?date=（テスト表示）では使わない（設定の行を出さない）。サーバーの決まりは worker/src/index.js */
+const MOVE_URL="https://api.make10.app/x";
+const MOVE_RE=/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;   // 見間違えやすい 0・O・1・I・L を除いた 31 字の 6 文字（サーバーの CODE_CHARS と同じ）
+let moveCode=null;        // 出したコード {c, until: 期限（端末の時計のミリ秒）}
+let moveTimer=0, moveBusy=false, moveDone=false;
+const moveMsg=(id,key,vars,err)=>{const e=$(id);e.textContent=key?t(key,vars):"";e.classList.toggle("err",!!err)};
+/* 預ける中身。送れたかの印は外す（受け取る側が付け直す）*/
+function movePayload(){
+  const days={};
+  for(const k of Object.keys(DATA.days)){const r=DATA.days[k];if(!r)continue;const o={...r};delete o.sent;days[k]=o}
+  return {v:1,days,set:{...DATA.set}};
+}
+/* 受け取った 1 日ぶんを確かめる。形が違えば null（その日は足さない）*/
+function moveRec(r){
+  if(!r||typeof r!=="object"||!Number.isInteger(r.h)||r.h<0||r.h>2)return null;
+  const o={r:r.r,t:null,h:r.h,sh:Number.isInteger(r.sh)&&r.sh>=0?r.sh:0};
+  if(r.r==="s"){
+    if(!Number.isInteger(r.t)||r.t<0||typeof r.e!=="string"||r.e.length>200)return null;
+    o.t=r.t;o.e=r.e;
+  }
+  else if(r.r!=="g")return null;
+  o.sent=1;
+  return o;
+}
+/* 受け取った中身を、この端末の記録と設定に合わせて保存する。確かめを通った日の数を返す */
+function moveMerge(x){
+  let n=0;
+  const days=x&&x.days&&typeof x.days==="object"&&!Array.isArray(x.days)?x.days:{};
+  for(const k of Object.keys(days)){
+    if(!/^[1-9][0-9]{0,5}$/.test(k))continue;
+    const v=moveRec(days[k]);if(!v)continue;
+    n++;
+    const old=DATA.days[k];
+    if(old&&!(old.r==="g"&&v.r==="s"))continue;
+    DATA.days[k]=v;
+  }
+  const s=x&&x.set;
+  if(s&&typeof s==="object")
+    DATA.set={easy:s.easy?1:0,tap:s.tap?1:0,dark:s.dark?1:0,lang:LANGS.includes(s.lang)?s.lang:"auto"};
+  if(DATA.cur&&DATA.days[DATA.cur.no])DATA.cur=null;
+  saveDaily();
+  return n;
+}
+/* QR コード（10-1）。URL を 1 つ載せるだけなので、バイトの形・誤り訂正 M・版 1〜5（21〜37 マス）だけを持つ。外の部品は使わない。
+   作り方は JIS X 0510（ISO/IEC 18004）のとおり: データ → 誤り訂正（リード・ソロモン）→ 並べる → 8 つのマスクで点の低いものを選ぶ */
+const QR_M=[null,[1,16,10],[1,28,16],[1,44,26],[2,32,18],[2,43,24]];   // 版ごとの [ブロックの数, 1 ブロックのデータの語数, 誤り訂正の語数]
+function qrMul(x,y){let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11D);z^=((y>>>i)&1)*x}return z}
+function qrEc(data,n){
+  const g=new Array(n).fill(0);g[n-1]=1;
+  for(let i=0,root=1;i<n;i++,root=qrMul(root,2))
+    for(let j=0;j<n;j++){g[j]=qrMul(g[j],root);if(j+1<n)g[j]^=g[j+1]}
+  const r=new Array(n).fill(0);
+  for(const b of data){const f=b^r.shift();r.push(0);for(let j=0;j<n;j++)r[j]^=qrMul(g[j],f)}
+  return r;
+}
+function qrPenalty(t){
+  const N=t.length;let p=0;
+  const line=get=>{
+    let s=0,run=1;
+    for(let i=1;i<=N;i++){if(i<N&&get(i)===get(i-1))run++;else{if(run>=5)s+=run-2;run=1}}
+    for(let i=0;i+11<=N;i++){
+      let w="";for(let k=0;k<11;k++)w+=get(i+k);
+      if(w==="10111010000"||w==="00001011101")s+=40;
+    }
+    return s;
+  };
+  for(let i=0;i<N;i++){p+=line(k=>t[i][k]);p+=line(k=>t[k][i])}
+  for(let y=0;y<N-1;y++)for(let x=0;x<N-1;x++){const c=t[y][x];if(c===t[y][x+1]&&c===t[y+1][x]&&c===t[y+1][x+1])p+=3}
+  let dark=0;for(const row of t)for(const v of row)dark+=v;
+  return p+Math.floor(Math.abs(dark*20-N*N*10)/(N*N))*10;
+}
+/* 文字列から QR のマス（行の配列。1 が黒）を作る。載らなければ null */
+function qrMatrix(text){
+  const bytes=[...new TextEncoder().encode(text)];
+  let ver=1;while(ver<5&&QR_M[ver][0]*QR_M[ver][1]<bytes.length+2)ver++;
+  const [nb,nd,ne]=QR_M[ver], cap=nb*nd;
+  if(bytes.length+2>cap)return null;
+  const bits=[], put=(v,n)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1)};
+  put(4,4);put(bytes.length,8);for(const b of bytes)put(b,8);           // バイトの形（0100）・文字数・中身
+  put(0,Math.min(4,cap*8-bits.length));while(bits.length%8)bits.push(0);
+  const data=[];
+  for(let i=0;i<bits.length;i+=8){let v=0;for(let j=0;j<8;j++)v=v<<1|bits[i+j];data.push(v)}
+  for(let k=0;data.length<cap;k^=1)data.push(k?0x11:0xEC);
+  const blocks=[];
+  for(let b=0;b<nb;b++){const d=data.slice(b*nd,(b+1)*nd);blocks.push([d,qrEc(d,ne)])}
+  const words=[];
+  for(let i=0;i<nd;i++)for(const [d] of blocks)words.push(d[i]);
+  for(let i=0;i<ne;i++)for(const [,e] of blocks)words.push(e[i]);
+  const N=17+4*ver, m=[...Array(N)].map(()=>Array(N).fill(0)), fn=[...Array(N)].map(()=>Array(N).fill(false));
+  const set=(x,y,v)=>{m[y][x]=v?1:0;fn[y][x]=true};
+  for(let i=0;i<N;i++){set(6,i,i%2===0);set(i,6,i%2===0)}            // タイミング
+  for(const [cx,cy] of [[3,3],[N-4,3],[3,N-4]])                       // 位置検出（と周りの白）
+    for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){
+      const x=cx+dx,y=cy+dy;if(x<0||y<0||x>=N||y>=N)continue;
+      const d=Math.max(Math.abs(dx),Math.abs(dy));set(x,y,d!==2&&d!==4);
+    }
+  if(ver>1)for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)         // 位置合わせ（版 2〜5 は右下に 1 つ）
+    set(N-7+dx,N-7+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);
+  // 形式情報（誤り訂正 M = 00 とマスクの番号）。場所を先に取っておき、マスクを決めてから書く
+  const fmt=(t,mask)=>{
+    let r=mask;for(let i=0;i<10;i++)r=(r<<1)^((r>>>9)*0x537);
+    const b=((mask<<10)|r)^0x5412, bit=i=>(b>>>i)&1, w=(x,y,v)=>{t[y][x]=v;fn[y][x]=true};
+    for(let i=0;i<=5;i++)w(8,i,bit(i));
+    w(8,7,bit(6));w(8,8,bit(7));w(7,8,bit(8));
+    for(let i=9;i<15;i++)w(14-i,8,bit(i));
+    for(let i=0;i<8;i++)w(N-1-i,8,bit(i));
+    for(let i=8;i<15;i++)w(8,N-15+i,bit(i));
+    w(8,N-8,1);
+  };
+  fmt(m,0);
+  let k=0;
+  for(let right=N-1;right>=1;right-=2){                               // 右下から 2 列ずつ、上下に折り返して並べる
+    if(right===6)right=5;
+    for(let v=0;v<N;v++)for(let j=0;j<2;j++){
+      const x=right-j, y=((right+1)&2)===0?N-1-v:v;
+      if(!fn[y][x]&&k<words.length*8){m[y][x]=(words[k>>>3]>>>(7-(k&7)))&1;k++}
+    }
+  }
+  const MASK=[(x,y)=>(x+y)%2,(x,y)=>y%2,(x,y)=>x%3,(x,y)=>(x+y)%3,(x,y)=>(Math.floor(x/3)+Math.floor(y/2))%2,
+    (x,y)=>x*y%2+x*y%3,(x,y)=>(x*y%2+x*y%3)%2,(x,y)=>((x+y)%2+x*y%3)%2];
+  let best=null,score=Infinity;
+  for(let mask=0;mask<8;mask++){
+    const t=m.map((row,y)=>row.map((v,x)=>fn[y][x]?v:v^(MASK[mask](x,y)===0?1:0)));
+    fmt(t,mask);
+    const p=qrPenalty(t);
+    if(p<score){score=p;best=t}
+  }
+  return best;
+}
+function qrSvg(text){
+  const t=qrMatrix(text);if(!t)return "";
+  const N=t.length;let d="";
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(t[y][x])d+=`M${x} ${y}h1v1h-1z`;
+  return `<svg viewBox="-4 -4 ${N+8} ${N+8}" shape-rendering="crispEdges" aria-hidden="true">`+
+    `<rect x="-4" y="-4" width="${N+8}" height="${N+8}" fill="#FFFFFF"/><path fill="#1A1A1B" d="${d}"/></svg>`;
+}
+/* 移す画面を描く。出したコードが有効なら、コード・QR・残りの時間。期限が来たら、出す前に戻す */
+function drawMove(){
+  clearTimeout(moveTimer);moveTimer=0;
+  const live=!!moveCode&&moveCode.until>Date.now();
+  if(moveCode&&!live){moveCode=null;moveMsg("mv-smsg","daily.move_expired",null,true)}
+  $("mv-out").classList.toggle("hide",!live);
+  $("mv-issue").classList.toggle("hide",live);
+  if(!live)return;
+  $("mv-code").textContent=moveCode.c;
+  $("mv-left").textContent=t("daily.move_left",{time:fmtTime(Math.ceil((moveCode.until-Date.now())/1000))});
+  if(popNow==="dmovesheet")moveTimer=setTimeout(drawMove,1000);
+}
+async function moveIssue(){
+  if(moveBusy||moveDone)return;
+  moveBusy=true;$("mv-issue").disabled=true;moveMsg("mv-smsg","daily.move_wait");
+  let j=null,st=0;
+  try{
+    const r=await aggFetch(MOVE_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(movePayload())});
+    st=r.status;if(r.ok)j=await r.json();
+  }catch(e){}
+  moveBusy=false;$("mv-issue").disabled=false;
+  if(j&&typeof j.c==="string"&&MOVE_RE.test(j.c)&&Number.isFinite(j.s)&&j.s>0){
+    moveCode={c:j.c,until:Date.now()+j.s*1000};
+    $("mv-qr").innerHTML=qrSvg(location.origin+location.pathname+"#move="+j.c);
+    moveMsg("mv-smsg");
+  }
+  else moveMsg("mv-smsg",st===429?"daily.move_busy":"daily.move_net",null,true);
+  drawMove();
+}
+/* 入れた字を、コードの形にそろえる（小文字は大文字に。空白とハイフンは捨てる）*/
+const moveNorm=v=>String(v).toUpperCase().replace(/[\s-]/g,"");
+async function moveTake(){
+  if(moveBusy||moveDone)return;
+  const c=moveNorm($("mv-in").value);
+  if(!MOVE_RE.test(c)){moveMsg("mv-rmsg","daily.move_bad",null,true);return}
+  moveBusy=true;$("mv-take").disabled=true;moveMsg("mv-rmsg","daily.move_wait");
+  let j=null,st=0;
+  try{
+    const r=await aggFetch(MOVE_URL+"/take",{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({c})});
+    st=r.status;if(r.ok)j=await r.json();
+  }catch(e){}
+  moveBusy=false;$("mv-take").disabled=false;
+  if(j&&j.d&&typeof j.d==="object"&&!Array.isArray(j.d)){
+    const n=moveMerge(j.d);
+    moveDone=true;$("mv-take").disabled=true;$("mv-issue").disabled=true;
+    moveMsg("mv-rmsg","daily.move_done",{n});
+  }
+  else moveMsg("mv-rmsg",st===404?"daily.move_nocode":st===429?"daily.move_busy":"daily.move_net",null,true);
+}
+function moveOpen(code){
+  if(!moveDone){moveMsg("mv-smsg");moveMsg("mv-rmsg")}
+  if(code)$("mv-in").value=code;
+  popShow("dmovesheet");drawMove();
+}
+$("t-move-g").classList.toggle("hide",TEST_MODE);
+$("t-move").onclick=()=>moveOpen();
+$("dmove-close").innerHTML=ICON_HCLOSE;
+$("dmove-close").onclick=()=>popHide();
+$("mv-issue").onclick=moveIssue;
+$("mv-take").onclick=moveTake;
+$("mv-in").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();moveTake()}});
+
 window.addEventListener("resize",()=>{applyMetrics();if(cur)fit();drawCal();popMore();if(popNow==="dgusheet")guPlace();
   if(dayRecord()){drawSols();layoutResult()}});
 
@@ -3308,6 +3615,14 @@ if(!TEST_MODE){
   }
   if(marked)saveDaily();
   if(PUZZLE&&dayRecord()&&dayRecord().sent)aggRead(PUZZLE.no);
+  // QR（#move=コード）から開いた: URL からコードを消して、コードを入れた状態で移す画面を開く。受け取るのは、人が押してから（10-1）。
+  // 開いたままのページの URL に付いたとき（同じページの中の移動で、読み直さない）も同じ
+  const moveHash=()=>{
+    const mh=/^#move=([0-9A-Za-z]{6})$/.exec(location.hash);
+    if(mh){history.replaceState(null,"",location.pathname+location.search);moveOpen(moveNorm(mh[1]))}
+  };
+  moveHash();
+  window.addEventListener("hashchange",moveHash);
 }
 </script>
 </body>

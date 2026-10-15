@@ -5,11 +5,12 @@
 // wrangler を手元で立ち上げ（wrangler dev --local と、手元の D1）、
 //   1. 範囲の外の値と、Origin が違う要求を、足さずに断ること
 //   2. 100 件を同時に送って、数が合うこと（2 回ぶん＝200 件）
+//   3. 別の端末へ移す（D0.37。DAILY-SPEC 10-1）: 預けて受け取れる・2 回目は受け取れない・期限・断る値・同時に受け取っても 1 回・回数の制限
 // を確かめる。データは毎回、一時フォルダに作って終わったら消す（本番にも、手元の .wrangler にも残さない）。
 // 1 つでも落ちたら終了コード 1。
 //
 // 起点日は、試しのあいだだけ「今日が #11」になる日に差し替える（wrangler.toml の値は遠い未来なので、
-// そのままだと受け付ける問題番号が 1 つも無い）。
+// そのままだと受け付ける問題番号が 1 つも無い）。預かる時間も、試しのあいだだけ XFER_TTL_SEC 秒に縮める。
 // MAKE10_WORKER_MAIN に別のファイルを入れると、そちらを Worker の本体として試す（わざと壊して赤くなることの確かめ用）。
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -27,6 +28,7 @@ const start = new Date(Math.floor(Date.now() / 86400000) * 86400000 - (TODAY - 1
   .toISOString().slice(0, 10);
 const dir = mkdtempSync(join(tmpdir(), "make10-worker-"));
 const main = process.env.MAKE10_WORKER_MAIN;
+const XFER_TTL_SEC = 3;                                               // 試しのあいだの、預かる時間（秒）
 
 let ok = 0, ng = 0;
 function check(name, got, want) {
@@ -77,7 +79,7 @@ async function run() {
     ["中身が JSON でない", () => post("hello"), 400, "body"],
     ["中身が配列", () => post("[1,2,3]"), 400, "body"],
     ["中身が長すぎる", () => post(JSON.stringify({ ...good, x: "a".repeat(300) })), 400, "body"],
-    ["パスが違う", () => fetch(BASE + "/x", { method: "POST", headers: { Origin: ORIGIN }, body: JSON.stringify(good) }), 404, "path"],
+    ["パスが違う", () => fetch(BASE + "/nope", { method: "POST", headers: { Origin: ORIGIN }, body: JSON.stringify(good) }), 404, "path"],
     ["PUT", () => fetch(BASE + "/r", { method: "PUT", headers: { Origin: ORIGIN }, body: JSON.stringify(good) }), 405, "method"],
   ];
   const got = [];
@@ -137,6 +139,88 @@ async function run() {
   }
   check("時間の帯の境目（29 秒は 1 つ目・30 秒は 2 つ目 … 300 秒は 5 つ目）", edge, []);
   check("別の日の行は動いていない", (await (await get(TODAY)).json()).s, 140);
+
+  await runXfer();
+}
+
+// ── 別の端末へ移す（10-1）──
+// 回数の制限（1 つの IP から 1 分に 10 回）は、CF-Connecting-IP ごとに数える。確かめの組ごとに別の IP を名乗り、
+// 制限そのものを見る組だけが、同じ IP から続けて送る
+let ipNo = 0;
+const ip = () => `198.51.100.${++ipNo}`;
+const xput = (body, headers) => fetch(BASE + "/x", {
+  method: "POST", headers: { "Content-Type": "text/plain", Origin: ORIGIN, "CF-Connecting-IP": ip(), ...headers },
+  body: typeof body === "string" ? body : JSON.stringify(body) });
+const xtake = (c, headers) => fetch(BASE + "/x/take", {
+  method: "POST", headers: { "Content-Type": "text/plain", Origin: ORIGIN, "CF-Connecting-IP": ip(), ...headers },
+  body: typeof c === "string" ? JSON.stringify({ c }) : JSON.stringify(c) });
+const CODE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;
+
+async function runXfer() {
+  const data = { v: 1, days: { "3": { r: "s", t: 42, h: 1, sh: 1, e: "1 + 2 + 3 + 4" }, "4": { r: "g", t: null, h: 2, sh: 2 } },
+    set: { easy: 1, tap: 0, dark: 1, lang: "en" } };
+  let [st, j] = await body(await xput(data));
+  check("預ける: 200 で、6 文字のコードと有効な秒数", [st, CODE.test(j.c), j.s], [200, true, XFER_TTL_SEC]);
+  const r1 = await xtake(j.c);
+  check("受け取る: 預けた中身がそのまま返る（Access-Control-Allow-Origin と no-store）",
+    [r1.status, await r1.json(), r1.headers.get("access-control-allow-origin"), r1.headers.get("cache-control")],
+    [200, { d: data }, ORIGIN, "no-store"]);
+  check("同じコードで 2 回目は受け取れない（受け取ったら消す）", await body(await xtake(j.c)), [404, { e: "code" }]);
+  check("預けていないコードは受け取れない", await body(await xtake("ABCDEF")), [404, { e: "code" }]);
+
+  // 期限: 縮めた時間を過ぎたら受け取れない
+  [st, j] = await body(await xput(data));
+  await new Promise((r) => setTimeout(r, XFER_TTL_SEC * 1000 + 600));
+  check(`期限（試しでは ${XFER_TTL_SEC} 秒）を過ぎたら受け取れない`, await body(await xtake(j.c)), [404, { e: "code" }]);
+
+  // 同時に受け取っても、中身を返すのは 1 回だけ
+  [st, j] = await body(await xput(data));
+  const many = await Promise.all(Array.from({ length: 8 }, () => xtake(j.c).then((r) => r.status)));
+  check("同じコードを 8 つ同時に受け取る: 200 は 1 つだけで、残りは 404",
+    [many.filter((x) => x === 200).length, many.filter((x) => x === 404).length], [1, 7]);
+
+  // コードは毎回ちがう
+  const codes = [];
+  for (let i = 0; i < 20; i++) codes.push((await (await xput(data)).json()).c);
+  check("20 回預けて、コードは 20 通り（どれも決めた 31 字の 6 文字）",
+    [new Set(codes).size, codes.every((c) => CODE.test(c))], [20, true]);
+
+  // 断る値
+  const bad = [
+    ["預ける: Origin が無い", () => xput(data, { Origin: "" }), 403, "origin"],
+    ["預ける: Origin が違う", () => xput(data, { Origin: "https://example.com" }), 403, "origin"],
+    ["受け取る: Origin が違う", () => xtake(codes[0], { Origin: "https://example.com" }), 403, "origin"],
+    ["預ける: JSON でない", () => xput("hello"), 400, "body"],
+    ["預ける: 配列", () => xput("[1]"), 400, "body"],
+    ["預ける: 記録の入れ物が無い", () => xput({ set: {} }), 400, "body"],
+    ["預ける: 記録の入れ物が配列", () => xput({ days: [] }), 400, "body"],
+    ["預ける: 長すぎる（262,144 文字より長い）", () => xput({ days: {}, pad: "a".repeat(262144) }), 400, "body"],
+    ["受け取る: コードが 5 文字", () => xtake("ABCDE"), 400, "body"],
+    ["受け取る: コードに使わない字（O）", () => xtake("ABCDEO"), 400, "body"],
+    ["受け取る: コードが小文字", () => xtake("abcdef"), 400, "body"],
+    ["受け取る: コードが無い", () => xtake({}), 400, "body"],
+    ["GET /x", () => fetch(BASE + "/x", { headers: { Origin: ORIGIN, "CF-Connecting-IP": ip() } }), 405, "method"],
+  ];
+  const got = [];
+  for (const [name, f, status, e] of bad) {
+    const r = await f();
+    const k = await r.json().catch(() => null);
+    if (r.status !== status || !k || k.e !== e) got.push([name, r.status, k]);
+  }
+  check(`移す受け口: 断るはずの ${bad.length} 通りを、決めた返事で断る`, got, []);
+  check("断った後も、預けたコードは受け取れる（断った要求は行を消さない）", (await xtake(codes[0])).status, 200);
+  check("中身の長さの上限（262,144 文字ちょうど）は預かる",
+    (await xput(JSON.stringify({ days: {}, pad: "a".repeat(262144 - 20) }))).status, 200);
+
+  // 回数の制限: 同じ IP から 1 分に 10 回まで。11 回目からは 429
+  const one = { "CF-Connecting-IP": "203.0.113.7" };
+  const seq = [];
+  for (let i = 0; i < 12; i++) seq.push((await xtake("ABCDEF", one)).status);
+  check("同じ IP から 12 回続けて受け取ろうとする: 10 回目までは 404、11 回目からは 429（{\"e\":\"busy\"}）",
+    [seq.slice(0, 10).every((x) => x === 404), seq.slice(10).every((x) => x === 429)], [true, true]);
+  check("制限されても、別の IP からは受け取れる", (await xtake(codes[1])).status, 200);
+  check("回数の制限は、集計の受け口（/r）には掛けない",
+    (await fetch(`${BASE}/r?n=${TODAY}`, { headers: { Origin: ORIGIN, ...one } })).status, 200);
 }
 
 // ── 立ち上げて、試して、片付ける ──
@@ -146,7 +230,7 @@ const sch = spawnSync(node, [WRANGLER, "d1", "execute", "make10-daily", "--local
   { cwd: HERE, encoding: "utf8", env });
 if (sch.status !== 0) { console.error(sch.stdout, sch.stderr); rmSync(dir, { recursive: true, force: true }); process.exit(1); }
 const args = [WRANGLER, "dev", ...(main ? [main] : []), "--config", join(HERE, "wrangler.toml"), "--local", "--port", String(PORT), "--persist-to", dir,
-  "--var", `DAILY_START:${start}`, "--show-interactive-dev-session=false"];
+  "--var", `DAILY_START:${start}`, "--var", `XFER_TTL_MS:${XFER_TTL_SEC * 1000}`, "--show-interactive-dev-session=false"];
 const child = spawn(node, args, { cwd: HERE, stdio: ["ignore", "pipe", "pipe"], env });
 let log = "";
 child.stdout.on("data", (d) => { log += d; });
@@ -156,7 +240,7 @@ try {
   let up = false;
   for (let i = 0; i < 120 && !up; i++) {
     await new Promise((r) => setTimeout(r, 500));
-    try { up = (await fetch(BASE + "/x")).status === 404; } catch (e) { /* まだ */ }
+    try { up = (await fetch(BASE + "/nope")).status === 404; } catch (e) { /* まだ */ }
   }
   if (!up) throw new Error("wrangler dev が立ち上がらない\n" + log);
   console.log(`Make10 デイリーの集計: 手元の試し（起点日 ${start}・今日は #${TODAY}・${main || "src/index.js"}）`);

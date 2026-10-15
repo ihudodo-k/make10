@@ -13,3 +13,11 @@ CREATE TABLE IF NOT EXISTS days (
   b3 INTEGER NOT NULL DEFAULT 0,
   b4 INTEGER NOT NULL DEFAULT 0
 );
+-- 別の端末へ移す（DAILY-SPEC 10-1。D0.37）。預かった記録と設定を、受け取られるか期限が来るまで 1 行だけ持つ。
+--   c = コード（6 文字）   d = 預かった中身（JSON の文字列）   x = 期限（1970 年からのミリ秒）
+-- 受け取ったら、その場で消す。期限を過ぎた行は、次に誰かが預けたときと、受け取ろうとしたときに消す
+CREATE TABLE IF NOT EXISTS xfer (
+  c TEXT PRIMARY KEY,
+  d TEXT NOT NULL,
+  x INTEGER NOT NULL
+);

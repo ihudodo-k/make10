@@ -321,6 +321,7 @@ addEventListener("unhandledrejection",e=>__ERRS.push("reject: "+String(e.reason)
 #     mode: "fail" 通信そのものが失敗（既定）／"ok" 200 で agg を返す（n は要求の問題番号）／"500"／
 #           "range" 400 {"e":"range"}／"value" 400 {"e":"value"}／"badjson" 200 だが JSON でない／
 #           "badshape" 200 だが形が違う／"hang" 返事が来ない（打ち切りを待つ）
+#     xput・xtake・xcode・xs・xstore: 別の端末へ移す受け口（/x・/x/take）の返事（D0.37。下の中に説明）
 API = r"""
 window.__API=[];window.__APIMODE=%s;
 (function(){const real=window.fetch;
@@ -335,6 +336,23 @@ window.__API=[];window.__APIMODE=%s;
       {status:st,headers:{"Content-Type":"application/json"}});
     return new Promise((ok,ng)=>{
       if(o.signal)o.signal.addEventListener("abort",()=>ng(new DOMException("aborted","AbortError")));
+      // 別の端末へ移す（D0.37。10-1）の受け口。xput は預ける返事、xtake は受け取る返事
+      //   （"ok"／"fail" 通信の失敗（既定）／"busy" 429／"500"）。xcode・xs は預けたときに返すコードと秒数。
+      //   受け取るときは xstore {コード: 中身} から返して消す（無ければ 404）
+      const xp=new URL(url).pathname;
+      if(xp==="/x"||xp==="/x/take"){
+        const take=xp==="/x/take", xm=(take?m.xtake:m.xput)||"fail";
+        setTimeout(()=>{
+          if(xm==="busy")ok(res(429,{e:"busy"}));
+          else if(xm==="500")ok(res(500,{e:"x"}));
+          else if(xm!=="ok")ng(new TypeError("Failed to fetch"));
+          else if(!take)ok(res(200,{c:m.xcode||"K7P2QX",s:m.xs||600}));
+          else{const c=JSON.parse(o.body).c, st=m.xstore||(m.xstore={});
+            if(Object.prototype.hasOwnProperty.call(st,c)){const d=st[c];delete st[c];ok(res(200,{d}))}
+            else ok(res(404,{e:"code"}))}
+        },m.delay||0);
+        return;
+      }
       setTimeout(()=>{
         if(m.mode==="ok")ok(res(200,Object.assign({n},m.agg)));
         else if(m.mode==="500")ok(res(500,{e:"x"}));

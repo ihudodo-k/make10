@@ -181,10 +181,11 @@ def run(ui):
     want = [["途中の値を表示", "Show intermediate values"], ["タップで配置", "Tap to place"], main_text("settings.title"),
             ["ダークモード", "Dark mode"]]
     ui.check("本編の辞書に、見出しの文が日本語と英語である（照合の相手がある）", len(want[2]), 2)
-    ui.check("スイッチは 3 つ（途中の値を表示・タップで配置・ダークモード。D0.31）と言語の行（D0.36）。見出しは本編の設定と同じ",
+    ui.check("スイッチは 3 つ（途中の値を表示・タップで配置・ダークモード。D0.31）と言語の行（D0.36）と別の端末へ移す（D0.37）。見出しは本編の設定と同じ",
              [ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>b.id+':'+b.textContent)"),
               ui.ev("document.querySelector('#dsetsheet h2').textContent")],
-             [["t-easy:" + want[0][0], "t-tap:" + want[1][0], "t-dark:" + want[3][0], "t-lang:言語 / Language自動（日本語）"], want[2][0]])
+             [["t-easy:" + want[0][0], "t-tap:" + want[1][0], "t-dark:" + want[3][0], "t-lang:言語 / Language自動（日本語）",
+               "t-move:別の端末へ移す›"], want[2][0]])
     ui.check("はじめは 3 つともオフ", ui.ev(ON), [False, False, False])
     ui.check("行は高さ 53px（本編のスイッチの行と同じ）・左右はカードの端から 7px（線 1px ＋ 余白 6px）。スイッチは 44×25px で右端から 14px",
              ui.ev("[...document.querySelectorAll('#dsetsheet .toggle:has(.sw)')].map(b=>{const r=b.getBoundingClientRect(),"
@@ -201,9 +202,9 @@ def run(ui):
              ui.ev("(function(){const c=getComputedStyle(document.getElementById('t-easy'));"
                    "return [c.fontSize,c.fontWeight,c.backgroundColor,c.borderTopWidth].join('|')})()"),
              "13.5px|700|rgba(0, 0, 0, 0)|0px")
-    ui.check("区切りの線は、行の間に 1 本だけ（最後の行の下には引かない）",
+    ui.check("区切りの線は、行の間に 1 本だけ（まとまりの最後の行の下には引かない。別の端末へ移す（D0.37）は別のまとまりで、上の線はケース move が見る）",
              ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>getComputedStyle(b,'::after').height)"),
-             ["1px", "1px", "1px", "auto"])
+             ["1px", "1px", "1px", "auto", "auto"])
     ui.check("シートに金も赤も無い",
              ui.ev("(function(){const cs=getComputedStyle(document.body),bad=[cs.getPropertyValue('--gold'),"
                    "cs.getPropertyValue('--coral')].map(v=>{const d=document.createElement('i');d.style.color=v;"
@@ -393,7 +394,8 @@ def run(ui):
              [ui.ev("document.querySelector('#dsetsheet h2').textContent"),
               ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>b.textContent)"),
               ui.ev("dset.getAttribute('aria-label')"), ui.ev("document.getElementById('dset-close').getAttribute('aria-label')")],
-             [want[2][1], [want[0][1], want[1][1], want[3][1], "言語 / LanguageAuto (English)"], "Settings", "Close"])
+             [want[2][1], [want[0][1], want[1][1], want[3][1], "言語 / LanguageAuto (English)", "Move to another device›"],
+              "Settings", "Close"])
     ui.check("英語: 行の文字は 1 行で、スイッチに重ならない。シートは横にはみ出さない",
              ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].every(b=>{const s=b.firstElementChild.getBoundingClientRect(),"
                    "k=(b.querySelector('.sw')||b.querySelector('.tv')).getBoundingClientRect();return s.height<24&&s.right<=k.left})"
