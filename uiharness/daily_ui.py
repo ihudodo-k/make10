@@ -438,7 +438,8 @@ class UI:
         self.c.ws.call("Emulation.setEmulatedMedia", {"features": f})
 
     def open(self, date=None, lang="ja", nav=None, now=None, tz=None, extra="",
-             store=None, perf=False, api=None, hidden=False, motion=False, dark=True):
+             store=None, perf=False, api=None, hidden=False, motion=False, dark=True,
+             applink=False):
         """ページを開く。
 
         date … ?date=YYYY-MM-DD（テスト表示）。None なら付けない
@@ -457,7 +458,9 @@ class UI:
                ページの既定は白。ケースの色の期待値は黒と白で書いてある。DARK_SEED）。保存データは変えない ―― 設定のスイッチは切れたまま見える。
                白と、設定から入れるダークモードそのものは、ケース light が dark=False で見る
         api … 集計の送り先の返事の決め方（上の API の __APIMODE）。None なら {"mode": "fail"}（通信できない）。
-              出た要求は api_calls() で読む"""
+              出た要求は api_calls() で読む
+        applink … True なら、開いた直後に「もっと解きたい人はアプリで」（#applink）を出す（D0.38。ページは APP_LINK=false で
+                  出さない。出したときの並びと文を見るケースだけが使う。解いた後に開き直したときは並びを計算し直す）"""
         # 読み込みの前に走る仕込みは、Chrome に 1 つだけ残す。UI はケースごとに作り直されるので、
         # 前の UI が仕込んだもの（保存データを消す処理など）を Chrome の側で覚えて外す。
         # 外し忘れると、store="keep" で開いても、残っていた仕込みが保存データを消してしまう
@@ -492,6 +495,8 @@ class UI:
             q.append("lang=" + lang)
         self.c.goto(self.base + ("?" + "&".join(q) if q else "") + extra, ready=READY)
         self.c.ev(SOLVE)
+        if applink:
+            self.c.ev("applink.classList.remove('hide');if(dayRecord())layoutResult()")
         if not motion:
             self.c.ev("document.documentElement.style.setProperty('--popIn','0s');"
                       "document.documentElement.style.setProperty('--popOut','0s')")

@@ -57,12 +57,17 @@ def run(ui):
         r = ui.solve(sol, wait=wait)
         return r
 
+    def opn(**k):
+        # 並びと詰めた形は、アプリへの導線を出したとき（APP_LINK=true）の形で見る ―― 導線の無い今の形では、
+        # 3 画面とも詰めた形にならず、詰めた形を確かめられないため（D0.38）。今の形は、終わりの「導線を出さない今の形」で見る
+        ui.open(applink=True, **k)
+
     def giveup(wait=0.6):
         ui.ev("dgiveup.click();document.getElementById('gu-yes').click()")
         time.sleep(wait)
 
     # ══ 解いた瞬間に 1 回だけ送り、返事の集計を出す ══
-    ui.open(now=at(no), tz=TZ, perf=True, api=ok())
+    opn(now=at(no), tz=TZ, perf=True, api=ok())
     ui.check("解く前は、何も送らないし読まない。みんなの結果も出ない", [ui.api_calls(), ui.ev(BOX)], [[], None])
     solve(75)
     calls = ui.api_calls()
@@ -107,7 +112,7 @@ def run(ui):
 
     # ══ 開き直したら、送り直さずに読み直す ══
     again = {"s": 500, "g": 500, "s0": 100, "b": [500, 0, 0, 0, 0]}
-    ui.open(now=at(no, 15), tz=TZ, store="keep", api=ok(again))
+    opn(now=at(no, 15), tz=TZ, store="keep", api=ok(again))
     time.sleep(0.4)
     ui.check("開き直す: 送り直さず、1 回だけ読む（GET …/r?n=問題番号）",
              [[c["method"], c["url"], c["body"]] for c in ui.api_calls()], [["GET", "%s?n=%d" % (URL, no), None]])
@@ -116,7 +121,7 @@ def run(ui):
              [b and b["nums"], b and b["me"], b and b["bars"]], [["50%", "20%"], [2], bars(again["b"], h)])
 
     # ══ 数字の大きさ（D0.12）: 3 列の数字・統計の数字と同じ（26px。詰めた形は 22px）。箱の高さは変わらない ══
-    ui.open(now=at(no), tz=TZ, perf=True, api=ok())
+    opn(now=at(no), tz=TZ, perf=True, api=ok())
     solve(75)
     z = ui.ev("(()=>{const a=document.getElementById('aggbox'),cs=e=>getComputedStyle(e);"
               "return [a.classList.contains('tight'),cs(a.querySelector('.ac b')).fontSize,cs(document.querySelector('.rcol .rv b')).fontSize,"
@@ -127,7 +132,7 @@ def run(ui):
     # ══ 29 件は「集計中」、30 件で数字 ══
     for agg, want in (({"s": 20, "g": 9, "s0": 3, "b": [1, 5, 9, 4, 1]}, [None, "集計中", []]),
                       ({"s": 21, "g": 9, "s0": 3, "b": [1, 5, 10, 4, 1]}, [None, None, ["70%", "14%"]])):
-        ui.open(now=at(no), tz=TZ, perf=True, api=ok(agg))
+        opn(now=at(no), tz=TZ, perf=True, api=ok(agg))
         solve(75)
         b = ui.ev(BOX)
         want[0] = "みんなの結果"
@@ -149,14 +154,14 @@ def run(ui):
                          [p["tight"], p["h"], p["scrolly"], p["seen"]], [False, 39, False, [True, True]])
             else:
                 ui.check("「集計中」: 360×640 でも、見出しと文は見えている", p["seen"], [True, True])
-    ui.open(now=at(no), tz=TZ, perf=True, api=ok({"s": 0, "g": 40, "s0": 0, "b": [0, 0, 0, 0, 0]}))
+    opn(now=at(no), tz=TZ, perf=True, api=ok({"s": 0, "g": 40, "s0": 0, "b": [0, 0, 0, 0, 0]}))
     giveup()
     b = ui.ev(BOX)
     ui.check("解いた人が 0 のとき: 正解率 0%・ヒントなしは「—」・棒は全部いちばん低い",
              [b and b["nums"], b and b["bars"]], [["0%", "—"], [2, 2, 2, 2, 2]])
 
     # ══ ギブアップの瞬間にも 1 回だけ送る。目立つ帯は無い ══
-    ui.open(now=at(no), tz=TZ, perf=True, api=ok())
+    opn(now=at(no), tz=TZ, perf=True, api=ok())
     ui.ev("shareCount=2;useHint()")
     ui.tick(50000)
     giveup()
@@ -171,7 +176,7 @@ def run(ui):
 
     # ══ ヒントの回数と、時間の上限 ══
     # 60 分で数え直す（D0.25）ので、解いて送る時間は 59:59 まで。最初に見てから 59 分 58 秒で解く
-    ui.open(now=at(no), tz=TZ, perf=True, api=ok(),
+    opn(now=at(no), tz=TZ, perf=True, api=ok(),
             store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no) - 3597000, "h": 2, "sh": 2}})
     solve(1)
     c = ui.api_calls()
@@ -179,14 +184,14 @@ def run(ui):
              json.loads(c[0]["body"]) if c else None, {"n": no, "r": "s", "t": 3598, "h": 2})
     ui.check("自分の帯は、いちばん右（5:00+）", (ui.ev(BOX) or {}).get("me"), [4])
     # 25 時間たってから解いても、数え直した時間（1 秒）を送る
-    ui.open(now=at(no), tz=TZ, perf=True, api=ok(),
+    opn(now=at(no), tz=TZ, perf=True, api=ok(),
             store={"v": 1, "days": {}, "cur": {"no": no, "start": at(no) - 90000000, "h": 0, "sh": 0}})
     solve(1)
     c = ui.api_calls()
     ui.check("最初に見てから 25 時間たって開き直し、1 秒で解く: 数え直した 1 秒を送る",
              json.loads(c[0]["body"]) if c else None, {"n": no, "r": "s", "t": 1, "h": 0})
     # 送る時間の上限（AGG_T_MAX）は残してある: 記録の時間が 1 日より長くても（手で書き換えた保存データ）、切って送る
-    ui.open(now=at(no), tz=TZ, perf=True, api=ok(),
+    opn(now=at(no), tz=TZ, perf=True, api=ok(),
             store={"v": 1, "cur": None, "days": {str(no): {"r": "s", "t": 90000, "h": 1, "sh": 0, "e": sol}}})
     time.sleep(0.4)
     c = [x for x in ui.api_calls() if x["method"] == "POST"]
@@ -196,18 +201,18 @@ def run(ui):
     # 帯の境目ちょうどの時間（30 秒は 2 つ目・60 秒は 3 つ目・300 秒は 5 つ目。サーバーと同じ分け方）
     got = []
     for sec in (29, 30, 59, 60, 119, 120, 299, 300):
-        ui.open(now=at(no), tz=TZ, perf=True, api=ok())
+        opn(now=at(no), tz=TZ, perf=True, api=ok())
         solve(sec, wait=0.7)
         got.append((ui.ev(BOX) or {}).get("me"))
     ui.check("自分の帯の境目: 29 秒・30 秒・59 秒・60 秒・119 秒・120 秒・299 秒・300 秒",
              got, [[0], [1], [1], [2], [2], [3], [3], [4]])
 
     # ══ ?date=（テスト表示）では、送らないし読まない ══
-    ui.open(date=day(no).isoformat(), api=ok())
+    opn(date=day(no).isoformat(), api=ok())
     ui.solve(sol, wait=0.9)
     ui.check("?date=: 解いても、送る要求も読む要求も 1 回も出ない。みんなの結果も出ない",
              [ui.api_calls(), ui.ev(BOX), ui.ev(REST)], [[], None, True])
-    ui.open(date=day(no).isoformat(), api=ok())
+    opn(date=day(no).isoformat(), api=ok())
     giveup()
     ui.check("?date=: ギブアップしても、要求は 1 回も出ない", [ui.api_calls(), ui.ev(BOX)], [[], None])
 
@@ -215,7 +220,7 @@ def run(ui):
     for mode, what, marked in (("fail", "通信そのものが失敗", None), ("500", "返事がエラー（500）", None),
                                ("value", "返事が 400（値が外れている）", None), ("badjson", "返事が JSON でない", None),
                                ("badshape", "返事の形が違う", 1)):
-        ui.open(now=at(no), tz=TZ, perf=True, api={"mode": mode})
+        opn(now=at(no), tz=TZ, perf=True, api={"mode": mode})
         solve(75)
         ui.check("%s: みんなの結果を出さず、ほかの並びはそのまま。JS エラーなし。印は%s" % (
                      what, "付く（届いてはいる）" if marked else "付かない"),
@@ -225,9 +230,9 @@ def run(ui):
              ui.ev("[getComputedStyle(result).getPropertyValue('--resGap'),app.classList.contains('scrolly')]"),
              {"normal": ["24px", False], "compact": ["16px", False], "small": ["16px", False]}[ui.viewport])
     # 送れなかった日を、次に開いたときに送り直す
-    ui.open(now=at(no), tz=TZ, perf=True, api={"mode": "fail"})
+    opn(now=at(no), tz=TZ, perf=True, api={"mode": "fail"})
     solve(75)
-    ui.open(now=at(no, 18), tz=TZ, store="keep", api=ok())
+    opn(now=at(no, 18), tz=TZ, store="keep", api=ok())
     time.sleep(0.4)
     calls = ui.api_calls()
     ui.check("送れなかった日: 次に開いたときに、1 回だけ送り直す（読む要求は出さない）。印が付き、数字が出る",
@@ -235,7 +240,7 @@ def run(ui):
               ui.saved()["days"][str(no)].get("sent"), (ui.ev(BOX) or {}).get("nums")],
              [["POST"], {"n": no, "r": "s", "t": 75, "h": 0}, 1, ["81%", "65%"]])
     # 返事が来ないまま打ち切り
-    ui.open(now=at(no), tz=TZ, perf=True, api={"mode": "hang"})
+    opn(now=at(no), tz=TZ, perf=True, api={"mode": "hang"})
     solve(75)
     ui.check("返事が来ない間も、結果の画面はそのまま使える", [ui.ev(REST), ui.ev(BOX), ui.ev("aggBusy.size")], [True, None, 1])
     time.sleep(4.3)
@@ -243,11 +248,11 @@ def run(ui):
              [ui.ev("aggBusy.size"), ui.ev(BOX), ui.saved()["days"][str(no)].get("sent"), ui.errors()], [0, None, None, []])
 
     # ══ サーバーが「もう受け取らない日」と断ったら、印を付けて送り直しをやめる ══
-    ui.open(now=at(no), tz=TZ, perf=True, api={"mode": "range"})
+    opn(now=at(no), tz=TZ, perf=True, api={"mode": "range"})
     solve(75)
     ui.check("断られた（400 range）: 印を付け、みんなの結果は出さない",
              [ui.saved()["days"][str(no)].get("sent"), ui.ev(BOX), ui.errors()], [1, None, []])
-    ui.open(now=at(no, 18), tz=TZ, store="keep", api={"mode": "range"})
+    opn(now=at(no, 18), tz=TZ, store="keep", api={"mode": "range"})
     time.sleep(0.3)
     ui.check("断られた後に開き直す: 送り直さない", [c["method"] for c in ui.api_calls()], ["GET"])
 
@@ -255,7 +260,7 @@ def run(ui):
     # 今日を #10 にして、#1（送った日）・#6・#7（3 日より前）・#8・#9（一昨日と昨日）を仕込む
     t0 = 10
     rec = {"r": "s", "t": 60, "h": 1, "sh": 1, "e": rows[0]["sol"]}
-    ui.open(now=at(t0), tz=TZ, api=ok(),
+    opn(now=at(t0), tz=TZ, api=ok(),
             store={"v": 1, "cur": None, "days": {"1": dict(rec, sent=1), str(t0 - 4): dict(rec), str(t0 - 3): dict(rec),
                                                  str(t0 - 2): dict(rec, r="g", t=None), str(t0 - 1): dict(rec)}})
     time.sleep(0.4)
@@ -270,7 +275,7 @@ def run(ui):
              {"1": 1, str(t0 - 4): 1, str(t0 - 3): 1, str(t0 - 2): 1, str(t0 - 1): 1})
 
     # ══ 保存できない環境でも送る ══
-    ui.open(now=at(no), tz=TZ, perf=True, store="blocked", api=ok())
+    opn(now=at(no), tz=TZ, perf=True, store="blocked", api=ok())
     solve(75)
     ui.check("保存できない環境: 送って、数字を出す。JS エラーなし",
              [[c["method"] for c in ui.api_calls()], (ui.ev(BOX) or {}).get("nums"), ui.errors()],
@@ -279,7 +284,7 @@ def run(ui):
     # ══ 英語と、両方の言語のはみ出し ══
     for lang, want in (("ja", ["みんなの結果", "正解率", "ヒントなし", "あなた"]),
                        ("en", ["Everyone's results", "Solve rate", "No hints", "You"])):
-        ui.open(now=at(no), tz=TZ, perf=True, lang=lang, api=ok({"s": 9999, "g": 1, "s0": 9999, "b": [9999, 0, 0, 0, 0]}))
+        opn(now=at(no), tz=TZ, perf=True, lang=lang, api=ok({"s": 9999, "g": 1, "s0": 9999, "b": [9999, 0, 0, 0, 0]}))
         solve(5)
         b = ui.ev(BOX) or {}
         a = ui.ev(L.AUDIT)
@@ -291,13 +296,13 @@ def run(ui):
         if lang == "en":
             ui.check("en: みんなの結果に日本語の文字が無い",
                      [x for x in a["texts"] + a["labels"] if L.JP.search(x)], [])
-    ui.open(now=at(no), tz=TZ, perf=True, lang="en", api=ok({"s": 20, "g": 9, "s0": 3, "b": [1, 5, 9, 4, 1]}))
+    opn(now=at(no), tz=TZ, perf=True, lang="en", api=ok({"s": 20, "g": 9, "s0": 3, "b": [1, 5, 9, 4, 1]}))
     solve(5)
     ui.check("en: 件数が 29 のときの文", (ui.ev(BOX) or {}).get("pending"), "Collecting results")
 
     # ══ 来た人数の計測（合い言葉が空なら読み込まない。make10.app でだけ読み込む）══
     src = dui.read(dui.DAILY_HTML)
-    ui.open(now=at(no), tz=TZ, api=ok())
+    opn(now=at(no), tz=TZ, api=ok())
     # 合い言葉の値そのものは見ない（人が値を入れた後も、このケースが通るように）
     ui.check("計測: 合い言葉は 1 か所の定数。HTML に計測の印を直に書いていない。127.0.0.1 では読み込まれていない",
              [src.count("const WA_TOKEN="), ui.ev("typeof WA_TOKEN"), src.count("cloudflareinsights"),
@@ -314,4 +319,17 @@ def run(ui):
              [True, [["SCRIPT", "https://static.cloudflareinsights.com/beacon.min.js", True, '{"token":"abc123"}']]])
     ui.solve(sol, wait=0.9)
     ui.check("127.0.0.1 で開いて解いても、計測にも本物の集計にも、要求が 1 回も出ていない", ui.ev(NET), [])
+
+    # ══ 導線を出さない今の形（D0.38。APP_LINK=false）: みんなの結果がいちばん下で、空いた分だけ間隔が広い ══
+    ui.open(now=at(no), tz=TZ, perf=True, api=ok())
+    solve(75)
+    ui.check("導線を出さない形: 導線は見えず、みんなの結果が全解答の下で、版の行の文字より上に収まる",
+             ui.ev("(function(){const r=e=>e.getBoundingClientRect(),a=r(aggbox),s=r(solbox),p=r(app);"
+                   "return [applink.offsetHeight,a.top>=s.bottom-0.5,a.left>=p.left&&a.right<=p.right,"
+                   "a.bottom<=r(dver).top+0.5]})()"), [0, True, True, True])
+    fit = {"normal": ["24px", False, False], "compact": ["12px", False, False], "small": ["8px", False, False]}[ui.viewport]
+    ui.check("導線を出さない形の収まり: 間隔・詰めた形か・縦に動かせる形か（430×900 は 24px／360×690 は 12px／"
+             "360×640 は 8px。どれも詰めず、縦にも動かさない）",
+             ui.ev("[getComputedStyle(result).getPropertyValue('--resGap'),aggbox.classList.contains('tight'),"
+                   "app.classList.contains('scrolly')]"), fit)
     ui.check_no_errors()

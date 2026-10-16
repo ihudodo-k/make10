@@ -12,7 +12,10 @@ import datetime
 import time
 
 from uiharness import daily_ui as dui
-from uiharness.daily_cases.agg import BOX, REST
+from uiharness.daily_cases.agg import BOX
+
+# ほかの並び（3 列・共有ボタン・全解答）が出ていて、アプリへの導線は出ていない（D0.38。agg の REST は導線を出した形のもの）
+REST = "[rshare,solbox,document.querySelector('.rcols')].every(e=>e.offsetHeight>0)&&applink.offsetHeight===0"
 
 NAME = "みんなの結果の見本（テスト表示）"
 

@@ -108,28 +108,28 @@ def run(ui):
              [ui.ev("document.querySelector('#solbox .hbin').textContent"),
               ui.ev("document.querySelector('#solbox .hsub').textContent")],
              ["解答例：" + pretty(multi["sols"][0]), "1/%d" % n])
-    ui.check("アプリへの導線", [ui.text("applink"), ui.ev("applink.getAttribute('href')")],
-             ["もっと解きたい人はアプリで", "https://make10.app/"])
-    order = ui.ev("['#exprwrap','.rcols','#rshare','#solbox','#applink','#dver'].map(s=>{"
+    ui.check("アプリへの導線は出さない（D0.38。アプリのリリースが決まるまで APP_LINK=false）",
+             [ui.ev("APP_LINK"), ui.ev(SEEN % "#applink")], [False, False])
+    order = ui.ev("['#exprwrap','.rcols','#rshare','#solbox','#dver'].map(s=>{"
                   "const r=document.querySelector(s).getBoundingClientRect();return [r.top,r.bottom]})")
-    ui.check("上から 式 → 3 列 → 共有ボタン → 全解答 → 導線 → 版 の順で、重ならない",
+    ui.check("上から 式 → 3 列 → 共有ボタン → 全解答 → 版 の順で、重ならない",
              all(order[i][1] <= order[i + 1][0] + 0.5 for i in range(len(order) - 1)), True)
     gap = {"normal": 24, "compact": 16, "small": 16}[ui.viewport]
     ui.check("間隔は normal 24px・compact 16px。式と 3 列のあいだは 8px 広い",
              [round(order[1][0] - order[0][1], 1), round(order[2][0] - order[1][1], 1),
-              round(order[3][0] - order[2][1], 1), round(order[4][0] - order[3][1], 1)],
-             [gap + 8, gap, gap, gap])
+              round(order[3][0] - order[2][1], 1)],
+             [gap + 8, gap, gap])
     ui.check("共有ボタン「結果を共有」は幅 168px・丸ボタンと同じ高さで、左右の中央",
              ui.ev("(function(){const r=rshare.getBoundingClientRect(),b=dstats.getBoundingClientRect();"
                    "return [rshare.textContent,r.width,r.height-b.height,"
                    "Math.abs((r.left+r.right)/2-innerWidth/2)<0.6]})()"), ["結果を共有", 168, 0, True])
     # 低い画面用の詰めが効いていること（D0.3 は、後ろの規則に負けて効いていなかった）
     low = ui.viewport != "normal"
-    ui.check("3 列の数字・導線・版の行の大きさ（normal 26px・48px・52px ／ 低い画面 22px・44px・40px）",
+    ui.check("3 列の数字・版の行の大きさ（normal 26px・52px ／ 低い画面 22px・40px）",
              ui.ev("[getComputedStyle(document.querySelector('.rcol .rv b')).fontSize,"
-                   "applink.getBoundingClientRect().height,dfoot.getBoundingClientRect().height,"
+                   "dfoot.getBoundingClientRect().height,"
                    "document.querySelector('.rcol').getBoundingClientRect().height]"),
-             ["22px", 44, 40, 47] if low else ["26px", 48, 52, 53])
+             ["22px", 40, 47] if low else ["26px", 52, 53])
     ui.check("3 列は画面の幅の 3 等分（列の中央が 1/6・3/6・5/6）",
              ui.ev("[...document.querySelectorAll('.rcol')].map(e=>{const r=e.getBoundingClientRect();"
                    "return Math.round((r.left+r.right)/2/innerWidth*600)/100})"), [1, 3, 5])
@@ -365,7 +365,7 @@ def run(ui):
     ui.check("ギブアップの記録（時間は持たない）", ui.saved(),
              {"v": 1, "days": {str(no): {"r": "g", "t": None, "h": 0, "sh": 0}}, "cur": None})
     ui.check("ギブアップの後: 並びが版の行より上に収まり、スクロールしない",
-             [ui.ev("applink.getBoundingClientRect().bottom<=dver.getBoundingClientRect().top+0.5"),
+             [ui.ev("result.getBoundingClientRect().bottom<=dver.getBoundingClientRect().top+0.5"),
               ui.scrolls()], [True, False])
     ui.check_no_errors("ギブアップ: JS エラー 0")
     ui.open(now=at(no, 18), tz=TZ, store="keep")
@@ -376,30 +376,50 @@ def run(ui):
     ui.open(now=at(single["no"]), tz=TZ)
     ui.ev("dgiveup.click();document.getElementById('gu-yes').click()")
     ui.check("ほかの解き方が無い日のギブアップ: 全解答の箱を出さない",
-             [ui.ev(SEEN % "#solbox"), ui.ev(SEEN % "#applink")], [False, True])
+             [ui.ev(SEEN % "#solbox"), ui.ev(SEEN % "#rshare")], [False, True])
     ui.open(now=at(single["no"]), tz=TZ)
     ui.solve(single["sol"], wait=0.9)
     ui.check("全解答が 1 本だけの日に解いた: 箱は 1/1 で、押しても送れない",
              [ui.ev("document.querySelector('#solbox .hsub').textContent"),
               ui.ev("!!document.getElementById('sol-next')")], ["1/1", False])
 
+    # ══ アプリへの導線を出したとき（APP_LINK=true にしたときの形。D0.38 で出すのをやめたが、作りは残してある）══
+    ui.open(now=at(no), tz=TZ, applink=True)
+    ui.solve(multi["sol"], wait=0.9)
+    ui.check("導線を出したとき: 文と行き先", [ui.text("applink"), ui.ev("applink.getAttribute('href')")],
+             ["もっと解きたい人はアプリで", "https://make10.app/"])
+    order = ui.ev("['#exprwrap','.rcols','#rshare','#solbox','#applink','#dver'].map(s=>{"
+                  "const r=document.querySelector(s).getBoundingClientRect();return [r.top,r.bottom]})")
+    ui.check("導線を出したとき: 上から 式 → 3 列 → 共有ボタン → 全解答 → 導線 → 版 の順で、重ならない",
+             all(order[i][1] <= order[i + 1][0] + 0.5 for i in range(len(order) - 1)), True)
+    ui.check("導線を出したとき: 間隔は normal 24px・compact 16px（全解答と導線のあいだも同じ）",
+             [round(order[1][0] - order[0][1], 1), round(order[2][0] - order[1][1], 1),
+              round(order[3][0] - order[2][1], 1), round(order[4][0] - order[3][1], 1)],
+             [gap + 8, gap, gap, gap])
+    ui.check("導線を出したとき: 導線の高さ（normal 48px ／ 低い画面 44px）・スクロールしない",
+             [ui.ev("applink.getBoundingClientRect().height"), ui.scrolls()], [44 if low else 48, False])
+
     # ══ 低い画面では間隔を詰め、それでも収まらなければ縦に動かせるようにする（13-5）══
     FIT = ("(function(){const r=s=>document.querySelector(s).getBoundingClientRect();"
            "return [getComputedStyle(result).getPropertyValue('--resGap'),app.classList.contains('scrolly'),"
-           "r('#applink').bottom<=r('#dtest').top+0.5]})()")
-    for sw, sh, want in ((360, 640, ["12px", False, True]), (360, 600, ["8px", False, True]),
-                         (430, 720, ["16px", False, True])):
+           "r('#result').bottom<=r('#dtest').top+0.5]})()")
+    # 導線を出さない今の形と、出したときの形（括弧の中）の両方で見る
+    for link, sw, sh, want in ((False, 360, 640, ["16px", False, True]), (False, 360, 600, ["16px", False, True]),
+                               (False, 430, 720, ["24px", False, True]),
+                               (True, 360, 640, ["12px", False, True]), (True, 360, 600, ["8px", False, True]),
+                               (True, 430, 720, ["16px", False, True])):
         ui.resize(sw, sh)
-        ui.open(date=day(no).isoformat())
+        ui.open(date=day(no).isoformat(), applink=link)
         ui.solve(multi["sol"], wait=0.9)
-        ui.check("画面 %d×%d: 間隔・縦に動かせる形か・版の行より上に収まるか" % (sw, sh), ui.ev(FIT), want)
-        ui.check("画面 %d×%d: スクロールしない" % (sw, sh), ui.scrolls(), False)
+        tag = "画面 %d×%d%s" % (sw, sh, "（導線を出したとき）" if link else "")
+        ui.check("%s: 間隔・縦に動かせる形か・版の行より上に収まるか" % tag, ui.ev(FIT), want)
+        ui.check("%s: スクロールしない" % tag, ui.scrolls(), False)
     ui.resize(360, 380)
     ui.open(date=day(no).isoformat())
     ui.solve(multi["sol"], wait=0.9)
-    ui.check("画面 360×380（8px でも収まらない）: 列の中を縦に動かせる形になり、導線まで動かして届く",
+    ui.check("画面 360×380（8px でも収まらない）: 列の中を縦に動かせる形になり、全解答まで動かして届く",
              ui.ev("(function(){const a=document.getElementById('app');a.scrollTop=9999;"
-                   "const l=applink.getBoundingClientRect();"
+                   "const l=solbox.getBoundingClientRect();"
                    "return [getComputedStyle(result).getPropertyValue('--resGap'),a.classList.contains('scrolly'),"
                    "a.scrollTop>0,l.bottom<=innerHeight+0.5]})()"), ["8px", True, True, True])
     # 幅がとても狭いときは、収まらない式だけ縮める（ラベルは縮めない）。いちばん長い式の日で見る
