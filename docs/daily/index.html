@@ -688,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.38";
+const DAILY_VERSION="0.39";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
@@ -2658,6 +2658,9 @@ const DAILY_DAYS=DAILY?DAILY.split("\n").map(ln=>{
 /* ?date=YYYY-MM-DD で「今日」を固定できる（確かめのための入口。記録は保存しない。DAILY-SPEC 11 章）*/
 const DATE_URL=(()=>{try{return parseYmd(new URLSearchParams(location.search).get("date"))}catch(e){return null}})();
 const TEST_MODE=!!DATE_URL;
+/* ?date= に &try=1 を足すと、別の端末へ移すことを試せる（D0.39。10-1）。テスト表示のまま、記録と設定を本物とは別のキー
+   （DAILY_KEY_TRY）に保存し、設定に「別の端末へ移す」を出す。集計へは送らない（テスト表示のまま）*/
+const TRY_MODE=TEST_MODE&&(()=>{try{return new URLSearchParams(location.search).get("try")==="1"}catch(e){return false}})();
 /* 「今日」は端末のローカル時刻の日付。開いた時点で決め、開いたまま日付が変わっても切り替えない */
 const TODAY=DATE_URL||(()=>{const n=new Date();return{y:n.getFullYear(),m:n.getMonth()+1,d:n.getDate()}})();
 /* 問題番号 = 起点日（#1）から今日までの日数 + 1 */
@@ -2697,14 +2700,15 @@ function applyLang(){
      cur = {no:問題番号, start:問題を最初に見た時刻（端末の時計。1970 年からのミリ秒）, h:使ったヒントの回数, sh:共有の回数}
      days[…].sent = 集計へ送れたら 1（送り直さないための印。D0.8。17-2）
      set = 設定 {easy:途中の値を表示 0/1, tap:タップで配置 0/1, dark:ダークモード 0/1, lang:"auto"/"ja"/"en"}（D0.13。dark は D0.31・lang は D0.36。13-11）
-   ?date=（テスト表示）のときは読まないし書かない。保存できない環境では黙ってそのまま遊べる。
+   ?date=（テスト表示）のときは読まないし書かない（&try=1 を足したときだけ、別のキー DAILY_KEY_TRY に読み書きする。D0.39）。保存できない環境では黙ってそのまま遊べる。
    公開までは保存の形の互換を気にしない（古い形の記録は読めなくてよい。移行の処理は作らない。10 章）*/
 const DAILY_KEY="make10.daily.v1";
+const DAILY_KEY_TRY="make10.daily.v1.try";
 let DATA={v:1,days:{},cur:null,set:{easy:0,tap:0,dark:0,lang:"auto"}};
 function loadDaily(){
-  if(TEST_MODE)return;
+  if(TEST_MODE&&!TRY_MODE)return;
   try{
-    const x=JSON.parse(localStorage.getItem(DAILY_KEY)||"null");
+    const x=JSON.parse(localStorage.getItem(TRY_MODE?DAILY_KEY_TRY:DAILY_KEY)||"null");
     if(x&&typeof x==="object"&&x.days&&typeof x.days==="object")
       DATA={v:1,days:x.days,cur:x.cur&&typeof x.cur==="object"?x.cur:null,
         set:{easy:x.set&&x.set.easy?1:0,tap:x.set&&x.set.tap?1:0,dark:x.set&&x.set.dark?1:0,
@@ -2712,8 +2716,8 @@ function loadDaily(){
   }catch(e){}
 }
 function saveDaily(){
-  if(TEST_MODE)return;
-  try{localStorage.setItem(DAILY_KEY,JSON.stringify(DATA))}catch(e){}
+  if(TEST_MODE&&!TRY_MODE)return;
+  try{localStorage.setItem(TRY_MODE?DAILY_KEY_TRY:DAILY_KEY,JSON.stringify(DATA))}catch(e){}
 }
 /* 今日の問題の記録（解いた・ギブアップのどちらか）。まだなら undefined */
 const dayRecord=()=>PUZZLE?DATA.days[PUZZLE.no]:undefined;
@@ -3383,7 +3387,7 @@ $("dset-close").onclick=()=>popHide();
      記録は 1 日ずつ確かめて、この端末の記録に足す。同じ日が両方にあれば、解いたほうを残す（どちらも同じなら、この端末の分）。
      受け取った日には sent を付ける ―― 集計へは送った端末が送るので、二重に数えない。設定は、送った端末のものにする。
      解いている途中の分（cur）は移さない。受け取ったら、閉じたときにページを読み直す。
-   ?date=（テスト表示）では使わない（設定の行を出さない）。サーバーの決まりは worker/src/index.js */
+   ?date=（テスト表示）では使わない（設定の行を出さない）。&try=1 を足せば試せる（D0.39。TRY_MODE）。サーバーの決まりは worker/src/index.js */
 const MOVE_URL="https://api.make10.app/x";
 const MOVE_RE=/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;   // 見間違えやすい 0・O・1・I・L を除いた 31 字の 6 文字（サーバーの CODE_CHARS と同じ）
 let moveCode=null;        // 出したコード {c, until: 期限（端末の時計のミリ秒）}
@@ -3542,7 +3546,8 @@ async function moveIssue(){
   moveBusy=false;$("mv-issue").disabled=false;
   if(j&&typeof j.c==="string"&&MOVE_RE.test(j.c)&&Number.isFinite(j.s)&&j.s>0){
     moveCode={c:j.c,until:Date.now()+j.s*1000};
-    $("mv-qr").innerHTML=qrSvg(location.origin+location.pathname+"#move="+j.c);
+    // 試すとき（&try=1）は ?date= と &try=1 も付ける（受け取る端末も試す形で開くように）
+    $("mv-qr").innerHTML=qrSvg(location.origin+location.pathname+(TRY_MODE?location.search:"")+"#move="+j.c);
     moveMsg("mv-smsg");
   }
   else moveMsg("mv-smsg",st===429?"daily.move_busy":"daily.move_net",null,true);
@@ -3573,7 +3578,7 @@ function moveOpen(code){
   if(code)$("mv-in").value=code;
   popShow("dmovesheet");drawMove();
 }
-$("t-move-g").classList.toggle("hide",TEST_MODE);
+$("t-move-g").classList.toggle("hide",TEST_MODE&&!TRY_MODE);
 $("t-move").onclick=()=>moveOpen();
 $("dmove-close").innerHTML=ICON_HCLOSE;
 $("dmove-close").onclick=()=>popHide();
@@ -3619,6 +3624,8 @@ if(!TEST_MODE){
   }
   if(marked)saveDaily();
   if(PUZZLE&&dayRecord()&&dayRecord().sent)aggRead(PUZZLE.no);
+}
+if(!TEST_MODE||TRY_MODE){
   // QR（#move=コード）から開いた: URL からコードを消して、コードを入れた状態で移す画面を開く。受け取るのは、人が押してから（10-1）。
   // 開いたままのページの URL に付いたとき（同じページの中の移動で、読み直さない）も同じ
   const moveHash=()=>{

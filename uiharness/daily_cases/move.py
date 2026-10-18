@@ -342,6 +342,48 @@ def run(ui):
     ui.ev("dset.click()")
     ui.check("テスト表示（?date=）では、設定に「別の端末へ移す」を出さない", ui.visible("t-move"), False)
 
+    # ══ 試す入口（?date=…&try=1。D0.39）: テスト表示のまま、本物とは別のキーに保存して、移すことを試せる ══
+    TRY_KEY = dui.SAVE_KEY + ".try"
+    tday = day(no).isoformat()
+    ui.open(date=tday, extra="&try=1", api={"xput": "ok", "xcode": CODE, "xs": 600})
+    ui.ev("localStorage.setItem(%s,'REAL')" % json.dumps(dui.SAVE_KEY))
+    ui.ev("dset.click()")
+    ui.check("試す入口: テスト表示の文は出たまま、設定に「別の端末へ移す」を出す",
+             [ui.visible("dtest"), ui.visible("t-move")], [True, True])
+    ui.ev("popHide()")
+    time.sleep(0.2)
+    ui.solve(rows[no - 1]["sol"], wait=0.9)
+    tr = ui.ev("JSON.parse(localStorage.getItem(%s)||'null')" % json.dumps(TRY_KEY))
+    ui.check("試す入口: 解いた記録は試しのキーに残り、本物のキーは変わらない。集計へは送らない",
+             [tr and tr["days"].get(str(no), {}).get("r"), ui.ev("localStorage.getItem(%s)" % json.dumps(dui.SAVE_KEY)),
+              [c for c in ui.api_calls() if c["url"].endswith("/r") or "/r?" in c["url"]]], ["s", "REAL", []])
+    ui.ev("moveOpen();$('mv-issue').click()")
+    time.sleep(0.3)
+    calls = [c for c in ui.api_calls() if "/x" in c["url"]]
+    sent_t = json.loads(calls[0]["body"]) if calls else None
+    ui.check("試す入口: 預ける中身は試しの記録", sent_t and sorted(sent_t["days"]), [str(no)])
+    text, info, q = qr_of_page(ui)
+    ui.check("試す入口: QR は ?date= と &try=1 も付けた URL（受け取る端末も試す形で開く）",
+             text, ui.ev("location.origin+location.pathname+location.search") + "#move=" + CODE)
+    ui.check("試す入口: ?date= と &try=1 が URL に付いている", "try=1" in (text or "") and ("date=" + tday) in (text or ""), True)
+    # 受け取る側（別の端末のつもり。保存を空にしてから）
+    ui.open(date=tday, extra="&try=1", api={"xtake": "ok", "xstore": {CODE: sent_t}})
+    ui.ev("localStorage.setItem(%s,'REAL')" % json.dumps(dui.SAVE_KEY))
+    ui.ev("moveOpen('K7P2QX');$('mv-take').click()")
+    time.sleep(0.3)
+    tr = ui.ev("JSON.parse(localStorage.getItem(%s)||'null')" % json.dumps(TRY_KEY))
+    ui.check("試す入口で受け取る: 試しのキーに足し（sent を付ける）、本物のキーは変わらない",
+             [ui.ev(STATE)["rmsg"], tr and tr["days"].get(str(no), {}).get("sent"),
+              ui.ev("localStorage.getItem(%s)" % json.dumps(dui.SAVE_KEY))],
+             ["受け取りました（記録 1 日ぶんと設定）。閉じると反映されます", 1, "REAL"])
+    ui.open(date=tday, extra="&try=1", store="keep")
+    ui.check("試す入口で開き直す: 受け取った今日の記録で、解いた後の画面になる", ui.ev("!!dayRecord()&&dayRecord().r"), "s")
+    ui.open(date=tday, store="keep")
+    ui.check("&try=1 の無い ?date= は、試しの記録を読まない（今までどおり何も読まない）",
+             [ui.ev("!!dayRecord()"), ui.visible("t-move")], [False, False])
+    ui.open(extra="#move=k7p2qx", date=tday)
+    ui.check("&try=1 の無い ?date= では、#move= でも移す画面を開かない", ui.ev("popNow"), None)
+
     # ══ 英語・はみ出し ══
     ui.open(now=at(no), tz=TZ, lang="en", api={"xput": "ok", "xcode": CODE})
     ui.ev("dset.click();$('t-move').click();$('mv-issue').click()")
