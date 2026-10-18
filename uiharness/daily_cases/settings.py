@@ -185,7 +185,7 @@ def run(ui):
              [ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>b.id+':'+b.textContent)"),
               ui.ev("document.querySelector('#dsetsheet h2').textContent")],
              [["t-easy:" + want[0][0], "t-tap:" + want[1][0], "t-dark:" + want[3][0], "t-lang:言語 / Language自動（日本語）",
-               "t-move:別の端末へ移す›"], want[2][0]])
+               "t-move:データ移行›"], want[2][0]])
     ui.check("はじめは 3 つともオフ", ui.ev(ON), [False, False, False])
     ui.check("行は高さ 53px（本編のスイッチの行と同じ）・左右はカードの端から 7px（線 1px ＋ 余白 6px）。スイッチは 44×25px で右端から 14px",
              ui.ev("[...document.querySelectorAll('#dsetsheet .toggle:has(.sw)')].map(b=>{const r=b.getBoundingClientRect(),"
@@ -394,7 +394,7 @@ def run(ui):
              [ui.ev("document.querySelector('#dsetsheet h2').textContent"),
               ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].map(b=>b.textContent)"),
               ui.ev("dset.getAttribute('aria-label')"), ui.ev("document.getElementById('dset-close').getAttribute('aria-label')")],
-             [want[2][1], [want[0][1], want[1][1], want[3][1], "言語 / LanguageAuto (English)", "Move to another device›"],
+             [want[2][1], [want[0][1], want[1][1], want[3][1], "言語 / LanguageAuto (English)", "Transfer data›"],
               "Settings", "Close"])
     ui.check("英語: 行の文字は 1 行で、スイッチに重ならない。シートは横にはみ出さない",
              ui.ev("[...document.querySelectorAll('#dsetsheet .toggle')].every(b=>{const s=b.firstElementChild.getBoundingClientRect(),"

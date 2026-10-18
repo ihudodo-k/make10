@@ -688,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.39";
+const DAILY_VERSION="0.40";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
@@ -831,20 +831,20 @@ const STR_DAILY={ja:{
   "daily.lang_ja":"日本語",
   "daily.lang_en":"English",
   // 別の端末へ移す（D0.37。10-1）
-  "daily.set_move":"別の端末へ移す",
-  "daily.move_title":"別の端末へ移す",
-  "daily.move_intro":"遊んだ記録と設定を、別の端末へ移せます。アカウントは要りません。",
-  "daily.move_send_h":"この端末から送る",
+  "daily.set_move":"データ移行",
+  "daily.move_title":"データ移行",
+  "daily.move_intro":"遊んだ記録と設定を、別の端末へ移せます。",
+  "daily.move_send_h":"送信",
   "daily.move_issue":"コードを出す",
   "daily.move_qr_alt":"コードの QR コード",
   "daily.move_left":"あと {time} 有効",
   "daily.move_expired":"コードの期限が切れました",
-  "daily.move_code_note":"新しい端末でこのページを開き、設定 →「別の端末へ移す」にコードを入れるか、QR コードを読み取ってください。コードは 1 回だけ使えます。",
-  "daily.move_recv_h":"この端末で受け取る",
+  "daily.move_code_note":"移行先でこのページを開き、設定 →「データ移行」にコードを入れるか、QR コードを読み取ってください。コードは 1 回だけ使えます。",
+  "daily.move_recv_h":"受信",
   "daily.move_in_ph":"コード",
   "daily.move_in_label":"コード（6 文字）",
   "daily.move_take":"受け取る",
-  "daily.move_take_note":"受け取った記録は、この端末の記録に足します（同じ日は、解いたほうを残します）。設定は、送った端末のものになります。",
+  "daily.move_take_note":"受け取った記録は、この端末の記録に足されます（同じ日は、この端末の記録を残します）。",
   "daily.move_wait":"通信しています…",
   "daily.move_done":{other:"受け取りました（記録 {n} 日ぶんと設定）。閉じると反映されます"},
   "daily.move_bad":"6 文字のコードを入れてください",
@@ -932,20 +932,20 @@ en:{
   "daily.lang_auto_now":"{auto} ({lang})",
   "daily.lang_ja":"日本語",
   "daily.lang_en":"English",
-  "daily.set_move":"Move to another device",
-  "daily.move_title":"Move to another device",
-  "daily.move_intro":"Move your play history and settings to another device. No account needed.",
-  "daily.move_send_h":"Send from this device",
+  "daily.set_move":"Transfer data",
+  "daily.move_title":"Transfer data",
+  "daily.move_intro":"Move your play history and settings to another device.",
+  "daily.move_send_h":"Send",
   "daily.move_issue":"Get a code",
   "daily.move_qr_alt":"QR code for the code",
   "daily.move_left":"Valid for {time}",
   "daily.move_expired":"The code has expired",
-  "daily.move_code_note":"On the new device, open this page and enter the code in Settings → Move to another device, or scan the QR code. The code works once.",
-  "daily.move_recv_h":"Receive on this device",
+  "daily.move_code_note":"On the new device, open this page and enter the code in Settings → Transfer data, or scan the QR code. The code works once.",
+  "daily.move_recv_h":"Receive",
   "daily.move_in_ph":"Code",
   "daily.move_in_label":"Code (6 characters)",
   "daily.move_take":"Receive",
-  "daily.move_take_note":"Received history is added to this device's (for the same day, the solved one is kept). Settings become the sender's.",
+  "daily.move_take_note":"Received history is added to this device's (for the same day, this device's record is kept).",
   "daily.move_wait":"Connecting…",
   "daily.move_done":{one:"Received {n} day of history and your settings. Close to apply.",other:"Received {n} days of history and your settings. Close to apply."},
   "daily.move_bad":"Enter the 6-character code",
@@ -3384,7 +3384,7 @@ $("dset-close").onclick=()=>popHide();
    送る端末: 「コードを出す」で、記録（days。送れたかの印 sent は外す）と設定（set）を集計のサーバーに預け、6 文字のコードと、
      そのコードを入れたこのページの URL（#move=コード）の QR を出す。コードは 10 分だけ有効で、受け取られたらサーバーから消える。
    受け取る端末: コードを入れて「受け取る」（QR から開いたときは、コードを入れた状態で移す画面が開く。押すのは人）。
-     記録は 1 日ずつ確かめて、この端末の記録に足す。同じ日が両方にあれば、解いたほうを残す（どちらも同じなら、この端末の分）。
+     記録は 1 日ずつ確かめて、この端末の記録に足す。同じ日が両方にあれば、この端末の分を残す（D0.40。D0.37〜D0.39 は解いたほうを残していた）。
      受け取った日には sent を付ける ―― 集計へは送った端末が送るので、二重に数えない。設定は、送った端末のものにする。
      解いている途中の分（cur）は移さない。受け取ったら、閉じたときにページを読み直す。
    ?date=（テスト表示）では使わない（設定の行を出さない）。&try=1 を足せば試せる（D0.39。TRY_MODE）。サーバーの決まりは worker/src/index.js */
@@ -3411,17 +3411,17 @@ function moveRec(r){
   o.sent=1;
   return o;
 }
-/* 受け取った中身を、この端末の記録と設定に合わせて保存する。確かめを通った日の数を返す */
+/* 受け取った中身を、この端末の記録と設定に合わせて保存する。足した日の数を返す（D0.40 から。同じ日で残した分は数えない） */
 function moveMerge(x){
   let n=0;
   const days=x&&x.days&&typeof x.days==="object"&&!Array.isArray(x.days)?x.days:{};
   for(const k of Object.keys(days)){
     if(!/^[1-9][0-9]{0,5}$/.test(k))continue;
     const v=moveRec(days[k]);if(!v)continue;
-    n++;
-    const old=DATA.days[k];
-    if(old&&!(old.r==="g"&&v.r==="s"))continue;
-    DATA.days[k]=v;
+    // 同じ日は、受け取る側の記録を残す（送る側で解いていても、こちらのギブアップのまま。D0.40）。
+    // 開いただけの今日（途中の分 cur だけで、記録が無い）は記録ではないので、送る側の分を入れる。数えるのは足した日だけ
+    if(DATA.days[k])continue;
+    DATA.days[k]=v;n++;
   }
   const s=x&&x.set;
   if(s&&typeof s==="object")

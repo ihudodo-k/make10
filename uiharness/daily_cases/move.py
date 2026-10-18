@@ -21,7 +21,7 @@ import time
 
 from uiharness import daily_ui as dui
 
-NAME = "別の端末へ移す"
+NAME = "データ移行（別の端末へ移す）"
 
 TZ = "Asia/Tokyo"
 CODE = "K7P2QX"
@@ -174,11 +174,11 @@ def run(ui):
     # ══ 設定の行と、移す画面を開く ══
     ui.open(now=at(no), tz=TZ)
     ui.ev("dset.click()")
-    ui.check("設定の 5 行目に「別の端末へ移す」（スイッチの 4 行とは細い線 1 本で分けた別のまとまり）",
+    ui.check("設定の 5 行目に「データ移行」（スイッチの 4 行とは細い線 1 本で分けた別のまとまり）",
              ui.ev("(function(){const r=[...dsetbody.querySelectorAll('.toggle')].map(b=>b.id);const g=$('t-move-g');"
                    "const l=getComputedStyle(g,'::before'),a=$('t-lang').getBoundingClientRect(),m=$('t-move').getBoundingClientRect();"
                    "return [r,$('t-move').textContent,l.height,l.left,l.right,Math.round(m.top-a.bottom),g.offsetHeight>0]})()"),
-             [["t-easy", "t-tap", "t-dark", "t-lang", "t-move"], "別の端末へ移す›", "1px", "14px", "14px", 0, True])
+             [["t-easy", "t-tap", "t-dark", "t-lang", "t-move"], "データ移行›", "1px", "14px", "14px", 0, True])
     ui.ev("$('t-move').click()")
     st = ui.ev(STATE)
     ui.check("押すと移す画面が開き（設定は閉じる）、「コードを出す」だけが見える",
@@ -186,7 +186,13 @@ def run(ui):
              ["dmovesheet", False, True, False, "", "", ""])
     ui.check("見出しと 2 つのまとまりの見出し・ボタンの文",
              ui.ev("[$('dmove-title').textContent,...[...dmovebody.querySelectorAll('h3,.mvbtn')].map(e=>e.textContent)]"),
-             ["別の端末へ移す", "この端末から送る", "コードを出す", "この端末で受け取る", "受け取る"])
+             ["データ移行", "送信", "コードを出す", "受信", "受け取る"])
+    ui.check("説明の文（D0.40。「アカウントは要りません」と「設定は、送った端末のものになります」は書かない）",
+             ui.ev("['daily.move_intro','daily.move_code_note','daily.move_take_note']"
+                   ".map(k=>document.querySelector('[data-i18n=\"'+k+'\"]').textContent)"),
+             ["遊んだ記録と設定を、別の端末へ移せます。",
+              "移行先でこのページを開き、設定 →「データ移行」にコードを入れるか、QR コードを読み取ってください。コードは 1 回だけ使えます。",
+              "受け取った記録は、この端末の記録に足されます（同じ日は、この端末の記録を残します）。"])
     ui.check("ボタンは面も枠も持たない太字（囲まない）",
              ui.ev("(function(){const s=getComputedStyle($('mv-issue'));"
                    "return [s.backgroundColor,s.borderTopWidth,s.fontWeight]})()"),
@@ -252,8 +258,9 @@ def run(ui):
     ui.check_no_errors("送る: JS エラー 0")
 
     # ══ 受け取る ══
-    # 受け取る端末: #1 解いた（こちらだけ）・#2 ギブアップ（送る端末は解いた → 解いたほうに替わる）・
-    # #3 解いた（送る端末はギブアップ → こちらを残す）・#5 解いた（両方とも解いた → こちらを残す）・今日 #6 は解いている途中
+    # 受け取る端末: #1 解いた（こちらだけ）・#2 ギブアップ（送る端末は解いた → こちらのギブアップを残す。D0.40）・
+    # #3 解いた（送る端末はギブアップ → こちらを残す）・#5 解いた（両方とも解いた → こちらを残す）・
+    # 今日 #6 は開いただけ（途中の分だけで記録は無い → 送る端末の解いた分を入れる）
     b_days = {"1": rec(1, t=50), "2": rec(2, "g", h=1), "3": rec(3, t=99, h=1, sh=1), "5": rec(5, t=200, h=2, sh=2)}
     store_b = {"v": 1, "days": b_days, "cur": {"no": no, "start": at(no) - 30000, "h": 1, "sh": 1},
                "set": {"easy": 0, "tap": 0, "dark": 0, "lang": "auto"}}
@@ -277,14 +284,14 @@ def run(ui):
              [[c["url"], c["method"], c["headers"], json.loads(c["body"])] for c in calls[-1:]],
              [["https://api.make10.app/x/take", "POST", {"Content-Type": "text/plain"}, {"c": CODE}]])
     st = ui.ev(STATE)
-    ui.check("受け取ったら「受け取りました（記録 5 日ぶんと設定）…」（形の違う 3 日は数えない）。もう押せない",
+    ui.check("受け取ったら「受け取りました（記録 2 日ぶんと設定）…」（足した #4・#6 だけを数える。残した日・形の違う 3 日は数えない）。もう押せない",
              [st["rmsg"], st["rerr"], ui.ev("[$('mv-take').disabled,$('mv-issue').disabled]")],
-             ["受け取りました（記録 5 日ぶんと設定）。閉じると反映されます", False, [True, True]])
+             ["受け取りました（記録 2 日ぶんと設定）。閉じると反映されます", False, [True, True]])
     got = ui.saved(raw=True)
-    want = {"1": b_days["1"], "2": dict(want_days["2"], sent=1), "3": b_days["3"], "4": dict(want_days["4"], sent=1),
+    want = {"1": b_days["1"], "2": b_days["2"], "3": b_days["3"], "4": dict(want_days["4"], sent=1),
             "5": b_days["5"], "6": dict(want_days["6"], sent=1)}
-    ui.check("記録の合わせ方: こちらだけの日は残す・ギブアップは解いたほうに替わる・解いた日は残す・"
-             "無い日は足す・受け取った日には sent・形の違う日は足さない", got and got["days"], want)
+    ui.check("記録の合わせ方（D0.40）: 同じ日はこちらの記録を残す（送る端末で解いていても、こちらのギブアップのまま）・"
+             "無い日と開いただけの今日は足す・受け取った日には sent・形の違う日は足さない", got and got["days"], want)
     ui.check("設定は送った端末のもの・今日を受け取ったので途中の分は消す", got and [got["set"], got["cur"]], [a_set, None])
     ui.ev("$('mv-take').click()")
     time.sleep(0.2)
@@ -390,8 +397,8 @@ def run(ui):
     time.sleep(0.3)
     ui.check("英語の文", ui.ev("[$('t-move').textContent,$('dmove-title').textContent,"
                                "...[...dmovebody.querySelectorAll('h3,.mvbtn')].map(e=>e.textContent),$('mv-in').placeholder]"),
-             ["Move to another device›", "Move to another device", "Send from this device", "Get a code",
-              "Receive on this device", "Receive", "Code"])
+             ["Transfer data›", "Transfer data", "Send", "Get a code",
+              "Receive", "Receive", "Code"])
     ui.check("英語の移す画面に、日本語の字が無い",
              re.findall(r"[぀-ヿ㐀-鿿＀-￯]", ui.ev("dmovebody.innerText+$('dmove-title').textContent"))[:5], [])
     ui.check("移す画面は横にはみ出さず、ページにスクロールが出ない（高さが足りなければカードの中だけが動く）",
