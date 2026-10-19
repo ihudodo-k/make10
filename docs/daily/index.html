@@ -688,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.41";
+const DAILY_VERSION="0.42";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
@@ -3416,7 +3416,9 @@ function moveMerge(x){
   let n=0;
   const days=x&&x.days&&typeof x.days==="object"&&!Array.isArray(x.days)?x.days:{};
   for(const k of Object.keys(days)){
-    if(!/^[1-9][0-9]{0,5}$/.test(k))continue;
+    // この端末の今日より後の日は足さない（D0.42）。コードは他人が作ったものかもしれず、先の日を記録で埋められると、
+    // その日になっても遊べない（直すには記録を全部消すしかない）
+    if(!/^[1-9][0-9]{0,5}$/.test(k)||+k>DAILY_NO)continue;
     const v=moveRec(days[k]);if(!v)continue;
     // 同じ日は、受け取る側の記録を残す（送る側で解いていても、こちらのギブアップのまま。D0.40）。
     // 開いただけの今日（途中の分 cur だけで、記録が無い）は記録ではないので、送る側の分を入れる。数えるのは足した日だけ

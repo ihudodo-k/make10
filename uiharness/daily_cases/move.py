@@ -325,6 +325,19 @@ def run(ui):
              [st["rmsg"], st["rerr"], {k: v for k, v in (ui.saved(raw=True) or {}).items() if k != "cur"}],
              ["通信できませんでした。時間をおいて試してください", True, {"v": 1, "days": {}, "set": dui.SET_DEFAULT}])
 
+    # ══ 受け取る側の今日より後の日は足さない（D0.42。コードは他人が作ったものかもしれない ―― 先の日を「解いた」で埋められると、
+    # その日になっても遊べず、直すには記録を全部消すしかない）══
+    future = {"v": 1, "days": {str(no): rec(no), str(no + 1): rec(no + 1), str(no + 30): rec(no + 30, "g"),
+                               "999999": rec(no)}, "set": dui.SET_DEFAULT}
+    ui.open(now=at(no), tz=TZ, api={"xtake": "ok", "xstore": {CODE: future}})
+    ui.ev("dset.click();$('t-move').click();$('mv-in').value='K7P2QX';$('mv-take').click()")
+    time.sleep(0.3)
+    ui.check("今日より後の日（明日・30 日後・999999）は足さず、数えない（今日の 1 日だけ）",
+             [ui.ev(STATE)["rmsg"], sorted((ui.saved(raw=True) or {}).get("days", {}))],
+             ["受け取りました（記録 1 日ぶんと設定）。閉じると反映されます", [str(no)]])
+    ui.open(now=at(no + 1), tz=TZ, store=ui.saved(raw=True))
+    ui.check("翌日に開くと、その日の問題を遊べる（解いた後の画面にならない）", ui.ev("playing()"), True)
+
     # ══ QR から開く ══（前のページと URL を変えて、読み込みからやり直す。#move= だけの違いだと、同じページの中の移動になる）
     ui.open(now=at(no), tz=TZ, extra="&from=qr#move=k7p2qx", api={"xtake": "ok", "xstore": {CODE: payload}})
     time.sleep(0.2)
