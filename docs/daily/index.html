@@ -688,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.46";
+const DAILY_VERSION="0.47";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
@@ -2723,7 +2723,7 @@ function keptDays(src){
   if(!src||typeof src!=="object"||Array.isArray(src))return out;
   for(const k of Object.keys(src)){
     if(!DAY_KEY_RE.test(k))continue;
-    const v=recOk(src[k]);if(!v)continue;
+    const v=recOk(src[k],+k);if(!v)continue;
     if(src[k].sent===1)v.sent=1;
     out[k]=v;
   }
@@ -3419,20 +3419,51 @@ function movePayload(){
   for(const k of Object.keys(DATA.days)){const r=DATA.days[k];if(!r)continue;const o={...r};delete o.sent;days[k]=o}
   return {v:1,days,set:{...DATA.set}};
 }
-/* 1 日ぶんの記録を確かめる。形が違えば null。返すのは決めた項目だけの新しい記録（sent は付けない）。
-   受け取った記録（moveRec）と、保存から読んだ記録（keptDays。D0.46）の両方が通る */
-function recOk(r){
+/* 解いた式（記録の e）が、その日（no）の問題で 10 になる式か（D0.47）。盤の決まり（canPut）で組み直し、
+   書き方が exprOf() と同じで、括弧がそろい、演算子が 3 つで、10 になり、制約の記号を使っていないこと。
+   盤はいま遊んでいるものを借りるので、確かめた後に元へ戻す */
+const EXPR_OPS=["+","-","*","/","^"];
+function exprOk(no,e){
+  const p=DAILY_DAYS[no-1];
+  if(!p||typeof e!=="string"||e.length>200)return false;
+  const keep={S,uid,held};
+  try{
+    uid=1;S={toks:p.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};held=null;
+    let at=0, d=0;
+    for(const w of e.split(" ")){
+      let x=w, f=0;
+      while(x.endsWith("!")){f++;x=x.slice(0,-1)}
+      if(/^[0-9]$/.test(x)){if(x!==p.id[d++])return false;at++}
+      else if(x==="("||x===")"){const k=x==="("?"lp":"rp";if(!canPut(k,at))return false;put(k,at);at++}
+      else if(EXPR_OPS.includes(x)){if(!canPut(x,at))return false;put(x,at);at++}
+      else return false;
+      for(;f>0;f--){if(!canPut("!",at))return false;put("!",at);at++}
+    }
+    if(d!==4||exprOf()!==e||T().filter(x=>x.t==="op").length!==3)return false;
+    if(!Object.values(match()).every(v=>v!==null))return false;
+    const ast=parse(T()), v=ast&&ev(ast), c=conOf(p);
+    if(!v||!isInt(v)||v.n!==10n)return false;
+    return !c||(c.op==="!"?cnt("fac"):T().filter(x=>x.t==="op"&&x.v===c.op).length)===0;
+  }catch(err){return false}
+  finally{S=keep.S;uid=keep.uid;held=keep.held}
+}
+/* 1 日ぶんの記録（no = その日の番号）を確かめる。形が違えば null。返すのは決めた項目だけの新しい記録（sent は付けない）。
+   受け取った記録（moveRec）と、保存から読んだ記録（keptDays。D0.46）の両方が通る。
+   解いた日の時間は 1 日（86,400 秒。集計と同じ）までに詰め、式は 10 になる式でなければ式だけ捨てる（「解いた」は残す。D0.47）*/
+const REC_T_MAX=86400;
+function recOk(r,no){
   if(!r||typeof r!=="object"||!Number.isInteger(r.h)||r.h<0||r.h>2)return null;
   const o={r:r.r,t:null,h:r.h,sh:Number.isInteger(r.sh)&&r.sh>=0?r.sh:0};
   if(r.r==="s"){
-    if(!Number.isInteger(r.t)||r.t<0||typeof r.e!=="string"||r.e.length>200)return null;
-    o.t=r.t;o.e=r.e;
+    if(!Number.isInteger(r.t)||r.t<0)return null;
+    o.t=Math.min(REC_T_MAX,r.t);
+    if(exprOk(no,r.e))o.e=r.e;
   }
   else if(r.r!=="g")return null;
   return o;
 }
 /* 受け取った 1 日ぶん。形が違えば null（その日は足さない）。受け取った日には sent を付ける（集計へは送った端末が送る）*/
-function moveRec(r){const o=recOk(r);if(o)o.sent=1;return o}
+function moveRec(r,no){const o=recOk(r,no);if(o)o.sent=1;return o}
 /* 受け取った中身を、この端末の記録と設定に合わせて保存する。足した日の数を返す（D0.40 から。同じ日で残した分は数えない） */
 function moveMerge(x){
   let n=0;
@@ -3441,7 +3472,7 @@ function moveMerge(x){
     // この端末の今日より後の日は足さない（D0.42）。コードは他人が作ったものかもしれず、先の日を記録で埋められると、
     // その日になっても遊べない（直すには記録を全部消すしかない）
     if(!DAY_KEY_RE.test(k)||+k>DAILY_NO)continue;
-    const v=moveRec(days[k]);if(!v)continue;
+    const v=moveRec(days[k],+k);if(!v)continue;
     // 同じ日は、受け取る側の記録を残す（送る側で解いていても、こちらのギブアップのまま。D0.40）。
     // 開いただけの今日（途中の分 cur だけで、記録が無い）は記録ではないので、送る側の分を入れる。数えるのは足した日だけ
     if(DATA.days[k])continue;

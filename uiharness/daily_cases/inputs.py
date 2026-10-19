@@ -3,6 +3,8 @@
 
 - 保存（localStorage）から読んだ記録と途中の分は、データ移行で受け取るときと同じ確かめに通す。
   null の日・__proto__・形の違う値は捨て、正しい日の記録は残す。統計とカレンダーが開ける（D0.46）
+- 保存した記録と受け取った記録の解いた式（e）は、盤を組んで 10 になる式でなければ式だけ捨てる（「解いた」は残す）。
+  時間は 86,400 秒までに詰める（D0.47）
 """
 import datetime
 import json
@@ -53,3 +55,46 @@ def run(ui):
     ui.check("カレンダーで解いた日を選べ、HTML として出るものは無い", ui.ev("[window.__X||0,document.querySelectorAll('img').length]"),
              [0, 0])
     ui.check_no_errors("保存から読んだ記録: JS エラー 0")
+
+    # ══ 解いた式と時間（D0.47）══
+    def plus(n):                       # その日の 4 つの数字を + でつないだ式（10 にならない日を選ぶ）
+        return " + ".join(rows[n - 1]["id"])
+    n_not10 = next(n for n in range(9, 40) if sum(map(int, rows[n - 1]["id"])) != 10)
+    bad = {"2": XSS, "3": "9 + 9 + 9 + 9", str(n_not10): plus(n_not10), "5": "1 __proto__ 2 constructor 3 toString 4",
+           "6": sol(6).replace("(", "( (", 1)}
+    days = {"1": solved(1)}
+    for k, e in bad.items():
+        days[k] = dict(solved(int(k)), e=e)
+    days["7"] = dict(solved(7), t=10 ** 12)
+    days[str(no)] = dict(solved(no), e="( " * 60)
+    ui.open(now=at(no), tz=TZ, store={"v": 1, "days": days, "cur": None})
+    got = ui.ev("JSON.stringify(DATA.days)")
+    got = json.loads(got)
+    ui.check("保存した記録: 10 になる式（#1）は残し、HTML・違う数字・10 にならない・知らない記号・括弧が合わない式は、式だけ捨てる（「解いた」は残す）",
+             {k: [v["r"], "e" in v] for k, v in got.items()},
+             dict({"1": ["s", True], "7": ["s", True], str(no): ["s", False]}, **{k: ["s", False] for k in bad}))
+    ui.check("保存した記録: 時間は 86,400 秒までに詰める（10^12 秒 → 24:00:00）", got["7"]["t"], 86400)
+    ui.check("今日の式を捨てたので、盤は解答例で開き、10 になる",
+             [ui.ev("$('eq').textContent"), ui.ev("exprOf()")], ["10", sol(no)])
+    ui.ev("dstats.click()")
+    time.sleep(0.1)
+    ui.ev("const b=document.querySelector('#dcal-grid button[data-no=\"7\"]');if(b)b.click()")
+    time.sleep(0.1)
+    ui.check("カレンダーの #7 の時間は 24:00:00", "24:00:00" in ui.ev("$('dcal-line').textContent"), True)
+    ui.check_no_errors("解いた式と時間（保存）: JS エラー 0")
+
+    CODE = "K7P2QX"
+    payload = {"v": 1, "days": {"3": dict(solved(3), e=XSS, t=10 ** 300), "4": dict(solved(4))},
+               "set": dui.SET_DEFAULT}
+    payload["days"]["4"].pop("sent")
+    ui.open(now=at(no), tz=TZ, api={"xtake": "ok", "xstore": {CODE: payload}})
+    ui.ev("dset.click();$('t-move').click();$('mv-in').value=%s;$('mv-take').click()" % json.dumps(CODE))
+    time.sleep(0.3)
+    got = (ui.saved(raw=True) or {}).get("days", {})
+    ui.check("受け取った記録: HTML の式は捨て、時間は 86,400 秒まで。正しい #4 は式ごと入る（2 日とも「解いた」）",
+             [got.get("3"), got.get("4")],
+             [{"r": "s", "t": 86400, "h": 0, "sh": 0, "sent": 1}, dict(solved(4), sent=1)])
+    ui.check_no_errors("解いた式と時間（受け取り）: JS エラー 0")
+    ui.check("列のすべての日の、すべての解答は、10 になる式として通る（正しい式を捨てない）",
+             ui.ev("(function(){const ng=[];let k=0;for(const p of DAILY_DAYS)for(const e of p.sols){k++;if(!exprOk(p.no,e))ng.push(p.no+':'+e)}"
+                   "return [k>DAILY_DAYS.length,ng.slice(0,5)]})()"), [True, []])
