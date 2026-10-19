@@ -102,3 +102,32 @@ npm test             # wrangler を手元で立ち上げ、手元の D1 で試�
   npm run schema:remote
   ```
 - `npm test` が全部通ることを見てから `npm run deploy`
+
+## Cloudflare の WAF の回数制限（人が行う。1 回だけ。公開前の安全の点検の H2）
+
+`Origin` の確かめは、ブラウザ以外（curl）からは偽れる。偽った要求を大量に送られると、Workers の無料の回数（1 日 10 万回）と
+D1 の書き込み（1 日 10 万行）を使い切られ、その日のあいだ集計とデータ移行が止まる。そこで、Worker が動く前に Cloudflare の WAF で止める
+（止めた要求は Workers の回数にも D1 にも入らない）。決まりは `DAILY-SPEC.md` の 17-3。
+
+1. Cloudflare のダッシュボード → `make10.app` のゾーン → Security → WAF → **Rate limiting rules** → Create rule
+2. 名前: `api-rate`（何でもよい）
+3. 当てる要求（Edit expression で書く）:
+   ```
+   (http.host eq "api.make10.app" and http.request.uri.path in {"/r" "/x" "/x/take"})
+   ```
+4. 数え方: **同じ IP**（Characteristics は IP）で、**10 秒に 5 回**（Requests 5・Period 10 seconds）を超えたら
+5. すること: **Block**、続ける時間 **10 秒**（Duration 10 seconds）。返事は既定のまま（429）
+6. Deploy
+
+- 止めた返事（429）には CORS のヘッダーが付かないので、ページからは通信の失敗に見える。集計は送れなかった日を次に開いたときに送り直し、
+  データ移行は「通信できませんでした。時間をおいて試してください」と出す（`verify_daily.py` のケース `inputs` が、この形の返事で確かめている）
+- 同じ IP を多くの人で使う回線（学校・会社・携帯の回線の一部）では、ふつうに遊んでいても 10 秒に 5 回を超えることがありうる。
+  そのときも、送れなかった集計は次に開いたときに送り直す
+
+**確かめ**（Windows の PowerShell なら `curl.exe` と書く。`curl` だけだと別のコマンドになる）。同じ IP から 6 回続けて送ると、6 回目が 429 になる
+（公開前は、1〜5 回目は `{"e":"range"}` の 400）。10 秒待つと、また 400 に戻る
+```
+for /l %i in (1,1,6) do @curl.exe -s -o NUL -w "%{http_code}
+" -H "Origin: https://make10.app" "https://api.make10.app/r?n=1"
+```
+（PowerShell では `1..6 | % { curl.exe -s -o NUL -w "%{http_code}`n" -H "Origin: https://make10.app" "https://api.make10.app/r?n=1" }`）
