@@ -145,7 +145,35 @@ async function run() {
 
   await runXfer();
   await runBody();
+  await runHeaders();
   runIndex();
+}
+
+// ── どの返事にも X-Content-Type-Options: nosniff（D0.45）──
+async function runHeaders() {
+  const H = (x = {}) => ({ Origin: ORIGIN, "Content-Type": "text/plain", "CF-Connecting-IP": ip(), ...x });
+  const one = { "CF-Connecting-IP": "203.0.113.99" };
+  for (let i = 0; i < 10; i++) await xtake("ABCDEF", one);                    // 11 回目を 429 にする
+  const kinds = [
+    ["GET /r 200", () => get(TODAY), 200],
+    ["POST /r 200", () => post({ n: TODAY + 1, r: "g", h: 0 }), 200],
+    ["POST /r 400", () => post("x"), 400],
+    ["Origin 違い 403", () => get(TODAY, { Origin: "https://example.com" }), 403],
+    ["パス違い 404", () => fetch(BASE + "/nope", { headers: H() }), 404],
+    ["PUT 405", () => fetch(BASE + "/r", { method: "PUT", headers: H(), body: "{}" }), 405],
+    ["OPTIONS 204", () => fetch(BASE + "/r", { method: "OPTIONS", headers: H() }), 204],
+    ["POST /x 200", () => xput({ days: {} }), 200],
+    ["POST /x/take 404", () => xtake("ABCDEF"), 404],
+    ["POST /x/take 429", () => xtake("ABCDEF", one), 429],
+  ];
+  const got = [];
+  for (const [name, f, st] of kinds) {
+    const r = await f();
+    await r.arrayBuffer();
+    got.push([name, r.status === st, r.headers.get("x-content-type-options")]);
+  }
+  check("どの返事にも X-Content-Type-Options: nosniff（200・400・403・404・405・204・429）", got,
+    kinds.map(([name]) => [name, true, "nosniff"]));
 }
 
 // ── 期限を過ぎた行を消す文が、索引を使うこと（D0.44）──

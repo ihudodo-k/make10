@@ -90,7 +90,9 @@ const agg = (n, row) => row
 
 export default {
   async fetch(req, env) {
-    const cors = { "Access-Control-Allow-Origin": env.ALLOW_ORIGIN, "Vary": "Origin", "Cache-Control": "no-store" };
+    // どの返事にも付ける。nosniff は、返事を Content-Type のとおりにだけ読ませる（中身から HTML などと推し量らせない。D0.45）
+    const cors = { "Access-Control-Allow-Origin": env.ALLOW_ORIGIN, "Vary": "Origin", "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff" };
     // 預かった中身は、受け取ったときに JSON の文字列のまま返すので、文字列も受け付ける
     const reply = (status, body) => new Response(typeof body === "string" ? body : JSON.stringify(body), {
       status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8" } });
