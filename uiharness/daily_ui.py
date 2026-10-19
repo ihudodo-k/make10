@@ -320,7 +320,10 @@ addEventListener("unhandledrejection",e=>__ERRS.push("reject: "+String(e.reason)
 #   __APIMODE = 返事の決め方 {mode, agg, delay}
 #     mode: "fail" 通信そのものが失敗（既定）／"ok" 200 で agg を返す（n は要求の問題番号）／"500"／
 #           "range" 400 {"e":"range"}／"value" 400 {"e":"value"}／"badjson" 200 だが JSON でない／
-#           "badshape" 200 だが形が違う／"hang" 返事が来ない（打ち切りを待つ）
+#           "badshape" 200 だが形が違う／"hang" 返事が来ない（打ち切りを待つ）／
+#           "waf" Cloudflare の WAF（回数の制限）が止めた。返事は 429 だが CORS のヘッダーが無いので、ブラウザでは
+#           fetch が TypeError で失敗する（返事の中身も状態も読めない）。xput・xtake にも "waf" を書ける（D0.49 の後）／
+#           "429" 読める 429（WAF が CORS のヘッダーを付けた場合のまね）
 #     xput・xtake・xcode・xs・xstore: 別の端末へ移す受け口（/x・/x/take）の返事（D0.37。下の中に説明）
 API = r"""
 window.__API=[];window.__APIMODE=%s;
@@ -343,7 +346,8 @@ window.__API=[];window.__APIMODE=%s;
       if(xp==="/x"||xp==="/x/take"){
         const take=xp==="/x/take", xm=(take?m.xtake:m.xput)||"fail";
         setTimeout(()=>{
-          if(xm==="busy")ok(res(429,{e:"busy"}));
+          if(xm==="waf")ng(new TypeError("Failed to fetch"));
+          else if(xm==="busy")ok(res(429,{e:"busy"}));
           else if(xm==="500")ok(res(500,{e:"x"}));
           else if(xm!=="ok")ng(new TypeError("Failed to fetch"));
           else if(!take)ok(res(200,{c:m.xcode||"K7P2QX",s:m.xs||600}));
@@ -361,6 +365,8 @@ window.__API=[];window.__APIMODE=%s;
         else if(m.mode==="badjson")ok(res(200,"<html>"));
         else if(m.mode==="badshape")ok(res(200,{n,s:1}));
         else if(m.mode==="hang"){}
+        else if(m.mode==="waf")ng(new TypeError("Failed to fetch"));
+        else if(m.mode==="429")ok(new Response("Too Many Requests",{status:429,headers:{"Content-Type":"text/plain"}}));
         else ng(new TypeError("Failed to fetch"));
       },m.delay||0)})}})();
 """

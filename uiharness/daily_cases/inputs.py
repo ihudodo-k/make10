@@ -7,6 +7,8 @@
   時間は 86,400 秒までに詰める（D0.47）
 - 集計の返事の数は 0〜10 億の整数だけを使う。大きすぎる数で NaN% や Infinity% を出さない（D0.48）
 - データ移行のコード欄は、全角を半角にそろえる（NFKC。D0.49）
+- Cloudflare の WAF（回数の制限）が止めたとき（429 だが CORS のヘッダーが無い → ブラウザでは通信の失敗）と、読める 429 のとき:
+  集計の送信・読み込み・データ移行の預ける／受け取るで、ページが壊れず、決めた文が出る。送れなかった日は送り直す（D0.49 の後）
 """
 import datetime
 import json
@@ -129,3 +131,44 @@ def run(ui):
     ui.check("全角でも 5 文字なら送らない", [ui.ev("$('mv-rmsg').textContent"), len([c for c in ui.api_calls() if '/x/take' in c['url']])],
              ["6 文字のコードを入れてください", 3])
     ui.check_no_errors("コード欄の全角: JS エラー 0")
+
+    # ══ WAF の 429（D0.49 の後）══
+    agg_ok = {"mode": "ok", "agg": {"s": 40, "g": 3, "s0": 20, "b": [5, 10, 15, 8, 2]}}
+    for mode, lab in (("waf", "WAF が止めた（CORS なしの 429 → 通信の失敗）"), ("429", "読める 429")):
+        ui.open(now=at(no), tz=TZ, api={"mode": mode})
+        ui.solve(sol(no), wait=0.9)
+        time.sleep(0.3)
+        rec = (ui.saved(raw=True) or {}).get("days", {}).get(str(no), {})
+        ui.check("集計の送信で%s: 解いた後の画面になり、みんなの結果は出さず、送れた印も付けない" % lab,
+                 [ui.ev("!$('result').classList.contains('hide')"), ui.ev("$('aggbox').classList.contains('hide')"),
+                  rec.get("r"), "sent" in rec, [c["method"] for c in ui.api_calls()]],
+                 [True, True, "s", False, ["POST"]])
+        ui.check_no_errors("集計の送信で%s: JS エラー 0" % lab)
+        ui.open(now=at(no), tz=TZ, store="keep", api=agg_ok)
+        time.sleep(0.4)
+        ui.check("…止められた後に開き直すと、送り直して、みんなの結果を出し、送れた印を付ける（%s）" % mode,
+                 [[c["method"] for c in ui.api_calls()], ui.ev("!$('aggbox').classList.contains('hide')"),
+                  (ui.saved(raw=True) or {}).get("days", {}).get(str(no), {}).get("sent")], [["POST"], True, 1])
+        ui.open(now=at(no), tz=TZ, store={"v": 1, "days": {str(no): solved(no)}, "cur": None}, api={"mode": mode})
+        time.sleep(0.4)
+        ui.check("集計の読み込みで%s: みんなの結果は出さず、ほかの並びはそのまま" % lab,
+                 [[c["method"] for c in ui.api_calls()], ui.ev("$('aggbox').classList.contains('hide')"),
+                  ui.ev("!$('result').classList.contains('hide')")], [["GET"], True, True])
+        ui.check_no_errors("集計の読み込みで%s: JS エラー 0" % lab)
+
+    STATE = "[$('mv-smsg').textContent,$('mv-smsg').classList.contains('err'),$('mv-rmsg').textContent,$('mv-rmsg').classList.contains('err')]"
+    net = "通信できませんでした。時間をおいて試してください"
+    st0 = {"v": 1, "days": {"3": solved(3)}, "cur": None, "set": dui.SET_DEFAULT}
+    ui.open(now=at(no), tz=TZ, store=st0, api={"xput": "waf", "xtake": "waf"})
+    ui.ev("dset.click();$('t-move').click();$('mv-issue').click()")
+    time.sleep(0.3)
+    ui.check("データ移行の預けるで WAF が止めた: 「通信できませんでした…」（赤）。コードも QR も出ず、もう一度押せる",
+             [ui.ev(STATE)[:2], ui.ev("$('mv-out').classList.contains('hide')"), ui.ev("$('mv-issue').disabled")],
+             [[net, True], True, False])
+    ui.ev("$('mv-in').value='K7P2QX';$('mv-take').click()")
+    time.sleep(0.3)
+    ui.check("データ移行の受け取るで WAF が止めた: 「通信できませんでした…」（赤）。記録と設定は変わらず、もう一度押せる",
+             [ui.ev(STATE)[2:], {k: v for k, v in (ui.saved(raw=True) or {}).items() if k != "cur"},
+              ui.ev("$('mv-take').disabled")],
+             [[net, True], {k: v for k, v in st0.items() if k != "cur"}, False])
+    ui.check_no_errors("データ移行で WAF が止めた: JS エラー 0")
