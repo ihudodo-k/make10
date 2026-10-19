@@ -187,11 +187,11 @@ def run(ui):
     ui.check("見出しと 2 つのまとまりの見出し・ボタンの文",
              ui.ev("[$('dmove-title').textContent,...[...dmovebody.querySelectorAll('h3,.mvbtn')].map(e=>e.textContent)]"),
              ["データ移行", "送信", "コードを出す", "受信", "受け取る"])
-    ui.check("説明の文（D0.40。「アカウントは要りません」と「設定は、送った端末のものになります」は書かない）",
+    ui.check("説明の文（D0.40。「アカウントは要りません」と「設定は、送った端末のものになります」は書かない。D0.41 で「コードは 1 回だけ使えます」も書かない）",
              ui.ev("['daily.move_intro','daily.move_code_note','daily.move_take_note']"
                    ".map(k=>document.querySelector('[data-i18n=\"'+k+'\"]').textContent)"),
              ["遊んだ記録と設定を、別の端末へ移せます。",
-              "移行先でこのページを開き、設定 →「データ移行」にコードを入れるか、QR コードを読み取ってください。コードは 1 回だけ使えます。",
+              "移行先でこのページを開き、設定 →「データ移行」にコードを入れるか、QR コードを読み取ってください。",
               "受け取った記録は、この端末の記録に足されます（同じ日は、この端末の記録を残します）。"])
     ui.check("ボタンは面も枠も持たない太字（囲まない）",
              ui.ev("(function(){const s=getComputedStyle($('mv-issue'));"
