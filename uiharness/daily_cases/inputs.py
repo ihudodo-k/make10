@@ -5,6 +5,7 @@
   null の日・__proto__・形の違う値は捨て、正しい日の記録は残す。統計とカレンダーが開ける（D0.46）
 - 保存した記録と受け取った記録の解いた式（e）は、盤を組んで 10 になる式でなければ式だけ捨てる（「解いた」は残す）。
   時間は 86,400 秒までに詰める（D0.47）
+- 集計の返事の数は 0〜10 億の整数だけを使う。大きすぎる数で NaN% や Infinity% を出さない（D0.48）
 """
 import datetime
 import json
@@ -98,3 +99,16 @@ def run(ui):
     ui.check("列のすべての日の、すべての解答は、10 になる式として通る（正しい式を捨てない）",
              ui.ev("(function(){const ng=[];let k=0;for(const p of DAILY_DAYS)for(const e of p.sols){k++;if(!exprOk(p.no,e))ng.push(p.no+':'+e)}"
                    "return [k>DAILY_DAYS.length,ng.slice(0,5)]})()"), [True, []])
+
+    # ══ 集計の返事の数の上限（D0.48）══
+    st = {"v": 1, "days": {str(no): solved(no, t=5)}, "cur": None}
+    for lab, agg, shown in (("1e308", {"s": 10 ** 308, "g": 10 ** 308, "s0": 10 ** 308, "b": [10 ** 308] * 5}, False),
+                            ("10 億 ＋ 1", {"s": 10 ** 9 + 1, "g": 0, "s0": 0, "b": [10 ** 9 + 1, 0, 0, 0, 0]}, False),
+                            ("10 億ちょうど", {"s": 10 ** 9, "g": 10 ** 9, "s0": 0, "b": [10 ** 9, 0, 0, 0, 0]}, True)):
+        ui.open(now=at(no), tz=TZ, store=st, api={"mode": "ok", "agg": agg})
+        time.sleep(0.4)
+        txt = ui.ev("$('aggbox').textContent")
+        ui.check("集計の返事が %s: みんなの結果を%s・NaN と Infinity が出ない" % (lab, "出す" if shown else "出さない"),
+                 [ui.ev("!!aggData"), "NaN" in txt or "Infinity" in txt, ui.ev("/NaN|Infinity/.test(shareTextOf(PUZZLE,dayRecord(),aggData))")],
+                 [shown, False, False])
+    ui.check_no_errors("集計の返事の数の上限: JS エラー 0")

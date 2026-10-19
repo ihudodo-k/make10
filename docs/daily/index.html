@@ -688,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.47";
+const DAILY_VERSION="0.48";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
@@ -2960,8 +2960,11 @@ const AGG_TEST=(()=>{
     return k&&Object.prototype.hasOwnProperty.call(AGG_DEMO,k)?AGG_DEMO[k]:null}catch(e){return null}})();
 const aggBusy=new Set();                   // 送っている途中の問題番号（二重に送らない）
 const aggBand=t=>{let i=0;while(i<AGG_BANDS.length&&t>=AGG_BANDS[i])i++;return i};
-const aggOk=(j,no)=>!!j&&j.n===no&&[j.s,j.g,j.s0].every(x=>Number.isInteger(x)&&x>=0)
-  &&Array.isArray(j.b)&&j.b.length===AGG_LABELS.length&&j.b.every(x=>Number.isInteger(x)&&x>=0);
+/* 返事の数は 0〜AGG_N_MAX の整数（D0.48。大きすぎる数で NaN% や Infinity% を出さない。10 億は、毎日遊ぶ人数より十分に大きい）*/
+const AGG_N_MAX=1e9;
+const aggNum=x=>Number.isInteger(x)&&x>=0&&x<=AGG_N_MAX;
+const aggOk=(j,no)=>!!j&&j.n===no&&[j.s,j.g,j.s0].every(aggNum)
+  &&Array.isArray(j.b)&&j.b.length===AGG_LABELS.length&&j.b.every(aggNum);
 function aggFetch(url,opt){
   const c=new AbortController(), tm=setTimeout(()=>c.abort(),AGG_TIMEOUT);
   return fetch(url,{...opt,signal:c.signal}).finally(()=>clearTimeout(tm));
