@@ -6,6 +6,7 @@
 //   1. 範囲の外の値と、Origin が違う要求を、足さずに断ること
 //   2. 100 件を同時に送って、数が合うこと（2 回ぶん＝200 件）
 //   3. 別の端末へ移す（D0.37。DAILY-SPEC 10-1）: 預けて受け取れる・2 回目は受け取れない・期限・断る値・同時に受け取っても 1 回・回数の制限
+//   4. 中身の上限（D0.43）: Content-Length が上限より大きければ読まずに断る・無いときも上限を超えた時点で打ち切る
 // を確かめる。データは毎回、一時フォルダに作って終わったら消す（本番にも、手元の .wrangler にも残さない）。
 // 1 つでも落ちたら終了コード 1。
 //
@@ -13,9 +14,11 @@
 // そのままだと受け付ける問題番号が 1 つも無い）。預かる時間も、試しのあいだだけ XFER_TTL_SEC 秒に縮める。
 // MAKE10_WORKER_MAIN に別のファイルを入れると、そちらを Worker の本体として試す（わざと壊して赤くなることの確かめ用）。
 import { spawn, spawnSync } from "node:child_process";
+import { request as httpRequest } from "node:http";
+import { pathToFileURL } from "node:url";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(dirname(fileURLToPath(import.meta.url)));        // worker/
@@ -141,6 +144,62 @@ async function run() {
   check("別の日の行は動いていない", (await (await get(TODAY)).json()).s, 140);
 
   await runXfer();
+  await runBody();
+}
+
+// ── 中身の上限（D0.43）──
+// 手元の wrangler dev は、要求の中身を全部受け取ってから Worker に渡す（すぐ返す Worker でも、送り終えるまで返事が来ない）。
+// そこで「全部を読まないこと」は、Worker の fetch を Node から直に呼んで見る。中身は、上限を超えても終わらない流れにして、
+// 返事が来ること（3 秒以内）と、Worker が引き出したバイト数が上限 ＋ 1 かたまり（4,096）までであることを確かめる。
+// Origin と回数の制限より先には進まない要求なので、D1 は要らない（env に DB を渡さない）
+const workerMod = await import(pathToFileURL(main ? resolve(HERE, main) : join(HERE, "src", "index.js")).href);
+const CHUNK = 4096;
+async function direct(path, { len = null, endless = true, bytes = 0 } = {}) {
+  let pulled = 0;
+  const body = new ReadableStream({
+    pull(c) {
+      if (!endless && pulled >= bytes) { c.close(); return; }
+      if (endless && pulled > 1e7) return new Promise(() => {});      // 1000 万バイトから先は、来ないまま待たせる
+      pulled += CHUNK; c.enqueue(new Uint8Array(CHUNK).fill(97));
+    } }, { highWaterMark: 0 });                                         // 先読みさせない（引き出された分だけを数える）
+  const headers = { Origin: ORIGIN, "Content-Type": "text/plain" };
+  if (len !== null) headers["Content-Length"] = String(len);
+  const req = new Request("https://api.make10.app" + path, { method: "POST", headers, body, duplex: "half" });
+  const env = { ALLOW_ORIGIN: ORIGIN, DAILY_START: start };
+  const r = await Promise.race([workerMod.default.fetch(req, env).then(async (x) => [x.status, await x.text()]),
+    new Promise((ok) => setTimeout(() => ok(["3 秒待っても返事が来ない"]), 3000))]);
+  return [r, pulled];
+}
+
+// wrangler dev を通して、分けて送る（Content-Length なし）中身を送り終える。first … 中身
+function raw(path, first) {
+  return new Promise((done) => {
+    const rq = httpRequest(BASE + path, { method: "POST",
+      headers: { Origin: ORIGIN, "Content-Type": "text/plain", "CF-Connecting-IP": ip(), "Transfer-Encoding": "chunked" } });
+    rq.on("response", (res) => { let b = ""; res.on("data", (d) => { b += d; }); res.on("end", () => done([res.statusCode, b])); });
+    rq.on("error", (e) => done(["error " + e.message]));
+    rq.end(first);
+  });
+}
+
+async function runBody() {
+  const busy = [400, JSON.stringify({ e: "body" })];
+  for (const [path, max] of [["/r", 200], ["/x", 262144], ["/x/take", 262144]]) {
+    let [r, pulled] = await direct(path, { len: 10000000 });
+    check(`${path}: Content-Length が 1000 万（上限 ${max}）なら、中身を読まずに 400 {"e":"body"}`, [r, pulled], [busy, 0]);
+    [r, pulled] = await direct(path);
+    check(`${path}: Content-Length なしで終わらない中身は、上限を超えた所で打ち切って 400（引き出したのは上限 ＋ 4,096 バイトまで）`,
+      [r, pulled <= max + CHUNK], [busy, true]);
+    [r, pulled] = await direct(path, { len: 10 });
+    check(`${path}: Content-Length を小さく偽っても、読みながら上限を超えた所で打ち切って 400`, [r, pulled <= max + CHUNK], [busy, true]);
+  }
+  const ok = await raw("/r", JSON.stringify({ n: TODAY + 1, r: "g", h: 0 }));
+  check("/r: Content-Length なしでも、上限までの中身は受け付ける", [ok[0], JSON.parse(ok[1] || "{}").n], [200, TODAY + 1]);
+  const ox = await raw("/x", JSON.stringify({ days: {} }));
+  check("/x: Content-Length なしでも、上限までの中身は預かる", [ox[0], CODE.test(JSON.parse(ox[1] || "{}").c)], [200, true]);
+  const wide = JSON.stringify({ n: TODAY + 1, r: "g", h: 0, x: "あ".repeat(58) });          // 87 文字・203 バイト
+  check("/r: 上限は UTF-8 のバイト数（87 文字でも 203 バイトなら 400 {\"e\":\"body\"}）",
+    [wide.length, await body(await post(wide))], [87, [400, { e: "body" }]]);
 }
 
 // ── 別の端末へ移す（10-1）──

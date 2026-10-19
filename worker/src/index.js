@@ -23,11 +23,11 @@ const BANDS = [30, 60, 120, 300];
 // 時間（秒）の範囲。1 秒〜24 時間
 const T_MIN = 1;
 const T_MAX = 86400;
-const BODY_MAX = 200;                    // 中身の長さの上限（文字）
+const BODY_MAX = 200;                    // 中身の長さの上限（UTF-8 のバイト数。ページが送る中身は ASCII だけなので、文字数と同じ）
 const DAY = 86400000;
 // 別の端末へ移す（10-1）
 const XFER_TTL = 600000;                 // 預かる時間（ミリ秒）。10 分。手元の試しだけ XFER_TTL_MS で縮める
-const XFER_MAX = 262144;                 // 預かる中身の長さの上限（文字）。毎日遊んで 3 年分の記録が約 7.7 万文字（DAILY-SPEC 10 章）なので、10 年分ほど
+const XFER_MAX = 262144;                 // 預かる中身の長さの上限（UTF-8 のバイト数。BODY_MAX と同じ）。毎日遊んで 3 年分の記録が約 7.7 万文字（DAILY-SPEC 10 章）なので、10 年分ほど
 // コードの字。見間違えやすい 0・O・1・I・L を除いた 31 字（ページの MOVE_CHARS と同じ）。6 字で約 8.9 億通り
 const CODE_CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const CODE_LEN = 6;
@@ -60,6 +60,28 @@ function newCode() {
     }
   }
   return c;
+}
+
+// 中身を上限まで読む。上限を超えたら null（D0.43）。Content-Length が上限より大きければ読まずに断り、
+// 無い・偽っているときも、読みながら上限を超えた時点で打ち切る（全部をメモリに読み込まない）
+async function readBody(req, max) {
+  const len = req.headers.get("Content-Length");
+  if (len !== null && Number(len) > max) return null;
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const parts = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) { reader.cancel().catch(() => {}); return null; }
+    parts.push(value);
+  }
+  const buf = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) { buf.set(p, at); at += p.byteLength; }
+  return new TextDecoder().decode(buf);
 }
 
 const agg = (n, row) => row
@@ -96,8 +118,8 @@ export default {
       return reply(200, agg(n, await env.DB.prepare(SELECT).bind(n).first()));
     }
 
-    const text = await req.text();
-    if (text.length > BODY_MAX) return reply(400, { e: "body" });
+    const text = await readBody(req, BODY_MAX);
+    if (text === null) return reply(400, { e: "body" });
     let x;
     try { x = JSON.parse(text); } catch (e) { return reply(400, { e: "body" }); }
     if (!x || typeof x !== "object" || Array.isArray(x)) return reply(400, { e: "body" });
@@ -130,8 +152,8 @@ async function xfer(req, env, path, reply) {
     if (!success) return reply(429, { e: "busy" });
   }
   const now = Date.now();
-  const text = await req.text();
-  if (text.length > XFER_MAX) return reply(400, { e: "body" });
+  const text = await readBody(req, XFER_MAX);
+  if (text === null) return reply(400, { e: "body" });
   let x;
   try { x = JSON.parse(text); } catch (e) { return reply(400, { e: "body" }); }
   if (!x || typeof x !== "object" || Array.isArray(x)) return reply(400, { e: "body" });
