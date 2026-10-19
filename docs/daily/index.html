@@ -688,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.48";
+const DAILY_VERSION="0.49";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
@@ -3611,8 +3611,8 @@ async function moveIssue(){
   else moveMsg("mv-smsg",st===429?"daily.move_busy":"daily.move_net",null,true);
   drawMove();
 }
-/* 入れた字を、コードの形にそろえる（小文字は大文字に。空白とハイフンは捨てる）*/
-const moveNorm=v=>String(v).toUpperCase().replace(/[\s-]/g,"");
+/* 入れた字を、コードの形にそろえる（全角は半角に（NFKC。D0.49）・小文字は大文字に・空白とハイフンは捨てる）*/
+const moveNorm=v=>String(v).normalize("NFKC").toUpperCase().replace(/[\s-]/g,"");
 async function moveTake(){
   if(moveBusy||moveDone)return;
   const c=moveNorm($("mv-in").value);

@@ -6,6 +6,7 @@
 - 保存した記録と受け取った記録の解いた式（e）は、盤を組んで 10 になる式でなければ式だけ捨てる（「解いた」は残す）。
   時間は 86,400 秒までに詰める（D0.47）
 - 集計の返事の数は 0〜10 億の整数だけを使う。大きすぎる数で NaN% や Infinity% を出さない（D0.48）
+- データ移行のコード欄は、全角を半角にそろえる（NFKC。D0.49）
 """
 import datetime
 import json
@@ -112,3 +113,19 @@ def run(ui):
                  [ui.ev("!!aggData"), "NaN" in txt or "Infinity" in txt, ui.ev("/NaN|Infinity/.test(shareTextOf(PUZZLE,dayRecord(),aggData))")],
                  [shown, False, False])
     ui.check_no_errors("集計の返事の数の上限: JS エラー 0")
+
+    # ══ コード欄の全角（D0.49）══
+    ui.open(now=at(no), tz=TZ, api={"xtake": "ok", "xstore": {}})
+    ui.ev("dset.click();$('t-move').click()")
+    sent = []
+    for v in ("Ｋ７Ｐ２ＱＸ", "　ｋ７ｐ－２ｑｘ　", "K７P2QX"):
+        ui.ev("$('mv-in').value=%s;$('mv-take').click()" % json.dumps(v))
+        time.sleep(0.2)
+        calls = [c for c in ui.api_calls() if c["url"].endswith("/x/take")]
+        sent.append(json.loads(calls[-1]["body"])["c"] if len(calls) > len(sent) else None)
+    ui.check("全角の「Ｋ７Ｐ２ＱＸ」・全角の空白とハイフンと小文字・半角と全角が混ざったもの は、どれも K7P2QX として受け取りに行く",
+             sent, [CODE] * 3)
+    ui.ev("$('mv-in').value='Ｋ７Ｐ２Ｑ';$('mv-take').click()")
+    ui.check("全角でも 5 文字なら送らない", [ui.ev("$('mv-rmsg').textContent"), len([c for c in ui.api_calls() if '/x/take' in c['url']])],
+             ["6 文字のコードを入れてください", 3])
+    ui.check_no_errors("コード欄の全角: JS エラー 0")
