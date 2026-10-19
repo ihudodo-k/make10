@@ -21,3 +21,5 @@ CREATE TABLE IF NOT EXISTS xfer (
   d TEXT NOT NULL,
   x INTEGER NOT NULL
 );
+-- 期限を過ぎた行を消す文（DELETE FROM xfer WHERE x<=?）が、表を全部読まずに済むように（D0.43 の点検の M1。D0.44）
+CREATE INDEX IF NOT EXISTS xfer_x ON xfer (x);

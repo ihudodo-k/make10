@@ -145,6 +145,17 @@ async function run() {
 
   await runXfer();
   await runBody();
+  runIndex();
+}
+
+// ── 期限を過ぎた行を消す文が、索引を使うこと（D0.44）──
+function runIndex() {
+  const q = spawnSync(node, [WRANGLER, "d1", "execute", "make10-daily", "--local", "--persist-to", dir, "--json",
+    "--command", "EXPLAIN QUERY PLAN DELETE FROM xfer WHERE x<=1"], { cwd: HERE, encoding: "utf8", env });
+  let plan = null;
+  try { plan = JSON.parse(q.stdout)[0].results.map((r) => r.detail).join(" / "); } catch (e) { plan = q.stdout + q.stderr; }
+  check("期限を過ぎた行を消す文（DELETE FROM xfer WHERE x<=?）は、索引 xfer_x を使う（表を全部読まない）",
+    /USING (COVERING )?INDEX xfer_x/.test(plan) ? "索引を使う" : plan, "索引を使う");
 }
 
 // ── 中身の上限（D0.43）──
@@ -285,7 +296,9 @@ async function runXfer() {
 // ── 立ち上げて、試して、片付ける ──
 const node = process.execPath;
 const env = { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" };      // 利用状況の送信と、対話の問いかけを切る
-const sch = spawnSync(node, [WRANGLER, "d1", "execute", "make10-daily", "--local", "--persist-to", dir, "--file", "schema.sql"],
+// MAKE10_WORKER_SCHEMA に別のファイルを入れると、そちらで表を作る（わざと壊して赤くなることの確かめ用。D0.44）
+const schema = process.env.MAKE10_WORKER_SCHEMA || "schema.sql";
+const sch = spawnSync(node, [WRANGLER, "d1", "execute", "make10-daily", "--local", "--persist-to", dir, "--file", schema],
   { cwd: HERE, encoding: "utf8", env });
 if (sch.status !== 0) { console.error(sch.stdout, sch.stderr); rmSync(dir, { recursive: true, force: true }); process.exit(1); }
 const args = [WRANGLER, "dev", ...(main ? [main] : []), "--config", join(HERE, "wrangler.toml"), "--local", "--port", String(PORT), "--persist-to", dir,

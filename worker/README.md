@@ -7,9 +7,9 @@ D0.37 から、記録を別の端末へ移すための受け口（`/x`・`/x/tak
 | ファイル | 中身 |
 |---|---|
 | `src/index.js` | Worker の本体（`POST /r` で足す・`GET /r?n=` で読む・`POST /x` で預かる・`POST /x/take` で渡して消す） |
-| `schema.sql` | D1 の表（`days`: 1 日＝問題番号を 1 行。1 件ごとの行は持たない／`xfer`: 移すために預かった中身。10 分か、受け取られたら消す） |
+| `schema.sql` | D1 の表（`days`: 1 日＝問題番号を 1 行。1 件ごとの行は持たない／`xfer`: 移すために預かった中身。10 分か、受け取られたら消す。期限に索引 `xfer_x`（D0.44）） |
 | `wrangler.toml` | 設定（名前・Custom Domain・起点日・D1 のつなぎ先・移す受け口の回数の制限 `XFER_LIMIT`） |
-| `test/local_test.mjs` | 手元の試し（断る 25 通り・100 件同時を 2 回・帯の境目・移す受け口の 13 項目・中身の上限の 12 項目） |
+| `test/local_test.mjs` | 手元の試し（断る 25 通り・100 件同時を 2 回・帯の境目・移す受け口の 13 項目・中身の上限の 12 項目・索引の 1 項目） |
 | `package.json`・`package-lock.json` | wrangler の版を固定する |
 
 `node_modules/` と `.wrangler/` は Git に入れない（`.gitignore`）。
@@ -94,3 +94,11 @@ npm test             # wrangler を手元で立ち上げ、手元の D1 で試�
 - 移す受け口（D0.37）: コードは見間違えやすい字を除いた 31 字の 6 文字（`CODE_CHARS`。ページの `MOVE_RE` と同じ）・
   預かるのは 10 分・受け取ったらその場で消す（読むのと消すのは 1 文）・中身は 262,144 文字まで・
   1 つの IP から 1 分に 10 回まで（IP は数えるのに使うだけで、D1 には書かない）
+
+**D0.43〜D0.45（公開前の安全の点検）を置くとき（1 回だけ）**
+
+- 索引 `xfer_x` を本番の D1 に足す（D0.44）。`schema.sql` は `CREATE … IF NOT EXISTS` だけなので、もう一度流してよい（数も預かった中身も消えない）
+  ```
+  npm run schema:remote
+  ```
+- `npm test` が全部通ることを見てから `npm run deploy`
