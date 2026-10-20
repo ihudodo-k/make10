@@ -61,12 +61,15 @@ def run(ui):
                "localStorage", "サイトデータ", "期限を決めずに保存", "GitHub", "Google", "最終更新",
                # D0.37（別の端末へ移す。10-1）: 設定も端末に保存・移すときだけ預ける・10 分で消える・IP は回数を数えるだけ
                "設定（途中の値の表示・タップで配置・ダークモード・言語）", "別の端末へ移すとき", "10 分で消えます",
-               "IP アドレスを試した回数を数えるためにだけ使い、保存はしません"]
+               # 点検の H2（WAF。17-3）: IP はデータ移行のときと結果を送るときに、Cloudflare の側で回数を数えるだけ
+               "データ移行のときと、結果を送るとき", "IP アドレスを、Cloudflare の側で回数を数えるためにだけ使い、保存はしません"]
     need_en = ["Puzzle number", "Result (solved / gave up)", "Time taken (seconds)", "Number of hints used",
                "only running totals", "No identifier for you or your device", "Cloudflare", "IP address",
                "does not use cookies", "localStorage", "site data", "no set time limit", "GitHub", "Google", "Last updated",
                "your settings (intermediate values, tap to place, dark mode, and language)", "when you move to another device",
-               "deleted after 10 minutes", "used only to count attempts and is not stored"]
+               "deleted after 10 minutes",
+               "When you transfer data and when you send a result", "used only to count requests on Cloudflare's side",
+               "It is not stored."]
     ui.check("日本語の節に、書く内容がそろっている", [w for w in need_ja if w not in ja], [])
     ui.check("英語の節に、書く内容がそろっている", [w for w in need_en if w not in en], [])
     ui.check("英語の節に、日本語の文字が無い",
