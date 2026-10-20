@@ -8,7 +8,7 @@
     "dev": "wrangler dev --local --port 8787",
     "test": "node test/local_test.mjs",
     "schema:local": "wrangler d1 execute make10-daily --local --file=schema.sql",
-    "schema:remote": "wrangler d1 execute make10-daily --remote --file=schema.sql",
+    "schema:remote": "node schema_each.mjs --remote",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {

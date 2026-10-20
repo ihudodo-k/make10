@@ -1850,6 +1850,7 @@ D0.37 で、別の端末へ移す画面（`#dmovesheet`。10-1）も同じカー
     （Cloudflare の回数制限 `XFER_LIMIT`。`wrangler.toml` の `[[ratelimits]]`）。IP は数えるのに使うだけで、D1 にも記録にも書かない。
     集計の受け口には掛けない。プライバシーポリシーにも書いた（17-6）
   - 本番へ置くには、表を足す（`npm run schema:remote`）→ `npm run deploy`（人が行う。`worker/README.md`）
+    - `npm run schema:remote` は、`schema.sql` の文を 1 つずつ `wrangler d1 execute --command` で流す（`worker/schema_each.mjs`。2026-10-21）。`--file`（Cloudflare の `/import`）が本番で `Authentication error 10000` で落ち、`--command` は通ったため。手元の試し（`npm test`）も、同じ入口で表を作る
 
 ### 17-4. みんなの結果: 見せる数字
 - 出す場所: 解いた後・ギブアップの後の並びの、全解答の下（13-5・13-6）

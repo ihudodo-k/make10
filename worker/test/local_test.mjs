@@ -326,7 +326,8 @@ const node = process.execPath;
 const env = { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" };      // 利用状況の送信と、対話の問いかけを切る
 // MAKE10_WORKER_SCHEMA に別のファイルを入れると、そちらで表を作る（わざと壊して赤くなることの確かめ用。D0.44）
 const schema = process.env.MAKE10_WORKER_SCHEMA || "schema.sql";
-const sch = spawnSync(node, [WRANGLER, "d1", "execute", "make10-daily", "--local", "--persist-to", dir, "--file", schema],
+// 表は、本番と同じ入口（schema_each.mjs。文を 1 つずつ --command で流す）で作る
+const sch = spawnSync(node, [join(HERE, "schema_each.mjs"), "--local", "--persist-to", dir, "--schema", schema],
   { cwd: HERE, encoding: "utf8", env });
 if (sch.status !== 0) { console.error(sch.stdout, sch.stderr); rmSync(dir, { recursive: true, force: true }); process.exit(1); }
 const args = [WRANGLER, "dev", ...(main ? [main] : []), "--config", join(HERE, "wrangler.toml"), "--local", "--port", String(PORT), "--persist-to", dir,
