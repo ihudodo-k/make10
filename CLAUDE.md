@@ -20,7 +20,7 @@ Google Play で配布予定。
 | docs/privacy/index.html | **プライバシーポリシー（D0.6）。** デイリーとアプリで 1 枚。日本語と英語を 1 ページに並べる。スクリプトなし。公開 URL は https://make10.app/privacy/ 。本編の Web 版を非公開にしても残す（DAILY-SPEC 17-6）。問い合わせ先は `make10alfa@gmail.com` |
 | check_site.py | **公開中のサイトの見守り（DAILY-SPEC 20 章）。** 公開サイト（`make10.app` の 3 ページ・`api.make10.app`・証明書）を読むだけの要求で確かめる。標準ライブラリだけ。手元でも `python check_site.py` で流せる。公開前と公開後は、公開ページの起点日から自分で切り替える |
 | .github/workflows/site-check.yml | `check_site.py` を 1 日 2 回（UTC 15:17 と 3:17）流す GitHub Actions のワークフロー。落ちたら GitHub の標準の通知（メール）。手で流す入口と、わざと落とす入力（`fail`）がある |
-| worker/ | **デイリーの集計のサーバー（D0.7。Cloudflare Workers ＋ D1）。D0.37 から、記録を別の端末へ移す受け口（`/x`・`/x/take`。DAILY-SPEC 10-1）も持つ。** `src/index.js`（本体）・`schema.sql`（表）・`wrangler.toml`（設定。起点日は `python make10.py daily` が書く。手で書き換えない）・`test/local_test.mjs`（手元の試し。`worker/` の中で `npm test`。Node が要る）・`README.md`（本番へ置く手順。ログインとデプロイは人が行う）。`docs/` の外なので配信されない。`node_modules/` と `.wrangler/` は **`.gitignore` で除外** |
+| worker/ | **デイリーの集計のサーバー（D0.7。Cloudflare Workers ＋ D1）。D0.37 から、記録を別の端末へ移す受け口（`/x`・`/x/take`。DAILY-SPEC 10-1）も持つ。** `src/index.js`（本体）・`schema.sql`（表。`npm run schema:remote` は `schema_each.mjs` が 1 文ずつ `--command` で流す）・`wrangler.toml`（設定。起点日は `python make10.py daily` が書く。手で書き換えない）・`test/local_test.mjs`（手元の試し。`worker/` の中で `npm test`。Node が要る）・`README.md`（本番へ置く手順。ログインとデプロイは人が行う）。`docs/` の外なので配信されない。`node_modules/` と `.wrangler/` は **`.gitignore` で除外** |
 | DAILY-SPEC.md | デイリー問題（1 日 1 問）の Web ページの仕様書。`docs/daily/` を触るときに読む |
 | make10.py | 問題データ生成。デイリーの問題の列もここで作り、`docs/daily/index.html` に埋め込む（`python make10.py daily`。`--dry-run` で確かめるだけ。DAILY-SPEC 6-1・6-5） |
 | test_make10.py | make10.py の単体テスト |
@@ -258,11 +258,8 @@ load() は `{...DEV_DEFAULT, ...s.devVars}` の形を保つこと。
     ②みんなの結果の見た目を実機で見る（Figma に無い。DAILY-SPEC 17-4・19-4）／
     ③**見守りの通知が届くことを確かめる**（下の手順。まだ確かめていない）／
     ④~~別の端末へ移すサーバーを本番に置く~~ **済み**（2026-10-17。人が `npm run deploy` で置いた。Version ID `bde83013…`。本番で `/x` に預けて `/x/take` で受け取れ、2 回目は `{"e":"code"}` になることを人が確かめた。回数の制限（1 分に 10 回）が本番で効くかと、2 台の端末の間で実際に移すことは、まだ確かめていない）／
-    ⑤**Cloudflare の WAF の回数制限を置く**（公開前の安全の点検の H2。2026-10-19 にユーザーが WAF で対応すると決めた）: `api.make10.app` の `/r`・`/x`・`/x/take` に、
-    **同じ IP から 10 秒に 5 回まで、超えたら 10 秒ブロック**。Worker が動く前に止めるので、止めた分は Workers の回数（無料で 1 日 10 万回）にも D1 の書き込みにも入らない。
-    手順と確かめの `curl.exe` は `worker/README.md`、決まりは DAILY-SPEC 17-3。止めた返事（429）には CORS のヘッダーが付かないので、ページからは通信の失敗に見える
-    （集計は送り直し、データ移行は「通信できませんでした」。ケース `inputs` が確かめている）／
-    ⑥**D0.43〜D0.45 のサーバーを本番に置く**: `worker/` の中で `npm run schema:remote`（索引 `xfer_x`）→ `npm test` → `npm run deploy`（手順は `worker/README.md`）
+    ⑤~~Cloudflare の WAF の回数制限を置く~~ **済み**（2026-10-21。人が置いた。公開前の安全の点検の H2）: `api.make10.app` の `/r`・`/x`・`/x/take` に、同じ IP から 10 秒に 5 回まで、超えたら 10 秒ブロック。設定は正しいのに、約 0.45 秒おきに 20 回送って 429 は 19 回目の 1 回だけだった（Cloudflare の数え方が緩いためと考え、このまま公開する。**攻撃が続くなら Workers の有料プランに切り替える**）。手順と結果は `worker/README.md`、決まりは DAILY-SPEC 17-3。止めた返事（429）には CORS のヘッダーが付かないので、ページからは通信の失敗に見える（ケース `inputs` が確かめている）／
+    ⑥~~D0.43〜D0.45 のサーバーを本番に置く~~ **済み**（2026-10-21。人が `npm run schema:remote` → `npm test` → `npm run deploy` で置いた。Version ID `4619f40b…`。本番で nosniff・長さで断る（`{"e":"body"}`）・索引 `xfer_x`（`PRAGMA index_list`）を人が確かめた。`schema:remote` は `--file` が落ちたので、文を 1 つずつ `--command` で流す形に直した）
   - **公開日（⑪）にやること**（DAILY-SPEC 18-1 の⑪。順に）:
     1. 起点日を公開日の月曜にする: `make10.py` の定数 `DAILY_START` を書き換え、`python make10.py daily` を流す（ページと `worker/wrangler.toml` の両方に書く。列は変わらない。DAILY-SPEC 5 章・6 章）
     2. `DAILY_VERSION` を 1.0 にする（DAILY-SPEC 18-2）。変更履歴にも書く
