@@ -139,7 +139,15 @@ D1 の書き込み（1 日 10 万行）を使い切られ、その日のあい�
 **確かめ**（Windows の PowerShell なら `curl.exe` と書く。`curl` だけだと別のコマンドになる）。同じ IP から 6 回続けて送ると、6 回目が 429 になる
 （公開前は、1〜5 回目は `{"e":"range"}` の 400）。10 秒待つと、また 400 に戻る
 ```
-for /l %i in (1,1,6) do @curl.exe -s -o NUL -w "%{http_code}
-" -H "Origin: https://make10.app" "https://api.make10.app/r?n=1"
+for /l %i in (1,1,6) do @curl.exe -s -o NUL -w "%{http_code}\n" -H "Origin: https://make10.app" "https://api.make10.app/r?n=1"
 ```
 （PowerShell では `1..6 | % { curl.exe -s -o NUL -w "%{http_code}`n" -H "Origin: https://make10.app" "https://api.make10.app/r?n=1" }`）
+
+**本番での結果**（2026-10-21。人が設定して確かめた）: 設定（10 秒に 5 回・Block 10 秒・Active）は正しいのに、
+約 0.45 秒おきに 20 回送って、429 は 19 回目の 1 回だけだった。Cloudflare の数え方が緩い（決めた回数ちょうどでは止まらない）ためと考え、
+このまま公開することにした（ユーザーが決めた）。
+大量の送信を続けられたときは、ある程度の数を超えてから止まる。
+
+**攻撃が続くなら、Workers の有料プラン（Workers Paid）に切り替える。** 無料の回数（Workers 1 日 10 万回・D1 の書き込み 1 日 10 万行）を
+使い切られると、その日のあいだ集計とデータ移行が止まる。有料のプランは上限が大きく、超えた分は使った量に応じて払う形なので、止まりにくい
+（その代わり、送られた分だけお金がかかる。切り替えは人が行う）。
