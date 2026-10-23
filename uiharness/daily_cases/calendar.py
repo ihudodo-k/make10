@@ -6,6 +6,8 @@
 - 月曜始まりで、日付が正しい列に入ること・問題番号が合っていること（月末・年をまたぐ月・うるう年・夏時間の地域）。
   期待値は Python の datetime で別に出す（ページの関数は使わない）
 - 日付を押したときの 1 行・両方の言語・はみ出し・低い画面での縦の動き・?date=
+- 日付と文の期待値は、ページの起点日から出す（2099 年に決め打ちしない）。公開日に起点日を直しても、
+  このケースが通る（公開前の総点検の H3。2026-10-23）
 """
 import calendar as pycal
 import datetime
@@ -71,7 +73,33 @@ def run(ui):
             out.append([d, dt.weekday(), (lead + d - 1) // 7, n, " ".join(sorted([st] + (["today"] if n == today else []))), "BUTTON"])
         return out
 
-    today = 45                                           # 2099-02-18（水）
+    def line(n, d, r, lang="ja"):
+        """その日を押したときの 1 行（ページの関数は使わない）"""
+        if r and r["r"] == "s":
+            what = ("%s · %d hint%s" % (dui.fmt_time(r["t"]), r["h"], "" if r["h"] == 1 else "s") if lang == "en"
+                    else "%s　ヒント %d 回" % (dui.fmt_time(r["t"]), r["h"]))
+        elif r and r["r"] == "g":
+            what = "Gave up" if lang == "en" else "ギブアップ"
+        else:
+            what = "Not played" if lang == "en" else "遊んでいません"
+        return dui.top_text(n, d, lang) + (" · " if lang == "en" else "　") + what
+
+    ym = lambda d: "%d年%d月" % (d.year, d.month)                   # noqa: E731
+    months = lambda a, b: (b.year - a.year) * 12 + b.month - a.month   # noqa: E731
+    prev_month = lambda d: d.replace(day=1) - datetime.timedelta(days=1)   # noqa: E731
+
+    # 今日は #45 以降で、月の 12〜27 日・前の日が解いた日になる最初の日（起点日 2099-01-05 なら #45 = 2 月 18 日（水））。
+    # 同じ月の中の、今日の 4 日前より前に、ギブアップの日（G_NO）と遊ばなかった日（N_NO）を 1 つずつ取る
+    def pick(n):
+        r = records(n)
+        if not 12 <= day(n).day <= 27 or r.get(str(n - 1), {}).get("r") != "s":
+            return None
+        same = [k for k in range(n - 4, 0, -1) if day(k).month == day(n).month]
+        g = next((k for k in same if r.get(str(k), {}).get("r") == "g"), None)
+        z = next((k for k in same if str(k) not in r), None)
+        return (g, z) if g and z else None
+    today = next(n for n in range(45, 120) if pick(n))
+    G_NO, N_NO = pick(today)
     days = records(today)
     store = {"v": 1, "cur": None, "days": days}
     T = day(today)
@@ -156,10 +184,9 @@ def run(ui):
     # ══ 日付を押すと、下にその日の結果を 1 行 ══
     ui.check("開いたときは今日を選んでいる（まだ遊んでいない）",
              [ui.ev(LINE), ui.ev("[...document.querySelectorAll('#dcal-grid .dc.sel')].map(e=>e.dataset.no).join()")],
-             ["#45　2月18日（水）　遊んでいません", "45"])
-    r44 = days["44"]
-    for n, want in ((44, "#44　2月17日（火）　%d:%02d　ヒント %d 回" % (r44["t"] // 60, r44["t"] % 60, r44["h"])),
-                    (40, "#40　2月13日（金）　ギブアップ"), (38, "#38　2月11日（水）　遊んでいません")):
+             [line(today, T, None), str(today)])
+    for n in (today - 1, G_NO, N_NO):
+        want = line(n, day(n), days.get(str(n)))
         click("#dcal-grid .dc[data-no='%d']" % n)
         ui.check("#%d を押す: %s" % (n, want.split("　", 2)[2]),
                  [ui.ev(LINE), ui.ev("[...document.querySelectorAll('#dcal-grid .dc.sel')].map(e=>e.dataset.no).join()"),
@@ -170,31 +197,37 @@ def run(ui):
                    "return [/inset/.test(getComputedStyle(e).boxShadow),e.classList.contains('n'),l.getClientRects().length,"
                    "l.scrollWidth<=l.clientWidth+1,Math.round(l.getBoundingClientRect().height)]})()"), [True, True, 1, True, 20])
     click("#dcal-grid .dc.x")
-    ui.check("まだ来ていない日を押しても、何も変わらない", ui.ev(LINE), "#38　2月11日（水）　遊んでいません")
+    ui.check("まだ来ていない日を押しても、何も変わらない", ui.ev(LINE), line(N_NO, day(N_NO), None))
 
     # ══ 月の移動と、その端 ══
     click("#dcal-next")
-    ui.check("今月で › を押しても動かない", ui.ev(HEAD)[0], "2099年2月")
+    ui.check("今月で › を押しても動かない", ui.ev(HEAD)[0], ym(T))
     click("#dcal-prev")
-    ui.check("‹ で前の月（起点日の月）。そこから前へは行けない。選んでいた日は外れ、1 行は空",
-             [ui.ev(HEAD), ui.ev(LINE), ui.ev("document.querySelectorAll('#dcal-grid .dc.sel').length")],
-             [["2099年1月", True, False, "月 火 水 木 金 土 日"], "", 0])
-    ui.check("起点日の月: 起点日より前の日（1〜4 日）は印なし。5 日が #1 で月曜の列",
+    ui.check("‹ で前の月。選んでいた日は外れ、1 行は空",
+             [ui.ev(HEAD)[0], ui.ev(LINE), ui.ev("document.querySelectorAll('#dcal-grid .dc.sel').length")],
+             [ym(prev_month(T)), "", 0])
+    for _ in range(months(start, T) - 1):
+        click("#dcal-prev")
+    ui.check("‹ を続けて押すと起点日の月。そこから前へは行けない",
+             ui.ev(HEAD), [ym(start), True, False, "月 火 水 木 金 土 日"])
+    ui.check("起点日の月: 起点日より前の日は印なし。起点日が #1 で月曜の列",
              ui.ev(GRID), want_grid(start.year, start.month, today, days))
     ui.check("起点日の月でも、1 行の高さは取ったまま（下の並びが動かない）",
              ui.ev("Math.round(document.getElementById('dcal-line').getBoundingClientRect().height)"), 20)
     click("#dcal-prev")
-    ui.check("起点日の月で ‹ を押しても動かない", ui.ev(HEAD)[0], "2099年1月")
-    click("#dcal-grid .dc[data-no='5']")
-    ui.check("前の月の日も押せる", ui.ev(LINE), "#5　1月9日（金）　ギブアップ")
-    click("#dcal-next")
-    ui.check("› で今月へ戻る", ui.ev(HEAD), ["2099年2月", False, True, "月 火 水 木 金 土 日"])
+    ui.check("起点日の月で ‹ を押しても動かない", ui.ev(HEAD)[0], ym(start))
+    k = max(n for n in range(1, today) if (day(n).year, day(n).month) == (start.year, start.month))
+    click("#dcal-grid .dc[data-no='%d']" % k)
+    ui.check("前の月の日も押せる", ui.ev(LINE), line(k, day(k), days.get(str(k))))
+    for _ in range(months(start, T)):
+        click("#dcal-next")
+    ui.check("› で今月へ戻る", ui.ev(HEAD), [ym(T), False, True, "月 火 水 木 金 土 日"])
     ui.check("ボタンの名前", ui.ev("['dcal-prev','dcal-next'].map(i=>document.getElementById(i).getAttribute('aria-label'))"),
              ["前の月", "次の月"])
     click("#dcal-prev")
     click("#dstats-close")
     click("#dstats", 0.3)
-    ui.check("閉じて開き直すと、今月に戻る", [ui.ev(HEAD)[0], ui.ev(LINE)], ["2099年2月", "#45　2月18日（水）　遊んでいません"])
+    ui.check("閉じて開き直すと、今月に戻る", [ui.ev(HEAD)[0], ui.ev(LINE)], [ym(T), line(today, T, None)])
     # 集計の送り直し（17-2）が古い日に付ける「送った」の印 sent は、カレンダーとは別の仕組みなので外して比べる
     got = ui.saved()
     for r in got["days"].values():
@@ -205,35 +238,53 @@ def run(ui):
     ui.check_no_errors("カレンダーを操作して JS エラー 0")
 
     # ══ 年をまたぐ月・月末 ══
-    t2 = datetime.date(2100, 1, 15)
+    # 起点日の後の、最初の 1 月 15 日
+    t2 = datetime.date(start.year + 1, 1, 15)
     n2 = no_of(t2)
+    y1, dec31 = t2.year - 1, datetime.date(t2.year - 1, 12, 31)
     ui.open(now=at(t2), tz=TZ, store={"v": 1, "cur": None, "days": records(n2)})
     click("#dstats", 0.3)
-    ui.check("2100 年 1 月: 日・列・問題番号", ui.ev(GRID), want_grid(2100, 1, n2, records(n2)))
+    ui.check("%d 年 1 月: 日・列・問題番号" % t2.year, ui.ev(GRID), want_grid(t2.year, 1, n2, records(n2)))
     click("#dcal-prev")
-    ui.check("1 月から ‹ で前の年の 12 月（31 日まで。31 日は木曜の列）",
-             [ui.ev(HEAD)[0], ui.ev(GRID) == want_grid(2099, 12, n2, records(n2)), ui.ev(GRID)[-1][:2]],
-             ["2099年12月", True, [31, 3]])
+    ui.check("1 月から ‹ で前の年の 12 月（31 日まで。31 日は%s曜の列）" % "月火水木金土日"[dec31.weekday()],
+             [ui.ev(HEAD)[0], ui.ev(GRID) == want_grid(y1, 12, n2, records(n2)), ui.ev(GRID)[-1][:2]],
+             ["%d年12月" % y1, True, [31, dec31.weekday()]])
     click("#dcal-next")
-    ui.check("12 月から › で次の年の 1 月", ui.ev(HEAD)[0], "2100年1月")
+    ui.check("12 月から › で次の年の 1 月", ui.ev(HEAD)[0], "%d年1月" % t2.year)
 
     # ══ うるう年でない 2 月（2100 年）と、うるう年の 2 月（2104 年。列の外なので、日付の並びだけを見る）══
-    t3 = datetime.date(2100, 3, 10)
+    # 起点日の後の、最初の 3 月 10 日。その年の 2 月（列の中）は 28 日か 29 日か
+    t3 = datetime.date(start.year + 1, 3, 10)
     n3 = no_of(t3)
+    feb = pycal.monthrange(t3.year, 2)[1]
     ui.open(now=at(t3), tz=TZ, store={"v": 1, "cur": None, "days": {}})
     click("#dstats", 0.3)
     click("#dcal-prev")
     g = ui.ev(GRID)
+    ui.check("%d 年 2 月は %d 日まで（列の中の 2 月）" % (t3.year, feb),
+             [ui.ev(HEAD)[0], len(g), g == want_grid(t3.year, 2, n3, {})], ["%d年2月" % t3.year, feb, True])
+    # 100 で割れる年（2100 年）は、うるう年でない。列の外でも日付の並びは出せるので、月を直に決めて見る
+    ui.ev("calY=2100;calM=2;calSel=null;drawCal()")
+    g = ui.ev(GRID)
     ui.check("2100 年 2 月は 28 日まで（100 で割れる年は、うるう年でない）",
-             [ui.ev(HEAD)[0], len(g), g == want_grid(2100, 2, n3, {})], ["2100年2月", 28, True])
+             [len(g), [c[:3] for c in g] == [c[:3] for c in want_grid(2100, 2, n3, {})]], [28, True])
     ui.ev("calY=2104;calM=2;calSel=null;drawCal()")
     g = ui.ev(GRID)
     ui.check("2104 年 2 月は 29 日まで（29 日は金曜の列）", [len(g), g[-1][:2], [c[:3] for c in g] == [c[:3] for c in want_grid(2104, 2, n3, {})]],
              [29, [29, 4], True])
 
     # ══ 夏時間の地域（ニューヨーク。3 月に 1 時間進み、11 月に戻る）══
-    for t4, tzh, what in ((datetime.date(2099, 3, 20), -4, "夏時間が始まる月（3 月 8 日）"),
-                          (datetime.date(2099, 11, 20), -5, "夏時間が終わる月（11 月 1 日）")):
+    # 起点日の後の、最初の 3 月 20 日と 11 月 20 日（3 月は第 2 日曜に 1 時間進み、11 月は第 1 日曜に戻る）
+    def after(m, d):
+        x = datetime.date(start.year, m, d)
+        return x if x > start else datetime.date(start.year + 1, m, d)
+
+    def sunday(y, m, k):
+        x = datetime.date(y, m, 1)
+        return x + datetime.timedelta(days=(6 - x.weekday()) % 7 + 7 * (k - 1))
+    mar, nov = after(3, 20), after(11, 20)
+    for t4, tzh, what in ((mar, -4, "夏時間が始まる月（3 月 %d 日）" % sunday(mar.year, 3, 2).day),
+                          (nov, -5, "夏時間が終わる月（11 月 %d 日）" % sunday(nov.year, 11, 1).day)):
         n4 = no_of(t4)
         d4 = records(n4)
         ui.open(now=at(t4, 10, tzh), tz="America/New_York", store={"v": 1, "cur": None, "days": d4})
@@ -242,13 +293,13 @@ def run(ui):
                  [ui.ev("DAILY_NO"), ui.ev(GRID) == want_grid(t4.year, t4.month, n4, d4)], [n4, True])
 
     # ══ 両方の言語のはみ出しと、英語の文 ══
-    long_days = dict(days, **{"44": {"r": "s", "t": 86399, "h": 2, "sh": 1, "e": rows[43]["sol"]},
-                              "43": {"r": "s", "t": 61, "h": 1, "sh": 1, "e": rows[42]["sol"]},
-                              "42": {"r": "s", "t": 59, "h": 0, "sh": 1, "e": rows[41]["sol"]}})
+    long_days = dict(days, **{str(today - 1): {"r": "s", "t": 86399, "h": 2, "sh": 1, "e": rows[today - 2]["sol"]},
+                              str(today - 2): {"r": "s", "t": 61, "h": 1, "sh": 1, "e": rows[today - 3]["sol"]},
+                              str(today - 3): {"r": "s", "t": 59, "h": 0, "sh": 1, "e": rows[today - 4]["sol"]}})
     for lang in ("ja", "en"):
         ui.open(now=at(T), tz=TZ, lang=lang, store={"v": 1, "cur": None, "days": long_days})
         click("#dstats", 0.3)
-        click("#dcal-grid .dc[data-no='44']")
+        click("#dcal-grid .dc[data-no='%d']" % (today - 1))
         a = ui.ev(L.AUDIT)
         ui.check("%s: いちばん長い 1 行（23:59:59）でも、はみ出しも折り返しも無い。統計の中身は縦に動かさずに収まる" % lang,
                  [a["over"], a["scroll"],
@@ -261,15 +312,16 @@ def run(ui):
             ui.check("en: 月の名前・曜日の見出し・凡例・ボタンの名前",
                      [ui.ev(HEAD), ui.ev("[...document.querySelectorAll('#dcal-legend>span')].map(e=>e.textContent)"),
                       ui.ev("['dcal-prev','dcal-next'].map(i=>document.getElementById(i).getAttribute('aria-label'))")],
-                     [["February 2099", False, True, "Mon Tue Wed Thu Fri Sat Sun"], ["Solved", "Gave up", "Missed"],
+                     [["%s %d" % (pycal.month_name[T.month], T.year), False, True, "Mon Tue Wed Thu Fri Sat Sun"],
+                      ["Solved", "Gave up", "Missed"],
                       ["Previous month", "Next month"]])
             got = [ui.ev(LINE)]
-            for n in (43, 42, 40, 38):
+            order = (today - 1, today - 2, today - 3, G_NO, N_NO)
+            for n in order[1:]:
                 click("#dcal-grid .dc[data-no='%d']" % n)
                 got.append(ui.ev(LINE))
             ui.check("en: 1 行（hints は 2・1・0 で単数と複数。ギブアップ・遊んでいない）", got,
-                     ["#44 · Tue, Feb 17 · 23:59:59 · 2 hints", "#43 · Mon, Feb 16 · 1:01 · 1 hint", "#42 · Sun, Feb 15 · 0:59 · 0 hints",
-                      "#40 · Fri, Feb 13 · Gave up", "#38 · Wed, Feb 11 · Not played"])
+                     [line(n, day(n), long_days.get(str(n)), "en") for n in order])
             ui.check("en: カレンダーに日本語の文字が無い",
                      [x for x in a["texts"] + a["labels"] if L.JP.search(x)], [])
 
@@ -292,10 +344,11 @@ def run(ui):
     g = ui.ev(GRID)
     ui.check("?date=: 今日より前は全部「遊ばなかった日」、今日は枠、後ろは印なし。JS エラーなし",
              [g == want_grid(T.year, T.month, today, {}), sorted({c[4] for c in g}), ui.ev(LINE), ui.errors()],
-             [True, ["n", "t today", "x"], "#45　2月18日（水）　遊んでいません", []])
+             [True, ["n", "t today", "x"], line(today, T, None), []])
     click("#dcal-prev")
     sv = ui.saved() or {}                                 # 空（前に開いた画面による）
-    ui.check("?date=: 前の月へも移れる。記録は増えない", [ui.ev(HEAD)[0], sv.get("days", {}), sv.get("cur")], ["2099年1月", {}, None])
+    ui.check("?date=: 前の月へも移れる。記録は増えない", [ui.ev(HEAD)[0], sv.get("days", {}), sv.get("cur")],
+             [ym(prev_month(T)), {}, None])
     # 解いた直後に開くと、今日が「解いた日」になる
     ui.open(now=at(T), tz=TZ, perf=True, store=store)
     ui.tick(75000)
@@ -303,5 +356,5 @@ def run(ui):
     click("#dstats", 0.3)
     ui.check("今日を解いた後: 今日は塗りつぶした丸で、枠も付く。1 行に時間とヒントの回数",
              [ui.ev("[...document.querySelector('#dcal-grid .dc.today').classList].sort().join(' ')"), ui.ev(LINE)],
-             ["dc s sel today", "#45　2月18日（水）　1:15　ヒント 0 回"])
+             ["dc s sel today", line(today, T, {"r": "s", "t": 75, "h": 0})])
     ui.check_no_errors()
