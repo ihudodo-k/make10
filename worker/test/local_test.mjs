@@ -16,10 +16,11 @@
 import { spawn, spawnSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { pathToFileURL } from "node:url";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { statements } from "../schema_each.mjs";
 
 const HERE = dirname(dirname(fileURLToPath(import.meta.url)));        // worker/
 const WRANGLER = join(HERE, "node_modules", "wrangler", "bin", "wrangler.js");
@@ -52,6 +53,12 @@ function stop(child) {
 }
 
 async function run() {
+  // ── 表を作る文の分け方（公開前の総点検の H2）: Windows の Git が CRLF で取り出した schema.sql でも、LF と同じ文に分ける ──
+  const sql = readFileSync(join(HERE, "schema.sql"), "utf8").replace(/\r\n/g, "\n");
+  const lf = statements(sql), crlf = statements(sql.replace(/\n/g, "\r\n"));
+  check("schema.sql の文の分け方は、改行が CRLF でも LF と同じ（3 文・注釈が残らない）",
+    [crlf, lf.length, crlf.some((s) => s.includes("--"))], [lf, 3, false]);
+
   // ── 一覧にある値を 1 つずつ変えた、断られるはずの要求 ──
   const good = { n: TODAY, r: "s", t: 42, h: 0 };
   check("最初は 0（GET）", await body(await get(TODAY)), [200, zero(TODAY)]);

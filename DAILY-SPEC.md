@@ -774,6 +774,10 @@ python make10.py daily --rebuild              # ページの行を捨てて頭�
   - **索引**（D0.44。1 項目で 41 項目）: 期限を過ぎた行を消す文が索引 `xfer_x` を使うこと（`EXPLAIN QUERY PLAN`）。
     赤くなることの確かめは `MAKE10_WORKER_SCHEMA` に索引の無い表の複製を入れる
   - **返事のヘッダー**（D0.45。1 項目で 42 項目）: 200・400・403・404・405・204・429 のどの返事にも `X-Content-Type-Options: nosniff`
+  - **表を作る文の分け方**（公開前の総点検の H2。2026-10-23。1 項目で 43 項目）: `schema_each.mjs` の `statements()` が、改行が CRLF の `schema.sql` でも
+    LF と同じ 3 文に分ける（注釈が残らない）。この Windows の Git は `core.autocrlf=true` なので、ワークツリーや新しく取り出した所では
+    `schema.sql` が CRLF になり、`npm test`・`npm run schema:remote` が 1 つ目の文（注釈ごと流れる）で落ちていた。
+    赤くなることの確かめ: 行を `"\n"` で分ける前の形に戻すと赤
   - ケース `server`（ソースだけ）が、移す受け口の値もページと突き合わせる（D0.37）: コードの字・送り先のパス・回数の制限の設定・表 `xfer`・
     IP を読むのは回数の制限の 1 か所だけ
   - **ケース `inputs`（外から入ってくる値。D0.46〜）**: 保存の形の違う日（null・数字・HTML の時間とヒント・番号が x5・`__proto__`・配列）は捨て、

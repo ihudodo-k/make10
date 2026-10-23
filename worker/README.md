@@ -8,9 +8,9 @@ D0.37 から、記録を別の端末へ移すための受け口（`/x`・`/x/tak
 |---|---|
 | `src/index.js` | Worker の本体（`POST /r` で足す・`GET /r?n=` で読む・`POST /x` で預かる・`POST /x/take` で渡して消す） |
 | `schema.sql` | D1 の表（`days`: 1 日＝問題番号を 1 行。1 件ごとの行は持たない／`xfer`: 移すために預かった中身。10 分か、受け取られたら消す。期限に索引 `xfer_x`（D0.44）） |
-| `schema_each.mjs` | `schema.sql` の文を 1 つずつ `wrangler d1 execute --command` で流す（`npm run schema:remote` と `npm test` が使う。2026-10-21） |
+| `schema_each.mjs` | `schema.sql` の文を 1 つずつ `wrangler d1 execute --command` で流す（`npm run schema:remote` と `npm test` が使う。2026-10-21）。改行が CRLF の `schema.sql`（Windows の Git が取り出した形）でも分けられる（2026-10-23） |
 | `wrangler.toml` | 設定（名前・Custom Domain・起点日・D1 のつなぎ先・移す受け口の回数の制限 `XFER_LIMIT`） |
-| `test/local_test.mjs` | 手元の試し（断る 25 通り・100 件同時を 2 回・帯の境目・移す受け口の 13 項目・中身の上限の 12 項目・索引の 1 項目・返事のヘッダーの 1 項目） |
+| `test/local_test.mjs` | 手元の試し（断る 25 通り・100 件同時を 2 回・帯の境目・移す受け口の 13 項目・中身の上限の 12 項目・索引の 1 項目・返事のヘッダーの 1 項目・表を作る文の分け方の 1 項目） |
 | `package.json`・`package-lock.json` | wrangler の版を固定する |
 
 `node_modules/` と `.wrangler/` は Git に入れない（`.gitignore`）。
