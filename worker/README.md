@@ -94,8 +94,22 @@ npm test             # wrangler を手元で立ち上げ、手元の D1 で試�
 
 **公開のとき（DAILY-SPEC 18-1 の⑪）**
 
-- 起点日を公開日の月曜に直して（`make10.py` の `DAILY_START`）、`python make10.py daily` → `npm run deploy`
-- 試しのデータを本番に入れていないこと（入れてしまったら `npx wrangler d1 execute make10-daily --remote --command "DELETE FROM days"`）
+公開日（月曜）の**前日まで（たとえば日曜の昼）**に済ませる。全体の手順は `CLAUDE.md` の「前日にやること」。ここはサーバーの分。
+**サーバーを先に置き、確かめてから、ページを push する**（ページが先だと、公開日の結果が `range` で断られ、ページが送った印を付けるので二度と数えられない）。
+
+1. 起点日を公開日の月曜に直して（`make10.py` の `DAILY_START`）、リポジトリの直下で `python make10.py daily`（ページと `wrangler.toml` の両方に書く）
+2. 試しのデータを本番に入れていないこと（入れてしまったら `npx.cmd wrangler d1 execute make10-daily --remote --command "DELETE FROM days"`）
+3. `worker/` の中で、試してから置く
+   ```
+   npm.cmd test
+   npm.cmd run deploy
+   ```
+4. 確かめ。サーバーは起点日の前日（UTC。日本では日曜の 9 時）から 1 問目を受け付ける
+   ```
+   curl.exe -i -H "Origin: https://make10.app" "https://api.make10.app/r?n=1"
+   ```
+   - 日曜の 9 時を過ぎていれば `200`・`{"n":1,…}`（新しい起点日が入った）。それより前なら、まだ `400`・`{"e":"range"}` が正しい
+5. ここまで済んでから、ページを push する
 
 ## 値の決まり
 
