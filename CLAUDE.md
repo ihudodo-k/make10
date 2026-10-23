@@ -266,10 +266,13 @@ load() は `{...DEV_DEFAULT, ...s.devVars}` の形を保つこと。
     どこでも、日曜 23:59 に「問題がありません」で、集計へ 1 回も送らず、月曜 0:00 に開くと 1 問目が出た。30 / 30。
     手元の wrangler は、起点日の前日（UTC）から `/r?n=1` に 200 を返し、前々日は `range` だった。日本では**日曜の 9 時から**受け付ける）
   - **前日（日曜の昼）にやること**（順に。PowerShell で）:
+    0. PowerShell を開いたら、最初に Node のパスを足す（この PC では Node が PATH に入っていない。その窓の中だけ効く。書き方の決まりは `worker/README.md` の「コマンドの書き方」）:
+       `$env:Path = "C:\Users\0ihud\tools\node-v22.23.3-win-x64;" + $env:Path`。コマンドは `npm.cmd`・`npx.cmd`・`curl.exe` の形で打つ
     1. 起点日を公開日の月曜にする: `make10.py` の定数 `DAILY_START` を書き換え、`python make10.py daily` を流す（ページと `worker/wrangler.toml` の両方に書く。列は変わらない。DAILY-SPEC 5 章・6 章）
     2. `DAILY_VERSION` を 1.0 にする（DAILY-SPEC 18-2）。変更履歴にも書く。**コミットはしてよいが、まだ push しない**
     3. `python verify_daily.py --keep-going` を流す（ケース `server` が、ページとサーバーの起点日の一致を見る）
-    4. **サーバーを先に置く**: `worker/` の中で `npm.cmd test` → `npm.cmd run deploy`
+    4. **サーバーを先に置く**: `worker/` の中で `npm.cmd test` → `npm.cmd run deploy`。`Authentication error [code: 7403]`・`[code: 10000]` で落ちたら
+       `npx.cmd wrangler logout` → `npx.cmd wrangler login` でログインし直してから、もう一度流す
     5. 確かめ: `curl.exe -i -H "Origin: https://make10.app" "https://api.make10.app/r?n=1"` が `200` で `{"n":1,…}`（日曜の 9 時より前なら、まだ `400`・`{"e":"range"}` が正しい。
        9 時を過ぎてから見ると、新しい起点日が入ったことが分かる）。`?n=2` は月曜の 9 時まで `range`
     6. **ページを push する**（GitHub Pages は `max-age=600` なので、届くまで最大 10 分。0 時の 10 分以上前に済ませる）。
@@ -296,7 +299,7 @@ load() は `{...DEV_DEFAULT, ...s.devVars}` の形を保つこと。
     - 「最後のコミットから 50 日」で落ちたら、空のコミットを入れる（`git commit --allow-empty -m "見守りを続ける"` → `git push`）。
       60 日で定期実行が止まったら、Actions → site-check →「Enable workflow」
   - **集計のサーバーは本番に置いてある**（D0.8 追補。`https://api.make10.app/r`。D1 は `make10-daily`）。Worker か `wrangler.toml` を変えたら、
-    `worker/` の中で `npm test` を流してから `npm run deploy`（手順は `worker/README.md`）（⑤〜⑩は止まらずに続けて作っている。自分で決めた点は DAILY-SPEC 19 章）
+    `worker/` の中で `npm.cmd test` を流してから `npm.cmd run deploy`（PowerShell で。最初に Node のパスを足す。手順は `worker/README.md`）（⑤〜⑩は止まらずに続けて作っている。自分で決めた点は DAILY-SPEC 19 章）
   - 公開の後: ⑦キーボードの入力（⑥デイリーのライトモードは D0.30 で先に入れた。DAILY-SPEC 15 章）
 - 本編のライトモード: 既定はダークのまま、設定から選べるようにする。**色は Figma「21 デイリー白（再考）」の案 A 白と墨に決まった**
   （地 #FFFFFF・面は地と同じ・線 #D3D6DA・字 #1A1A1B・副次 #6B6F76・無効 #A3A7AD・金 #E6B422（金色。D0.34。Figma「23 白の「10」（再考）」の案 I）・赤 #C8372D・幕 50%。

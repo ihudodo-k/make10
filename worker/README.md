@@ -15,17 +15,31 @@ D0.37 から、記録を別の端末へ移すための受け口（`/x`・`/x/tak
 
 `node_modules/` と `.wrangler/` は Git に入れない（`.gitignore`）。
 
+## コマンドの書き方（Windows の PowerShell）
+
+この README のコマンドは、Windows の PowerShell で打つ形で書いてある。この PC では Node が PATH に入っていないので、開いた PowerShell で最初に 1 行流す（その窓の中だけ効く）
+```
+$env:Path = "C:\Users\0ihud\tools\node-v22.23.3-win-x64;" + $env:Path
+```
+- `npm`・`npx` は `npm.cmd`・`npx.cmd` と書く（`npm` だけだと `npm.ps1` が選ばれ、スクリプトの実行の制限で止まることがある）
+- `curl` は `curl.exe` と書く（Windows PowerShell 5.1 では `curl` が `Invoke-WebRequest` の別名）
+- **`--remote` を付けたコマンド（`npm.cmd run schema:remote`・`npx.cmd wrangler d1 execute … --remote`）や `npm.cmd run deploy` が `Authentication error [code: 7403]`・`[code: 10000]` で落ちたら、ログインし直してからもう一度流す**（2026-10-21 はこれで直った）
+  ```
+  npx.cmd wrangler logout
+  npx.cmd wrangler login
+  ```
+
 ## 手元で試す（本番には触らない）
 
 Node が要る（22 で確かめた）。
 
 ```
 cd worker
-npm install          # 初回だけ。wrangler が入る
-npm test             # wrangler を手元で立ち上げ、手元の D1 で試す
+npm.cmd install          # 初回だけ。wrangler が入る
+npm.cmd test             # wrangler を手元で立ち上げ、手元の D1 で試す
 ```
 
-- `npm test` は、データを毎回一時フォルダに作り、終わったら消す。Cloudflare へのログインは要らない
+- `npm.cmd test` は、データを毎回一時フォルダに作り、終わったら消す。Cloudflare へのログインは要らない
 - 起点日は、試しのあいだだけ「今日が #11」になる日に差し替える（`wrangler.toml` の値は書き換えない）。
   預かる時間（本番は 10 分）も、試しのあいだだけ 3 秒に縮める（`XFER_TTL_MS`）
 - 回数の制限は、手元の wrangler も数える。試しは `CF-Connecting-IP` を組ごとに変えて名乗る
@@ -37,27 +51,23 @@ npm test             # wrangler を手元で立ち上げ、手元の D1 で試�
 
 1. Cloudflare にログインする（ブラウザが開く。`make10.app` のゾーンがあるアカウントで）
    ```
-   npx wrangler login
+   npx.cmd wrangler login
    ```
 2. D1 のデータベースを作る。出てきた `database_id` を、`wrangler.toml` の `database_id = "…"` に書く
    ```
-   npx wrangler d1 create make10-daily
+   npx.cmd wrangler d1 create make10-daily
    ```
 3. 表を作る（本番の D1 に）
    ```
-   npm run schema:remote
+   npm.cmd run schema:remote
    ```
    - `schema.sql` の文を、1 つずつ `--command` で流す（`schema_each.mjs`）。`--file`（Cloudflare の `/import` を使う）は、
      本番で `Authentication error [code: 10000]` で落ちたため（2026-10-21。`--command` は通った）。どの文も `IF NOT EXISTS` なので、もう一度流してよい
    - `schema_each.mjs` が使えないときは、同じことを手で 1 文ずつ流す（`schema.sql` の文を 1 行にして `--command` に入れる）。例:
      ```
-     npx wrangler d1 execute make10-daily --remote --command "CREATE INDEX IF NOT EXISTS xfer_x ON xfer (x)"
+     npx.cmd wrangler d1 execute make10-daily --remote --command "CREATE INDEX IF NOT EXISTS xfer_x ON xfer (x)"
      ```
-   - **`--remote` が `Authentication error [code: 7403]` などで落ちたら、ログインし直す**（2026-10-21 はこれで直った）
-     ```
-     npx wrangler logout
-     npx wrangler login
-     ```
+   - `Authentication error [code: 7403]`・`[code: 10000]` で落ちたら、ログインし直す（上の「コマンドの書き方」）
 
 **置く（デプロイ）**
 
@@ -66,13 +76,13 @@ npm test             # wrangler を手元で立ち上げ、手元の D1 で試�
 5. 置く。`wrangler.toml` の `routes` に `api.make10.app`（`custom_domain = true`）が書いてあるので、
    **このコマンドが `api.make10.app` の DNS のレコードと証明書も作る**（Custom Domain の設定）
    ```
-   npm run deploy
+   npm.cmd run deploy
    ```
    - ダッシュボードで設定したいときは、`wrangler.toml` の `routes` の 3 行を消してから置き、
      Workers & Pages → make10-daily-api → Settings → Domains & Routes → Add → Custom Domain に `api.make10.app` を入れる
 6. 動いていることを確かめる（公開の前は起点日が遠い未来なので、どの問題番号も `{"e":"range"}` で断られるのが正しい）
    ```
-   curl -i -H "Origin: https://make10.app" "https://api.make10.app/r?n=1"
+   curl.exe -i -H "Origin: https://make10.app" "https://api.make10.app/r?n=1"
    ```
    - `HTTP/2 400`・`{"e":"range"}`・`access-control-allow-origin: https://make10.app` が返れば、つながっている
    - `Origin` を付けないと `403`・`{"e":"origin"}`
@@ -81,13 +91,13 @@ npm test             # wrangler を手元で立ち上げ、手元の D1 で試�
 
 - 表 `xfer` を本番の D1 に足す。`schema.sql` はどの表も `CREATE TABLE IF NOT EXISTS` なので、もう一度流してよい（`days` の数は消えない）
   ```
-  npm run schema:remote
+  npm.cmd run schema:remote
   ```
-- そのあと `npm run deploy`。回数の制限（`wrangler.toml` の `[[ratelimits]]`。Workers の Rate Limiting）は、置くと付く
+- そのあと `npm.cmd run deploy`。回数の制限（`wrangler.toml` の `[[ratelimits]]`。Workers の Rate Limiting）は、置くと付く
   （無料のプランで使えるかは、置いたときに wrangler が知らせる。付いていない環境では、Worker は数えずに通す）
 - 確かめ（`Origin` を付けて、形の違うコードを送ると 400 が返る。つながっていれば、預けも消しもしない）
   ```
-  curl -i -X POST -H "Origin: https://make10.app" -H "Content-Type: text/plain" --data "{\"c\":\"x\"}" https://api.make10.app/x/take
+  curl.exe -i -X POST -H "Origin: https://make10.app" -H "Content-Type: text/plain" --data '{"c":"x"}' https://api.make10.app/x/take
   ```
   - `HTTP/2 400`・`{"e":"body"}` が返れば、つながっている（置く前の Worker なら `404`・`{"e":"path"}`）
 - **置くまでは、ページの「別の端末へ移す」は「通信できませんでした」になる**（ページは先に公開される）
@@ -125,9 +135,9 @@ npm test             # wrangler を手元で立ち上げ、手元の D1 で試�
 
 - 索引 `xfer_x` を本番の D1 に足す（D0.44）。`schema.sql` は `CREATE … IF NOT EXISTS` だけなので、もう一度流してよい（数も預かった中身も消えない）
   ```
-  npm run schema:remote
+  npm.cmd run schema:remote
   ```
-- `npm test` が全部通ることを見てから `npm run deploy`
+- `npm.cmd test` が全部通ることを見てから `npm.cmd run deploy`
 
 ## Cloudflare の WAF の回数制限（人が行う。1 回だけ。公開前の安全の点検の H2）
 
