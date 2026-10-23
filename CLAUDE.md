@@ -11,7 +11,6 @@ Google Play で配布予定。
 | docs/index.html | ゲーム本体。単一 HTML の試作。GitHub Pages の配信元 |
 | docs/daily/index.html | **デイリー（1 日 1 問）のページ（D0.2〜）。** 単一 HTML。盤・辞書・CSS は本編から 1 文字も変えずに複製してある（DAILY-SPEC 18-3）。版は `DAILY_VERSION`（本編とは別）。問題の列と起点日は `python make10.py daily` が埋め込む（手で書き換えない）。公開までは起点日が遠い未来なので、開いても「問題がありません」。確かめは `?date=2099-01-05` のように日付を付ける |
 | docs/daily/og.png | **デイリーのリンクを貼ったときに出る画像（OGP。D0.20）。** 1200×630 の PNG・どの日も同じ 1 枚。`docs/daily/index.html` の head の `og:image` が指す。**名前を変えない**（貼られた先が覚えている URL を壊さないため）。絵の決まりと作り方は DAILY-SPEC 9 章。寸法と大きさ（300KB 以下）は `verify_daily.py` のケース `ogp` が見る |
-| docs/v27.html / docs/v28.html | 比較用に残した過去版（2.7 / 2.8）。3.0 の実機確認が済むまで残す |
 | CHANGELOG.md | **変更履歴の全部（1.4〜）。** この `CLAUDE.md` の「変更履歴」には最新 5 件だけを残してある。新しい版は両方に書く。過去の行は書き換えない |
 | GAME-SPEC.md | ゲームの仕様書 |
 | BRAND.md | **デザインの基準（7.3）。** 誰に向けて、どんな印象にするか（ターゲット・避ける方向・配色の方針・7 つの確認の観点）。デザインを変えるときはまずこれを読む |
@@ -65,12 +64,12 @@ Google Play で配布予定。
   **コピーやアップロードの手作業は要らない**
 - 公開 URL は https://make10.app/ （7.8。独自ドメイン。Cloudflare で取得・DNS も Cloudflare で、
   プロキシはオフ）。デイリーは https://make10.app/daily/ （DAILY-SPEC 2 章）。
-  `docs/v27.html` `docs/v28.html` も同時に公開され、
-  https://make10.app/v27.html と https://make10.app/v28.html で比較できる
+  比較用に残していた過去版 `docs/v27.html` `docs/v28.html` は、2026-10-23 に消した（本編と同じ保存のキーを使っていて、
+  開くと本編の保存を書き換えるおそれがあったため。公開前の総点検。ユーザーの指示）
   - ドメインの設定は `docs/CNAME`（中身は `make10.app` の 1 行。GitHub が Pages の設定の保存で作った）。
     **消さない・書き換えない**（消すと独自ドメインが外れる）
   - 前の URL https://ihudodo-k.github.io/make10/ は、make10.app の同じパスへ 301 で転送される
-    （`/make10/` が取れる。`…/make10/v27.html` → `make10.app/v27.html`）
+    （`/make10/` が取れる。`…/make10/daily/` → `make10.app/daily/`）
 
 ## 毎回守ること
 
