@@ -59,19 +59,24 @@ def run(ui):
     need_ja = ["問題番号", "結果（解いた／ギブアップ）", "かかった時間（秒）", "使ったヒントの回数", "足し合わせた数だけ",
                "人や端末を見分ける番号も付けません", "Cloudflare", "IP アドレス", "クッキーは使いません",
                "localStorage", "サイトデータ", "期限を決めずに保存", "GitHub", "Google", "最終更新",
-               # D0.37（別の端末へ移す。10-1）: 設定も端末に保存・移すときだけ預ける・10 分で消える・IP は回数を数えるだけ
-               "設定（途中の値の表示・タップで配置・ダークモード・言語）", "別の端末へ移すとき", "10 分で消えます",
+               # D0.37（別の端末へ移す。10-1）: 設定も端末に保存・移すときだけ預ける・10 分で受け取れなくなる（総点検の M3）・IP は回数を数えるだけ
+               "設定（途中の値の表示・タップで配置・ダークモード・言語）", "別の端末へ移すとき", "10 分を過ぎると誰も受け取れなくなり", "サーバーの処理の中で消えます",
                # 点検の H2（WAF。17-3）: IP はデータ移行のときと結果を送るときに、Cloudflare の側で回数を数えるだけ
                "データ移行のときと、結果を送るとき", "IP アドレスを、Cloudflare の側で回数を数えるためにだけ使い、保存はしません"]
     need_en = ["Puzzle number", "Result (solved / gave up)", "Time taken (seconds)", "Number of hints used",
                "only running totals", "No identifier for you or your device", "Cloudflare", "IP address",
                "does not use cookies", "localStorage", "site data", "no set time limit", "GitHub", "Google", "Last updated",
                "your settings (intermediate values, tap to place, dark mode, and language)", "when you move to another device",
-               "deleted after 10 minutes",
+               "no one can receive them after 10 minutes", "deleted later during the server's processing",
                "When you transfer data and when you send a result", "used only to count requests on Cloudflare's side",
                "It is not stored."]
     ui.check("日本語の節に、書く内容がそろっている", [w for w in need_ja if w not in ja], [])
     ui.check("英語の節に、書く内容がそろっている", [w for w in need_en if w not in en], [])
+    # 期限を過ぎた預かりものは、次に誰かが預けたときか、そのコードで受け取ろうとしたときに消す（10-1）。
+    # 「10 分で消える」とは書かない（公開前の総点検の M3）
+    ui.check("預けたものを「10 分で消す」と書いていない（期限の後は受け取れなくなり、後で消す）",
+             [w for w in ("10 分で消え", "10 分たった時点で消") if w in ja] +
+             [w for w in ("deleted after 10 minutes", "or after 10 minutes") if w in en], [])
     ui.check("英語の節に、日本語の文字が無い",
              re.findall(r"[　-ヿ㐀-鿿＀-￯]", en)[:5], [])
     ui.check("ページはスクリプトを持たず、外から読むのはフォントだけ",
