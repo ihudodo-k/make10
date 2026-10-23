@@ -688,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="0.49";
+const DAILY_VERSION="0.50";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
@@ -2737,7 +2737,29 @@ function keptCur(c){
 }
 function saveDaily(){
   if(TEST_MODE&&!TRY_MODE)return;
-  try{localStorage.setItem(TRY_MODE?DAILY_KEY_TRY:DAILY_KEY,JSON.stringify(DATA))}catch(e){}
+  const key=TRY_MODE?DAILY_KEY_TRY:DAILY_KEY;
+  keepOthers(key);
+  try{localStorage.setItem(key,JSON.stringify(DATA))}catch(e){}
+}
+/* 書く前に、保存に今ある記録のうち、このページが持っていない日を足す（D0.50）。同じページを 2 つのタブで開いていると、
+   古いタブ（昨日から開いたまま・同じ日のもう 1 つ）が書くときに、別のタブで解いた日を消してしまうため。
+   どちらにもある日は、このページの分を残す（送れたかの印 sent だけは、付いていれば付ける）。
+   今日の記録が別のタブから来たら、途中の分を消して結果の画面にする */
+function keepOthers(key){
+  let x=null;
+  try{x=JSON.parse(localStorage.getItem(key)||"null")}catch(e){return}
+  const src=x&&typeof x==="object"&&x.days&&typeof x.days==="object"&&!Array.isArray(x.days)?x.days:null;
+  if(!src)return;
+  const before=dayRecord();
+  for(const k of Object.keys(src)){
+    if(!DAY_KEY_RE.test(k))continue;
+    if(DATA.days[k]){if(src[k]&&src[k].sent===1)DATA.days[k].sent=1;continue}
+    const v=recOk(src[k],+k);if(!v)continue;
+    if(src[k].sent===1)v.sent=1;
+    DATA.days[k]=v;
+  }
+  if(DATA.cur&&DATA.days[DATA.cur.no])DATA.cur=null;
+  if(!before&&dayRecord())setTimeout(()=>showResult(true));
 }
 /* 今日の問題の記録（解いた・ギブアップのどちらか）。まだなら undefined */
 const dayRecord=()=>PUZZLE?DATA.days[PUZZLE.no]:undefined;
