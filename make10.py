@@ -3395,7 +3395,7 @@ def run_blob(db_path, html_path, write=True, progress=None):
 # 起点日 (#1 の日。公開日)。**値はここ 1 か所だけに持つ** (ページへはここから埋め込む。
 # 集計のサーバーへもここから渡す。DAILY-SPEC 5 章)。月曜でなければならない。
 # 公開までは遠い未来の月曜を仮に置く (来た人には「問題がありません」が出る)
-DAILY_START = "2099-01-05"
+DAILY_START = "2026-10-26"
 DAILY_WEEKS = 157            # 最初に作る長さ。3 年ぶん = 157 週 = 1,099 日
 DAILY_SEED = "make10-daily-v1"
 DAILY_COURSE_HEAD = 200      # 本編のこの位置までに出てくる 4 桁は使わない

@@ -16,7 +16,7 @@ routes = [
 [vars]
 # 起点日（#1 の日。月曜）。**手で書き換えない** ―― `python make10.py daily` が、ページ（docs/daily/index.html）と
 # 同じ値をここへ書く（DAILY-SPEC 5 章）。食い違いは verify_daily.py のケース server が赤にする
-DAILY_START = "2099-01-05"
+DAILY_START = "2026-10-26"
 # 受け付ける Origin（デイリーのページ）
 ALLOW_ORIGIN = "https://make10.app"
 
