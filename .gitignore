@@ -5,3 +5,4 @@ make10*.db-shm
 make10*.db-wal
 node_modules/
 .wrangler/
+promo/data/
