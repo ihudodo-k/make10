@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""リンクを貼ったときの見た目（OGP。D0.20。DAILY-SPEC 9 章）。
+"""リンクを貼ったときの見た目（OGP。D0.20。D1.1 で英語にした。DAILY-SPEC 9 章）。
 
 - head に、og と twitter のタグが決めた名前で 1 つずつ揃っていること・中身が空でないこと
 - URL（og:url・og:image・twitter:image）が https://make10.app/daily/ で始まる絶対パスであること
@@ -57,19 +57,19 @@ def run(ui):
     ui.check("中身が空のタグが無い", sorted(k for a, k, c in metas if k.startswith(("og:", "twitter:")) and not c.strip()), [])
     ui.check("og:type・og:site_name・og:locale・twitter:card",
              [og.get("og:type"), og.get("og:site_name"), og.get("og:locale"), tw.get("twitter:card")],
-             ["website", "Make10", "ja_JP", "summary_large_image"])
+             ["website", "Make10", "en_US", "summary_large_image"])
     ui.check("og:url はデイリーの公開 URL（絶対パス）", og.get("og:url"), BASE)
     ui.check("画像の URL は絶対パスで、og と twitter で同じ",
              [og.get("og:image"), tw.get("twitter:image")], [BASE + "og.png"] * 2)
     ui.check("og と twitter の URL に、相対パスや http:// が無い",
              [(k, c) for a, k, c in metas if k in ("og:url", "og:image", "twitter:image") and not c.startswith(BASE)], [])
-    ui.check("タイトルに「Make10 DAILY」が入り、og と twitter で同じ",
-             ["Make10 DAILY" in og.get("og:title", ""), og.get("og:title") == tw.get("twitter:title")], [True, True])
-    ui.check("説明に「4 つの数字」と「10」が入り、og と twitter で同じ。80 字以内",
-             ["4 つの数字" in og.get("og:description", ""), "10" in og.get("og:description", ""),
+    ui.check("タイトルに「Make10 Daily」が入り、og と twitter で同じ",
+             ["Make10 Daily" in og.get("og:title", ""), og.get("og:title") == tw.get("twitter:title")], [True, True])
+    ui.check("説明に「four digits」と「10」が入り、og と twitter で同じ。80 字以内",
+             ["four digits" in og.get("og:description", ""), "10" in og.get("og:description", ""),
               og.get("og:description") == tw.get("twitter:description"), len(og.get("og:description", "")) <= 80],
              [True, True, True, True])
-    ui.check("英語の og（og:locale:alternate）は付けない", [k for k in og if "alternate" in k], [])
+    ui.check("別の言語の og（og:locale:alternate）は付けない", [k for k in og if "alternate" in k], [])
 
     # ══ 画像 ══
     path = os.path.join(dui.DOCS, "daily", "og.png")
@@ -85,7 +85,7 @@ def run(ui):
     start, rows = dui.page_data()
     for lang in ("ja", "en"):
         ui.open(date=start.isoformat(), lang=lang)
-        # 言語を切り替えても、タグは書き換わらない（日本語だけを付ける）
+        # 言語を切り替えても、タグは書き換わらない（英語だけを付ける。D1.1）
         ui.check("%s: 開いたページの head のタグが、ソースと同じ（スクリプトが書き換えない）" % lang,
                  ui.ev("[...document.head.querySelectorAll('meta[property^=\"og:\"],meta[name^=\"twitter:\"]')]"
                        ".map(m=>[m.getAttribute('property')?'property':'name',"

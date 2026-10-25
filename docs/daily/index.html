@@ -5,21 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title data-i18n="daily.page_title"></title>
 <!-- リンクを貼ったときの見た目（OGP。D0.20。DAILY-SPEC 9 章）。貼られた先はスクリプトを動かさないので、辞書を引かずに
-     ここへ直に書く。日本語だけ。URL は絶対パス。画像はどの日も同じ 1 枚（og.png。1200×630） -->
+     ここへ直に書く。英語だけ（D1.1。海外向け。D0.20〜D1.0 は日本語だけ）。URL は絶対パス。画像はどの日も同じ 1 枚（og.png。1200×630） -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Make10">
-<meta property="og:locale" content="ja_JP">
+<meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://make10.app/daily/">
-<meta property="og:title" content="Make10 DAILY — 1 日 1 問の数字パズル">
-<meta property="og:description" content="4 つの数字で 10 を作る。毎日、みんなと同じ 1 問に挑戦。">
+<meta property="og:title" content="Make10 Daily — one number puzzle a day">
+<meta property="og:description" content="Use four digits, in order, to make 10. A new puzzle every day.">
 <meta property="og:image" content="https://make10.app/daily/og.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Make10 DAILY。4 つの数字 1・2・3・4 から 10 を作る">
+<meta property="og:image:alt" content="Make10 Daily. Make 10 from the four digits 1, 2, 3, 4">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Make10 DAILY — 1 日 1 問の数字パズル">
-<meta name="twitter:description" content="4 つの数字で 10 を作る。毎日、みんなと同じ 1 問に挑戦。">
+<meta name="twitter:title" content="Make10 Daily — one number puzzle a day">
+<meta name="twitter:description" content="Use four digits, in order, to make 10. A new puzzle every day.">
 <meta name="twitter:image" content="https://make10.app/daily/og.png">
 <!-- Make10 デイリー（1 日 1 問）。仕様は DAILY-SPEC.md。
      エンジン（有理数・構文解析・評価・盤の操作）と CSS は本編 docs/index.html から 1 文字も変えずに複製してある。
@@ -688,7 +688,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="1.0";
+const DAILY_VERSION="1.1";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
