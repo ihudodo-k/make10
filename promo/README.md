@@ -1,0 +1,128 @@
+# X への毎日の投稿と、反応の記録（promo/）
+
+デイリー（https://make10.app/daily/ ）の問題を、毎日 1 本 X（旧 Twitter）に投稿し、反応を表に残す仕組み。
+**2 週間、3 つの型を順に試し、その後で人が型を 1 つ選んで続ける。型を自動で選ぶ処理は無い**（決めるのは人）。
+
+`docs/` の外なので配信されない。デイリーのページ（`docs/daily/`）とサーバー（`worker/`）には触らない（ページは読むだけ）。
+
+## 仕組み
+
+| いつ（UTC） | 日本 | 何をする | 中身 |
+|---|---|---|---|
+| 毎日 8:00 | 17:00 | `promo/collect.py` | X・Cloudflare Web Analytics・みんなの結果の数を集めて CSV に足し、まとめ（`report.md`）を書き直す |
+| 毎日 8:30 | 17:30 | `promo/post.py` | その日の問題を 1 本投稿し、`posts.csv` に 1 行足す |
+
+- 動かすのは GitHub Actions の `.github/workflows/promo.yml`。**main に入ってから定期実行が動く**
+- 集めた CSV は **main ではなく、専用のブランチ `promo-data`** に bot がコミットする（`promo/data/` の中。main の履歴を汚さない・
+  公開ページを動かさない）。最初の実行で、空のブランチとして作られる
+- 失敗したらワークフローが失敗になり、GitHub の標準の通知（メール）が届く（`site-check` と同じ。届く先の設定は CLAUDE.md の見守りの手順）
+- collect と post は同時に走らない（`concurrency`）。どちらも、始める前に手元の試し（`test_promo.py --no-chrome`）を流し、落ちたら何もしない
+
+### なぜ日本の 17:30 か
+
+問題番号は **UTC の日付**で数える（集計のサーバーと同じ）。ページは端末の日付で数えるので、UTC 8:30 なら、
+日本（17:30）・ヨーロッパ（朝）・アメリカ本土（西海岸は夏時間で 1:30・冬時間で 0:30）のどこでも、ページは投稿と同じ問題を出す。
+冬時間の西海岸は UTC 8:00 に日付が変わるので、それより後にした。**ハワイ（UTC-10）と、冬時間のアラスカ（UTC-9）は、まだ前の日の問題**
+（ハワイと、冬時間の西海岸の UTC 7:30 と 8:30 は、`test_promo.py` がページの JS で確かめている）。GitHub の定期実行は混むと数分〜数十分遅れるが、同じ日のうちなので番号は変わらない。
+
+### 投稿の 3 つの型
+
+型は問題番号で順に回す（(番号 - 1) を 3 で割った余り。#1 が A・#2 が B・#3 が C・#4 が A…）。**リンクは付けない**
+（リンク付きの投稿は API の料金が高い。リンクはプロフィールに置く）。**答えは載せない**（送る前に `post.py` が、決まった形か・
+列の解答のどれも入っていないか・280 字以内かを確かめ、外れたら送らずに失敗にする）。
+
+| 型 | 例（#12 が 6 1 8 3 の日） |
+|---|---|
+| A | `Make10 #12` / `6 1 8 3` / `#Make10` |
+| B | `Make10 #12` / `6 1 8 3` / `Can you make 10?` / `#Make10` |
+| C | `Make10 #12` / `6 1 8 3` / `Yesterday (#11): 63% solved, 41% without hints` / `#Make10` |
+
+- C の 3 行目は、昨日の問題のみんなの結果（`GET https://api.make10.app/r?n=…`）。正解率 ＝ 解いた ÷（解いた ＋ ギブアップ）、
+  ヒントなし ＝ ヒント 0 回で解いた ÷ 解いた（ページの「みんなの結果」と同じ数え方・同じ四捨五入）
+- **集計が 30 件未満・取れない・#1（昨日が無い）のときは、3 行目を出さずに送り**、`posts.csv` の `c_note` に理由を残す
+- 制約のある日（使えない演算がある日）も、文は同じ（ページの共有の文と同じく、制約は書かない）
+
+### 表（`promo-data` ブランチの `promo/data/`）
+
+どれも 1 日（集計は 1 問）1 行。同じ日を何度集めても、その行を上書きするので重複しない。日付は UTC。
+
+| ファイル | 1 行 | 中身 |
+|---|---|---|
+| `posts.csv` | 投稿 1 本 | 日付・番号・型・数字・文・C の記録（`c_note`）・tweet の番号・投稿の時刻・その時のフォロワー数。X の指標（表示回数・いいね・返信・リポスト・引用・プロフィールのクリック）を 2 組: **約 24 時間の値**（`m24_*`。投稿から 20〜36 時間の間に初めて集めた値。毎日 8:00 に集めるので、ふつうは 23.5 時間の値）と、**最新の値**（`last_*`。投稿から 7 日まで毎日上書き） |
+| `visits.csv` | 1 日 | make10.app/daily/ の訪問数・ページの表示数・参照元が `t.co` の訪問・`x.com`（と `twitter.com`）の訪問。毎日、昨日までの 7 日ぶんを書き直す |
+| `agg.csv` | 1 問 | 昨日（UTC）の問題の、解いた数 `s`・ギブアップ `g`・ヒントなしで解いた数 `s0`・遊んだ人 `players`（s ＋ g） |
+| `report.md` | — | 型ごとのまとめ（下の「まとめを読む」）。collect のたびに書き直す |
+
+- **集計のサーバーは今日の前後 1 日しか答えない**ので、collect が落ちた日のみんなの結果は後から取れない（表の行が抜ける）。
+  取るのは次の日の UTC 8:00 なので、その後にハワイなどで遊んだ分は入らない
+- X の指標は、`posts.csv` にある投稿（`post.py` が送ったもの）だけを読む。手で投稿したものは入らない
+
+## 鍵の作り方と入れ方
+
+鍵は GitHub の **Settings → Secrets and variables → Actions → Secrets** に入れる（名前は下のとおり）。
+ワークフローの外（このリポジトリのファイル・コミット・ログ）には書かない。スクリプトは鍵の値を出さない（足りないときは名前だけ出す）。
+
+| Secret の名前 | 作り方 |
+|---|---|
+| `X_API_KEY`・`X_API_SECRET` | X の Developer Portal（https://developer.x.com/ ）で Project と App を作り、App の「Keys and tokens」の **API Key and Secret**（Consumer Keys） |
+| `X_ACCESS_TOKEN`・`X_ACCESS_SECRET` | 同じ画面の **Access Token and Secret**。**先に App の「User authentication settings」で権限を Read and write にしてから**作る（後から権限を変えたら、作り直す。Read だけの鍵では投稿が 403 になる）。投稿するアカウント（Make10 のアカウント）でログインして作る |
+| `CF_API_TOKEN` | Cloudflare の My Profile → API Tokens → Create Token → Custom token。権限は **Account → Account Analytics → Read** だけ。Account Resources は make10.app のあるアカウント |
+| `CF_ACCOUNT_ID` | Cloudflare のダッシュボードの右側（アカウントのホーム）にある Account ID |
+
+- X の API は使った分だけ料金がかかる（投稿・読み取りとも。Developer Portal で残高と上限を見る）。この仕組みが 1 日に呼ぶのは、
+  投稿 1 回・自分の情報 1 回・投稿の指標の読み取り 1 回（最大 7 本ぶん）
+- 非公開の指標（表示回数・プロフィールのクリック）は、投稿したアカウント自身の鍵（OAuth 1.0a のユーザーの鍵）で、投稿から 30 日以内だけ読める
+- 型を固定するときは **Variables**（同じ画面の隣のタブ）に `PROMO_TYPE` を入れる（下の「型を 1 つに決める」）
+
+## 最初に動かすとき（人が行う）
+
+1. 上の 6 つの Secret を入れる
+2. main に入れる（定期実行は main に入ってから動く）
+3. Actions → promo →「Run workflow」で、`task` を **post**・`dry_run` に **チェックを入れたまま**流す。ログに、送る文と型が出る（送らない）
+4. 同じく `task` を **collect**・`dry_run` にチェックを入れたまま流す。X・Cloudflare・集計の数がログに出る（`promo-data` には書かない）。
+   ここで Cloudflare が断るなら、トークンの権限か Account ID を見直す
+5. **最初の本物の投稿は、`task` を post・`dry_run` のチェックを外して手で流す。** X に 1 本出て、`promo-data` ブランチに `posts.csv` ができる
+6. その後は毎日、定期実行が collect と post を流す
+
+手元で試すとき（鍵は要らない。本物には送らない）:
+
+```
+python promo/test_promo.py               # 手元の試し（返事のまねのサーバーで X・Cloudflare・集計を試す。ページとの照合に Chrome を使う）
+python promo/test_promo.py --no-chrome   # Chrome を使う照合を飛ばす
+python promo/post.py --dry-run           # 今日の文と型を出すだけ（C の日は、本物の集計を 1 回読む）
+python promo/post.py --dry-run --now 2026-10-27T08:30:00Z   # その時刻の文
+```
+
+## まとめを読む
+
+`promo-data` ブランチの `promo/data/report.md`（GitHub でそのブランチに切り替えて開く。collect の実行結果の Summary にも出る）。
+手元で作るときは:
+
+```
+git fetch origin promo-data
+git worktree add ../make10-promo-data promo-data
+python promo/report.py --data ../make10-promo-data/promo/data
+```
+
+- 型ごと: 投稿の数・表示の平均・表示 1,000 回あたりの反応（いいね ＋ 返信 ＋ リポスト）とプロフィールのクリック・
+  X から来た人（その日の `t.co` ＋ `x.com` の訪問）の平均・その日の遊んだ人数の平均。比べる X の数は約 24 時間の値
+- **偏りを並べて出す**: 型ごとの曜日の内訳・何日目に出たかの平均・フォロワーの増え。日がたつとフォロワーが増えるので、
+  同じ型でも後の日ほど数が大きくなりやすい（3 つを順に回すので、どの型も 2 週間に 4〜5 回ずつ、曜日もずれていく）
+- **勝ち負けは決めない。** 表を読んで、人が決める
+- 「X から来た人」は、投稿した日（UTC）の訪問だけを数える（投稿は UTC 8:30 なので、その日の残り 15.5 時間ぶん）。
+  プロフィールのリンクからでも、ほかの人の投稿からでも、X から来た訪問は全部入る
+
+## 型を 1 つに決める（2 週間の後。人が行う）
+
+1. `report.md` を読んで、続ける型を決める（A・B・C のどれか）
+2. GitHub の Settings → Secrets and variables → Actions → **Variables** → New repository variable で、名前 `PROMO_TYPE`・値に `A` か `B` か `C` を入れる
+3. 次の投稿から、その型だけになる（コードは変えない。`posts.csv` の `type` にも残る）。3 つを回すのに戻すときは、`PROMO_TYPE` を消す
+4. 型の文そのものを変えるときは、`promo/post.py` の `compose()` と、決まった形の確かめ `SHAPE` を一緒に直し、`python promo/test_promo.py` を流す
+
+## 止め方
+
+- **しばらく止める**: Actions → promo →「…」→ **Disable workflow**。戻すときは Enable workflow
+- **やめる**: `.github/workflows/promo.yml` を消して main に入れる。X の App の鍵は Developer Portal で作り直す（Regenerate）か App を消し、
+  GitHub の Secrets も消す。記録は `promo-data` ブランチに残る（要らなければブランチを消す）
+- 投稿を 1 日だけ飛ばすことはできない（その日だけ Disable にする）
+- 60 日間リポジトリにコミットが無いと、GitHub が定期実行を止める（`promo-data` へのコミットが数に入るかは確かめていない。止まったら Enable workflow）
