@@ -19,6 +19,8 @@ Google Play で配布予定。
 | docs/privacy/index.html | **プライバシーポリシー（D0.6）。** デイリーとアプリで 1 枚。日本語と英語を 1 ページに並べる。スクリプトなし。公開 URL は https://make10.app/privacy/ 。本編の Web 版を非公開にしても残す（DAILY-SPEC 17-6）。問い合わせ先は `make10alfa@gmail.com` |
 | check_site.py | **公開中のサイトの見守り（DAILY-SPEC 20 章）。** 公開サイト（`make10.app` の 3 ページ・`api.make10.app`・証明書）を読むだけの要求で確かめる。標準ライブラリだけ。手元でも `python check_site.py` で流せる。公開前と公開後は、公開ページの起点日から自分で切り替える |
 | .github/workflows/site-check.yml | `check_site.py` を 1 日 2 回（UTC 15:17 と 3:17）流す GitHub Actions のワークフロー。落ちたら GitHub の標準の通知（メール）。手で流す入口と、わざと落とす入力（`fail`）がある |
+| promo/ | **X（旧 Twitter）への毎日の投稿と、反応の記録（2026-10-25〜）。** `post.py`（その日の問題を 1 本投稿。UTC 8:30。番号と 4 つの数字は `docs/daily/index.html` の列から UTC の日付で出す。答えとリンクは載せない。型 A・B・C を番号で順に回す。**型を自動で選ぶ処理は作らない**（2 週間の後に人が選び、GitHub の Variables の `PROMO_TYPE` で固定する））・`collect.py`（X の指標・Cloudflare Web Analytics の訪問・みんなの結果を CSV に足す。UTC 8:00）・`report.py`（型ごとのまとめ。勝ち負けは決めない）・`common.py`（共通。標準ライブラリだけ。X の署名は hmac）・`test_promo.py`（手元の試し。鍵なし・返事のまねのサーバーで試し、本物には送らない）・`README.md`（仕組み・鍵の作り方・型の決め方・止め方）。`docs/` の外なので配信されない。**集めた CSV は main ではなくブランチ `promo-data` の `promo/data/` に bot がコミットする**（手元の `promo/data/` は `.gitignore` で除外）。動かすのは `.github/workflows/promo.yml` |
+| .github/workflows/promo.yml | `promo/` を毎日流す GitHub Actions のワークフロー（UTC 8:00 に collect・8:30 に post）。手で流す入口は既定で送らずに試す（`dry_run`）。鍵は Secrets（`X_API_KEY`・`X_API_SECRET`・`X_ACCESS_TOKEN`・`X_ACCESS_SECRET`・`CF_API_TOKEN`・`CF_ACCOUNT_ID`）。落ちたら GitHub の標準の通知（メール） |
 | worker/ | **デイリーの集計のサーバー（D0.7。Cloudflare Workers ＋ D1）。D0.37 から、記録を別の端末へ移す受け口（`/x`・`/x/take`。DAILY-SPEC 10-1）も持つ。** `src/index.js`（本体）・`schema.sql`（表。`npm run schema:remote` は `schema_each.mjs` が 1 文ずつ `--command` で流す）・`wrangler.toml`（設定。起点日は `python make10.py daily` が書く。手で書き換えない）・`test/local_test.mjs`（手元の試し。`worker/` の中で `npm test`。Node が要る）・`README.md`（本番へ置く手順。ログインとデプロイは人が行う）。`docs/` の外なので配信されない。`node_modules/` と `.wrangler/` は **`.gitignore` で除外** |
 | DAILY-SPEC.md | デイリー問題（1 日 1 問）の Web ページの仕様書。`docs/daily/` を触るときに読む |
 | make10.py | 問題データ生成。デイリーの問題の列もここで作り、`docs/daily/index.html` に埋め込む（`python make10.py daily`。`--dry-run` で確かめるだけ。DAILY-SPEC 6-1・6-5） |
@@ -89,6 +91,7 @@ Google Play で配布予定。
   増えると、どちらが正なのか後から判断できなくなるため
 - **コミットとプッシュは、頼まれたときだけ行う。** 頼まれていなければ、変更を残したまま報告し、
   こちらが差分を見てから判断する
+- **公開後（2026-10-26〜）は、main への取り込みはユーザーの OK を待つ。** 作業はブランチで行い、ブランチへの push までにする（main に入れると公開ページと定期実行がすぐに変わるため。デイリーの公開の後、ユーザーの指示）
 - ワークツリーで作業して main へプッシュしたら、最後に本体のフォルダー（`C:\ゲーム\make10`）でも `git pull --ff-only` を流して、本体を最新にしてから終える。
 - コミットの本文には、変えたことに加えて、確かめたこと（流したテストと結果、数で言える確かめ）と、やらなかったこと・気づいたことを短く書く。
 
