@@ -1,0 +1,93 @@
+# X（旧 Twitter）への毎日の投稿と、反応の記録（promo/README.md）。
+# 毎日 UTC 8:00 に collect（前の日の分までそろえる）、UTC 8:30 に post（日本の 17:30。日本・ヨーロッパ・アメリカ本土で同じ問題番号の日）。
+# 集めた CSV は main ではなく、専用のブランチ promo-data に bot がコミットする（main の履歴を汚さない・公開ページを動かさない）。
+# 失敗したらワークフローが失敗になり、GitHub の標準の通知（メール）が届く（site-check と同じ）。
+name: promo
+
+on:
+  schedule:
+    - cron: "0 8 * * *"     # collect
+    - cron: "30 8 * * *"    # post
+  # 手で流す入口（Actions の画面の「Run workflow」）。既定は送らずに試す
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "流すもの（post は投稿・collect は集める）"
+        type: choice
+        options: [post, collect]
+        default: post
+      dry_run:
+        description: "送らずに試す（post は X へ送らない・collect は promo-data に書かない）"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write           # promo-data へのコミットのため
+
+concurrency:
+  group: promo              # collect と post を同時に走らせない（同じブランチに書くため）
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONIOENCODING: utf-8
+      TASK: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 8 * * *' && 'collect' || 'post') || inputs.task }}
+      DRY: ${{ github.event_name == 'schedule' && 'false' || (inputs.dry_run && 'true' || 'false') }}
+      DATA: promo-data-wt/promo/data
+    steps:
+      - uses: actions/checkout@v4
+      - name: 何を流すか
+        run: echo "task=$TASK dry_run=$DRY event=${{ github.event_name }}"
+      - name: 手元の試し（鍵なし。落ちたら送らない）
+        run: python3 promo/test_promo.py --no-chrome
+      - name: 記録のブランチ（promo-data）を開く
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin promo-data > /dev/null; then
+            git fetch --depth=1 origin promo-data
+            git worktree add -B promo-data promo-data-wt FETCH_HEAD
+          else
+            echo "promo-data がまだ無いので、空のブランチとして作る"
+            git worktree add --orphan -b promo-data promo-data-wt
+          fi
+          mkdir -p "$DATA"
+      - name: 投稿する（post）
+        if: env.TASK == 'post'
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          PROMO_TYPE: ${{ vars.PROMO_TYPE }}
+        run: python3 promo/post.py --data "$DATA" ${{ env.DRY == 'true' && '--dry-run' || '' }}
+      - name: 集める（collect）
+        if: env.TASK == 'collect'
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: python3 promo/collect.py --data "$DATA"
+      - name: まとめを書く（report.md）
+        if: ${{ !cancelled() && env.TASK == 'collect' }}
+        run: |
+          python3 promo/report.py --data "$DATA" --out "$DATA/report.md"
+          cat "$DATA/report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: promo-data にコミットする
+        # 前の手順が落ちても、取れた分は残す（ワークフローは失敗のまま）
+        if: ${{ !cancelled() && env.DRY == 'false' }}
+        working-directory: promo-data-wt
+        run: |
+          git add -A promo/data
+          if git diff --cached --quiet; then
+            echo "変わったものが無い"
+            exit 0
+          fi
+          git commit -q -m "promo: $TASK $(date -u +%Y-%m-%d)"
+          git push origin HEAD:promo-data
