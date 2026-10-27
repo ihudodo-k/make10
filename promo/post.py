@@ -5,6 +5,7 @@
   python promo/post.py               送る（鍵 4 つが環境変数に要る）。送ったら promo/data/posts.csv に 1 行足す
 
 - 問題番号と 4 つの数字は、docs/daily/index.html の起点日と列から、UTC の日付で出す。**答えは載せない**（送る前に確かめる）
+- 文の版は TMPL（posts.csv の tmpl に残す。今は 2。版 1 は #1・#2 の短い文。tmpl が空の行は版 1 として読む）
 - 型は 3 つを、問題番号で順に回す（(番号 - 1) を 3 で割った余り。#1 が A・#2 が B・#3 が C）。
   1 つに決めたら、環境変数 PROMO_TYPE（GitHub の Variables）に A・B・C のどれかを入れる。型を自動で選ぶ処理は無い
 - リンクは付けない（リンク付きの投稿は API の料金が高い。リンクはプロフィールに置く）
@@ -18,9 +19,12 @@ import sys
 import common as c
 
 TYPES = "ABC"
-LINE_B = "Can you make 10?"
-TAG = "#Make10"
-TEXT_MAX = 280
+TMPL = "2"                 # 文の版（posts.csv の tmpl）。文を変えたら上げる。report.py は版ごとに分けて集計する
+SEP = " · "                # 4 つの数字の間
+RULE_B = "Keep the order. + − × ÷ ^ ! ( ) allowed."
+TAGS = {"A": "#Make10 #DailyPuzzle #MathPuzzle", "B": "#Make10 #DailyPuzzle #BrainTeaser",
+        "C": "#Make10 #DailyPuzzle #MathPuzzle"}
+TEXT_MAX = 280             # X の重みつきの字数（x_len）
 
 
 def type_of(n):
@@ -34,7 +38,7 @@ def type_of(n):
 
 
 def c_line(n):
-    """C の 3 行目と、記録に残す一言。出さないときは ("", 理由)"""
+    """C の 2 行目（昨日の結果）と、記録に残す一言。出さないときは ("", 理由)"""
     if n <= 1:
         return "", "昨日の問題が無い"
     try:
@@ -44,43 +48,58 @@ def c_line(n):
     total = j["s"] + j["g"]
     if total < c.AGG_MIN:
         return "", "%d 件未満（%d 件）" % (c.AGG_MIN, total)
-    line = "Yesterday (#%d): %d%% solved" % (n - 1, c.pct(j["s"], total))
+    line = "Yesterday's puzzle: %d%% solved" % c.pct(j["s"], total)
     if j["s"]:
-        line += ", %d%% without hints" % c.pct(j["s0"], j["s"])
-    return line, "出した（s=%d g=%d s0=%d）" % (j["s"], j["g"], j["s0"])
+        line += ", %d%% with no hints" % c.pct(j["s0"], j["s"])
+    return line + ".", "出した（s=%d g=%d s0=%d）" % (j["s"], j["g"], j["s0"])
 
 
 def compose(n, digits, typ, line=""):
-    lines = ["Make10 #%d" % n, " ".join(digits)]
-    if typ == "B":
-        lines.append(LINE_B)
-    if typ == "C" and line:
-        lines.append(line)
-    lines.append(TAG)
-    return "\n".join(lines)
+    """その型の文（版 TMPL）。line は C の 2 行目（空なら、その行を除く）"""
+    d = SEP.join(digits)
+    if typ == "A":
+        lines = ["Make10 Daily #%d" % n, "Today's numbers: %s" % d, "Use all four, in order, to make 10.",
+                 "Play free — link in profile."]
+    elif typ == "B":
+        lines = ["Can you make 10 from %s?" % d, RULE_B, "Make10 Daily #%d — link in profile." % n]
+    else:
+        lines = ["Make10 Daily #%d: %s" % (n, d)] + ([line] if line else []) + ["Your turn — make 10. Link in profile."]
+    return "\n".join(lines + [TAGS[typ]])
 
 
-SHAPE = re.compile(r"Make10 #(\d+)\n(\d) (\d) (\d) (\d)\n"
-                   r"(?:Can you make 10\?\n|Yesterday \(#\d+\): \d{1,3}% solved(?:, \d{1,3}% without hints)?\n)?"
-                   r"#Make10")
+_D = r"(?P<d1>\d) · (?P<d2>\d) · (?P<d3>\d) · (?P<d4>\d)"
+SHAPES = [re.compile(x) for x in (
+    r"Make10 Daily #(?P<n>\d+)\nToday's numbers: " + _D + r"\nUse all four, in order, to make 10\.\n"
+    r"Play free — link in profile\.\n#Make10 #DailyPuzzle #MathPuzzle",
+    r"Can you make 10 from " + _D + r"\?\n" + re.escape(RULE_B) + r"\nMake10 Daily #(?P<n>\d+) — link in profile\.\n"
+    r"#Make10 #DailyPuzzle #BrainTeaser",
+    r"Make10 Daily #(?P<n>\d+): " + _D + r"\n(?:Yesterday's puzzle: \d{1,3}% solved(?:, \d{1,3}% with no hints)?\.\n)?"
+    r"Your turn — make 10\. Link in profile\.\n#Make10 #DailyPuzzle #MathPuzzle")]
+
+
+def x_len(text):
+    """X の重みつきの字数（twitter-text の版 3: この範囲の字は 1、ほかは 2。URL は文に入れないので扱わない）"""
+    one = ((0, 4351), (8192, 8205), (8208, 8223), (8242, 8247))
+    return sum(1 if any(a <= ord(ch) <= b for a, b in one) else 2 for ch in text)
 
 
 def problems(text, row):
     """送ってはいけない理由のリスト（空なら送ってよい）。答え（列の解答のどれか）が入っていないこと・形・長さ"""
     out = []
-    if len(text) > TEXT_MAX:
-        out.append("%d 字（%d 字まで）" % (len(text), TEXT_MAX))
-    m = SHAPE.fullmatch(text)
+    if x_len(text) > TEXT_MAX:
+        out.append("%d 字（%d 字まで）" % (x_len(text), TEXT_MAX))
+    m = next((m for m in (sh.fullmatch(text) for sh in SHAPES) if m), None)
     if not m:
         out.append("決まった形でない")
-    elif int(m.group(1)) != row["no"] or "".join(m.group(2, 3, 4, 5)) != row["digits"]:
+    elif int(m.group("n")) != row["no"] or "".join(m.group("d1", "d2", "d3", "d4")) != row["digits"]:
         out.append("番号か数字がその日の問題と違う")
     flat = text.replace(" ", "")
     for s in row["sols"]:
         if s in text or s.replace(" ", "") in flat:
             out.append("答えが入っている")
             break
-    if re.search(r"[+\-*/^!=]", text):
+    # B の決まりの行（使える記号の一覧）だけは記号を書く。その行を除いた残りに記号が無いこと
+    if re.search(r"[+\-*/^!=()×÷−]", text.replace(RULE_B, "")):
         out.append("演算の記号が入っている")
     return out
 
@@ -120,10 +139,10 @@ def main(argv=None):
         bad = problems(text, row)
         if bad:
             raise c.Fail("この文は送らない: " + "・".join(bad))
-        print("%s（UTC） #%d  型 %s%s" % (day, n, typ, "  C の 3 行目: " + note if typ == "C" else ""))
+        print("%s（UTC） #%d  型 %s  文の版 %s%s" % (day, n, typ, TMPL, "  C の 2 行目: " + note if typ == "C" else ""))
         print("----")
         print(text)
-        print("----  %d 字" % len(text))
+        print("----  %d 字（X の数え方）" % x_len(text))
         if a.dry_run:
             print("dry-run なので送らない")
             return 0
@@ -138,7 +157,7 @@ def main(argv=None):
         tid = (j or {}).get("data", {}).get("id") if isinstance(j, dict) else None
         if st not in (200, 201) or not tid:
             raise c.Fail("X が投稿を断った: " + c.x_error(st, j, txt))
-        posts[day.isoformat()] = {"date": day.isoformat(), "n": str(n), "type": typ, "digits": row["digits"],
+        posts[day.isoformat()] = {"date": day.isoformat(), "n": str(n), "type": typ, "tmpl": TMPL, "digits": row["digits"],
                                   "text": text, "c_note": note, "tweet_id": str(tid), "posted_at": c.iso(now),
                                   "followers": followers}
         c.write_table(ddir, "posts.csv", posts)

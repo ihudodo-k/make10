@@ -189,7 +189,7 @@ def x_error(st, j, text):
 
 # ── CSV（キーで 1 行。同じキーは上書きするので、2 回集めても重複しない） ──
 
-POSTS = ("date", "n", "type", "digits", "text", "c_note", "tweet_id", "posted_at", "followers",
+POSTS = ("date", "n", "type", "tmpl", "digits", "text", "c_note", "tweet_id", "posted_at", "followers",
          "m24_at", "m24_impressions", "m24_likes", "m24_replies", "m24_reposts", "m24_quotes", "m24_profile_clicks",
          "last_at", "last_impressions", "last_likes", "last_replies", "last_reposts", "last_quotes", "last_profile_clicks")
 VISITS = ("date", "visits", "pageviews", "from_tco", "from_x", "collected_at")
@@ -204,7 +204,11 @@ def read_table(ddir, name):
     if not os.path.exists(path):
         return {}
     with open(path, encoding="utf-8", newline="") as f:
-        return {r[key]: {k: r.get(k) or "" for k in fields} for r in csv.DictReader(f)}
+        rows = {r[key]: {k: r.get(k) or "" for k in fields} for r in csv.DictReader(f)}
+    if name == "posts.csv":
+        for r in rows.values():
+            r["tmpl"] = r["tmpl"] or "1"   # 文の版の列（tmpl）ができる前の行（#1・#2）は版 1
+    return rows
 
 
 def write_table(ddir, name, rows):
