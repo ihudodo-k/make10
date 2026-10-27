@@ -12,7 +12,8 @@
 | 毎日 8:00 | 17:00 | `promo/collect.py` | X・Cloudflare Web Analytics・みんなの結果の数を集めて CSV に足し、まとめ（`report.md`）を書き直す |
 | 毎日 8:30 | 17:30 | `promo/post.py` | その日の問題を 1 本投稿し、`posts.csv` に 1 行足す |
 
-- 動かすのは GitHub Actions の `.github/workflows/promo.yml`。**main に入ってから定期実行が動く**
+- 動かすのは GitHub Actions の `.github/workflows/promo.yml`。**時刻に起こすのは Cloudflare Workers の Cron Triggers**（`promo/cron/`。
+  下の「定期実行の起こし役」）。promo.yml の `schedule` は予備として残してある。**main に入ってから動く**
 - 集めた CSV は **main ではなく、専用のブランチ `promo-data`** に bot がコミットする（`promo/data/` の中。main の履歴を汚さない・
   公開ページを動かさない）。最初の実行で、空のブランチとして作られる
 - 失敗したらワークフローが失敗になり、GitHub の標準の通知（メール）が届く（`site-check` と同じ。届く先の設定は CLAUDE.md の見守りの手順）
@@ -23,7 +24,77 @@
 問題番号は **UTC の日付**で数える（集計のサーバーと同じ）。ページは端末の日付で数えるので、UTC 8:30 なら、
 日本（17:30）・ヨーロッパ（朝）・アメリカ本土（西海岸は夏時間で 1:30・冬時間で 0:30）のどこでも、ページは投稿と同じ問題を出す。
 冬時間の西海岸は UTC 8:00 に日付が変わるので、それより後にした。**ハワイ（UTC-10）と、冬時間のアラスカ（UTC-9）は、まだ前の日の問題**
-（ハワイと、冬時間の西海岸の UTC 7:30 と 8:30 は、`test_promo.py` がページの JS で確かめている）。GitHub の定期実行は混むと数分〜数十分遅れるが、同じ日のうちなので番号は変わらない。
+（ハワイと、冬時間の西海岸の UTC 7:30 と 8:30 は、`test_promo.py` がページの JS で確かめている）。GitHub の定期実行（`schedule`）は
+2026-10-26・27 に約 6 時間遅れて走った（collect 8:00 → 14:39・13:44、post 8:30 → 15:19）ので、時刻は Cloudflare から起こす（下）。
+
+## 定期実行の起こし役（`promo/cron/`。Cloudflare Workers の Cron Triggers）
+
+Cloudflare の Worker `make10-promo-cron` が、UTC 8:00 と 8:30 に GitHub の API
+（`POST /repos/ihudodo-k/make10/actions/workflows/promo.yml/dispatches`、`ref` は `main`）で promo.yml を起こす。
+集計のサーバー（`worker/`・`make10-daily-api`）とは別の Worker で、そちらには触らない。
+
+| Cron（UTC） | 送る inputs | promo.yml の中 |
+|---|---|---|
+| `0 8 * * *` | `task: collect`・`dry_run: false` | `TASK=collect`・`DRY=false`（schedule のときと同じ） |
+| `30 8 * * *` | `task: post`・`dry_run: false` | `TASK=post`・`DRY=false`（schedule のときと同じ） |
+
+- 中身は `src/dispatch.js`（入口は `src/index.js`。**`index.js` に名前付きの export を置かない** ―― Workers が入口として読み、起動しない）。
+  Cron の式は `wrangler.toml` の `[triggers]` と `dispatch.js` の `JOBS` の両方に書く（食い違いは試しが止める）
+- **HTTP の入口は何もしない**（どの道も 404。`workers.dev` の URL も routes も無い）。外から叩いて投稿させることはできない
+- GitHub が 204 以外を返したら、状態と本文の先頭（300 字）をログに出す。2xx 以外は失敗にする
+  （Cloudflare のダッシュボードの Workers & Pages → make10-promo-cron → Logs と、Settings の Trigger Events に残る）
+- **予備の `schedule` と両方が走っても壊れない**: post はその日の行が `posts.csv` にあれば送らない。collect は同じ日の行を上書きする
+  （約 24 時間の値 `m24_*` は初めて集めたときだけ書くので、後から来た collect では変わらない）。`concurrency` で同時には走らず、
+  後から来た分は前の分が `promo-data` に書いた後で始まる。待っている分は、さらに後から来た分に置き換わる（GitHub の決まり）が、
+  Cloudflare の 2 つは時刻どおりに来るので、どの順でも、その日の collect と post は 1 回ずつは走る
+- 手元の試し（鍵なし。GitHub には送らない）: `promo/cron/` の中で `npm.cmd test`。送る URL・inputs・ヘッダー、204 以外の扱い、
+  404、式の一致、promo.yml の `TASK`・`DRY` の式、本物のランタイム（`wrangler dev --test-scheduled`。鍵を入れずに立ち上げる）を見る。
+  `promo/cron/.dev.vars` は作らない（あると試しの 6 番は止まる）
+
+### GitHub の鍵を作る（人が行う）
+
+1. GitHub の右上のアイコン → Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token
+2. Token name は `make10-promo-cron` など。**Expiration は期限を決める**（たとえば 1 年）。**期限の日を控える**（切れる前に作り直す）
+3. Repository access は **Only select repositories** で `ihudodo-k/make10` だけ
+4. Permissions → Repository permissions で **Actions を Read and write** にする。ほかは触らない（Metadata の Read は自動で付く）
+5. Generate token を押し、出た値（`github_pat_…`）をすぐ下の「入れる」に使う。**ファイル・コミット・チャットには書かない**
+
+### 入れる・置く・確かめる（人が行う。PowerShell で）
+
+コマンドの書き方は `worker/README.md` の「コマンドの書き方」と同じ（最初に Node のパスを足す・`npm.cmd`・`npx.cmd` と書く）。
+
+```
+$env:Path = "C:\Users\0ihud\tools\node-v22.23.3-win-x64;" + $env:Path
+cd C:\ゲーム\make10\promo\cron
+npm.cmd ci
+npm.cmd test
+npx.cmd wrangler login
+npx.cmd wrangler deploy
+npx.cmd wrangler secret put GH_TOKEN
+```
+
+- `deploy` を先にする（Worker ができてから、その Worker に secret を入れる）。`deploy` と `secret put` は続けて流す
+  （間に UTC 8:00 か 8:30 が来ると、その回は「GH_TOKEN が無い」で失敗し、予備の `schedule` だけが走る）
+- `secret put` は値を聞いてくるので、作った鍵を貼って Enter（画面には出ない）。入れた鍵はすぐに効く（deploy し直さなくてよい）
+- `Authentication error [code: 7403]`・`[code: 10000]` で落ちたら `npx.cmd wrangler logout` → `npx.cmd wrangler login`
+- 確かめ:
+  1. `npx.cmd wrangler deployments list` に今の deploy が出る。ダッシュボードの make10-promo-cron → Settings → Trigger Events に `0 8 * * *` と `30 8 * * *`
+  2. `npx.cmd wrangler secret list` に `GH_TOKEN` が出る（値は出ない）
+  3. 次の UTC 8:00（日本の 17:00）の後に、GitHub の Actions → promo に **event が workflow_dispatch** の実行が数分のうちに並ぶ
+     （予備の schedule の実行は、event が schedule で、遅れて並ぶ）。ログの「何を流すか」が `task=collect dry_run=false event=workflow_dispatch`
+  4. 8:30 の後も同じく `task=post dry_run=false event=workflow_dispatch` で、X に 1 本出る。遅れて来た schedule の post は「送ってある。送らない」で終わる
+  5. 起こせなかったときは `npx.cmd wrangler tail make10-promo-cron` を流したまま次の時刻を待つか、ダッシュボードの Logs を見る
+
+### 止める・鍵の期限が切れたら
+
+- **Cloudflare から起こすのを止める**: ダッシュボードの make10-promo-cron → Settings → Trigger Events で Cron を消す。
+  または `wrangler.toml` の `crons = []` にして `npx.cmd wrangler deploy`。Worker ごと消すなら `npx.cmd wrangler delete make10-promo-cron`。
+  予備の `schedule` は残るので、promo そのものは遅れて走り続ける（全部止めるのは下の「止め方」）
+- GitHub の鍵を消すと（Developer settings → Fine-grained tokens → Delete）、その時から起こせなくなる
+- **鍵の期限が切れたときの症状**: Cloudflare からは起こせず（ログに `GitHub が 204 以外を返した: 401 … Bad credentials`）、
+  **予備の `schedule` だけが遅れて走る**（Actions の promo の実行が event schedule だけになり、数時間遅れる）。
+  GitHub からは失敗のメールが来ない（promo.yml は失敗していない）ので、遅れに気づいたらまず鍵の期限を見る。
+  直し方は、上の「GitHub の鍵を作る」で作り直して、`npx.cmd wrangler secret put GH_TOKEN` で入れ直す（deploy は要らない）
 
 ### 投稿の 3 つの型
 
@@ -110,7 +181,7 @@ Your turn — make 10. Link in profile.
 4. 同じく `task` を **collect**・`dry_run` にチェックを入れたまま流す。X・Cloudflare・集計の数がログに出る（`promo-data` には書かない）。
    ここで Cloudflare が断るなら、トークンの権限か Account ID を見直す
 5. **最初の本物の投稿は、`task` を post・`dry_run` のチェックを外して手で流す。** X に 1 本出て、`promo-data` ブランチに `posts.csv` ができる
-6. その後は毎日、定期実行が collect と post を流す
+6. その後は毎日、定期実行が collect と post を流す（時刻に起こすのは `promo/cron/` の Worker。置き方は上の「定期実行の起こし役」）
 
 手元で試すとき（鍵は要らない。本物には送らない）:
 
@@ -155,4 +226,6 @@ python promo/report.py --data ../make10-promo-data/promo/data
 - **やめる**: `.github/workflows/promo.yml` を消して main に入れる。X の App の鍵は Developer Portal で作り直す（Regenerate）か App を消し、
   GitHub の Secrets も消す。記録は `promo-data` ブランチに残る（要らなければブランチを消す）
 - 投稿を 1 日だけ飛ばすことはできない（その日だけ Disable にする）
-- 60 日間リポジトリにコミットが無いと、GitHub が定期実行を止める（`promo-data` へのコミットが数に入るかは確かめていない。止まったら Enable workflow）
+- 60 日間リポジトリにコミットが無いと、GitHub が定期実行を止める（`promo-data` へのコミットが数に入るかは確かめていない。止まったら Enable workflow）。
+  止まるとワークフローそのものが Disabled になるので、Cloudflare から起こす分も GitHub に断られる（ログに 204 以外が出る。確かめていない）
+- Cloudflare から起こす分も止めるときは、上の「止める・鍵の期限が切れたら」。**Disable workflow にすると、どちらから起こしても走らない**

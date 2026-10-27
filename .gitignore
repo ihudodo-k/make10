@@ -6,3 +6,5 @@ make10*.db-wal
 node_modules/
 .wrangler/
 promo/data/
+promo/cron/node_modules/
+promo/cron/.wrangler/
