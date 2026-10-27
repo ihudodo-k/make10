@@ -1,4 +1,4 @@
-date,n,type,digits,text,c_note,tweet_id,posted_at,followers,m24_at,m24_impressions,m24_likes,m24_replies,m24_reposts,m24_quotes,m24_profile_clicks,last_at,last_impressions,last_likes,last_replies,last_reposts,last_quotes,last_profile_clicks
-2026-10-26,1,A,8752,"Make10 #1
+date,n,type,tmpl,digits,text,c_note,tweet_id,posted_at,followers,m24_at,m24_impressions,m24_likes,m24_replies,m24_reposts,m24_quotes,m24_profile_clicks,last_at,last_impressions,last_likes,last_replies,last_reposts,last_quotes,last_profile_clicks
+2026-10-26,1,A,1,8752,"Make10 #1
 8 7 5 2
-#Make10",,2114738783052877897,2026-10-26T15:19:50Z,0,,,,,,,,,,,,,,
+#Make10",,2114738783052877897,2026-10-26T15:19:50Z,0,2026-10-27T13:44:17Z,8,0,0,0,0,0,2026-10-27T13:44:17Z,8,0,0,0,0,0
