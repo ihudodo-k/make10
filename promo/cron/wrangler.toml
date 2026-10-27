@@ -1,0 +1,20 @@
+# Make10 promo の定期実行の起こし役（Cloudflare Workers の Cron Triggers）。仕組みと置き方は promo/README.md。
+# 集計のサーバー（worker/・make10-daily-api）とは別の Worker。
+name = "make10-promo-cron"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# HTTP の入口は使わない（fetch は 404 を返すだけ）。*.workers.dev の URL も作らない
+workers_dev = false
+preview_urls = false
+
+# UTC で動く。8:00 に collect、8:30 に post（promo.yml の schedule と同じ時刻）。
+# 式を変えるときは src/dispatch.js の JOBS も同じ文字列に直す（試しが食い違いを見る）
+[triggers]
+crons = ["0 8 * * *", "30 8 * * *"]
+
+# ログ（console.log）をダッシュボードの Observability に残す
+[observability]
+enabled = true
+
+# 鍵 GH_TOKEN は secret（npx.cmd wrangler secret put GH_TOKEN）。ここには書かない

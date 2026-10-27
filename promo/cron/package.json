@@ -1,0 +1,14 @@
+{
+  "name": "make10-promo-cron",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Make10 promo の定期実行の起こし役（Cloudflare Workers の Cron Triggers）。仕組みは promo/README.md",
+  "type": "module",
+  "scripts": {
+    "test": "node test/local_test.mjs",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  }
+}
