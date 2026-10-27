@@ -81,30 +81,32 @@ HOME_RECTS = ("(()=>{const r=q=>document.querySelector(q).getBoundingClientRect(
 
 def home_total(ui):
     """ホームの累計（6.6）: 累計点数は出さない。クリア数は残す。
-    点数の記録（G.best）は保存データに残る（あとで表示を戻せるように）"""
+    8.7 で点数を消した。古い保存データ（best・scoreOn 入り）を読んでもエラーにならず、
+    次の保存で best・scoreOn が消える（GAME-SPEC 9 章）"""
     ui.open({"ci": 0, "cleared": 0})
     off = ui.ev(HOME_RECTS)
     code = ui.ev("codeOf(COURSE[0])")
     ui.open({"ci": 0, "cleared": 5, "scoreOn": True, "best": {code: 1234}})
-    ui.check("ホームの累計はクリア数だけ（点数表示オンでも）", ui.text("ctot"), "累計 5 問")
+    ui.check_no_errors("古い保存データ（best・scoreOn 入り）を読んでも JS エラー 0")
+    ui.check("ホームの累計はクリア数だけ", ui.text("ctot"), "累計 5 問")
     ui.check("ホームに累計点数が出ない",
              ui.ev(r"/\d[\d,]* 点/.test($('home').innerText)"), False)
-    ui.check("累計は 1 行のまま・主役の数字のかたまりとモードの行の位置と大きさが点数表示オフと同じ",
+    ui.check("累計は 1 行のまま・主役の数字のかたまりとモードの行の位置と大きさが古い保存データの無いときと同じ",
              ui.ev(HOME_RECTS), off)
     ui.check("ホームはスクロールしない（横）",
              ui.ev("$('home').scrollWidth<=$('home').clientWidth"), True)
-    ui.check("点数の記録は残っている（G.best）", ui.ev("G.best[%r]" % code), 1234)
-    ui.check("累計点数の計算も残っている（totalScore）", ui.ev("totalScore()"), 1234)
-    # 解くと点数は今までどおり記録され、保存データにも入る
+    ui.check("古い保存データの best・scoreOn は G に読み込まない（8.7）",
+             ui.ev("['best' in G,'scoreOn' in G]"), [False, False])
+    ui.check("点数の関数が無い（calcScore・totalScore・stars・SC・parSec・parWaste）",
+             ui.ev("['calcScore','totalScore','stars','SC','parSec','parWaste']"
+                   ".filter(n=>{try{return typeof eval(n)!=='undefined'}catch(e){return false}})"), [])
     ui.ev("start('course'); loadPuzzle(COURSE[1])")
     ui.solve()
-    code2 = ui.ev("codeOf(cur)")
     ui.ev("go('home')")
-    ui.check("解いた問題の点数も記録される", ui.ev("G.best[%r]>0" % code2), True)
-    ui.check("保存データ（localStorage）に点数が残っている",
-             ui.ev("(()=>{const b=JSON.parse(localStorage.getItem(%r)).best;"
-                   "return [b[%r],b[%r]>0]})()" % ("make10.progress.v4", code, code2)),
-             [1234, True])
+    ui.check("解いたあと、保存データ（localStorage）に best・scoreOn が無い",
+             ui.ev("(()=>{const s=JSON.parse(localStorage.getItem(%r));"
+                   "return ['best' in s,'scoreOn' in s,s.cleared]})()" % "make10.progress.v4"),
+             [False, False, 6])
     ui.check("解いたあともホームの累計はクリア数だけ", ui.text("ctot"), "累計 6 問")
     ui.check_no_errors("ホームの累計で JS エラー 0")
     stats_scores(ui)
@@ -119,27 +121,31 @@ STATS_ROWS = ("(()=>{const f=v=>Math.round(v*10)/10,"
 
 
 def stats_scores(ui):
-    """統計画面（6.6。GAME-SPEC 9-2）: 星・累計スコア・履歴の「N 点」を出さない
-    （点数を出すのは点数表示オンの正解カードだけ）。
-    点数と星の記録（best / hist の p・st）は保存データに残る"""
+    """統計画面（6.6。GAME-SPEC 9-2）: 星・累計スコア・履歴の「N 点」を出さない。
+    8.7 で点数を消した。古い保存データ（best・scoreOn・履歴の p と st 入り）を読んでも、
+    ほかの記録（進行・クリア数・履歴の c/d/s/m・統計の時間）は 1 つも変わらず、
+    次の保存で点数の項目だけが消える"""
     code = ui.ev("codeOf(COURSE[0])")
     code2 = ui.ev("codeOf(COURSE[1])")
-    hist = [{"c": code, "d": 3, "s": 12, "m": "course", "p": 75, "st": 3},
-            {"c": code2, "d": 4, "s": 40, "m": "course", "p": 60, "st": 1}]
-    base = {"ci": 2, "cleared": 2, "best": {code: 75, code2: 60}, "hist": hist,
-            "stats": {"n": 2, "sec": 52, "best": 12, "band": {"3-8": 2}}}
-    ui.open(dict(base, scoreOn=False))
+    hist = [{"c": code, "d": 3, "s": 12, "m": "course"},
+            {"c": code2, "d": 4, "s": 40, "m": "chal"}]
+    stats = {"n": 2, "sec": 52, "best": 12, "band": {"3-8": 2}}
+    base = {"ci": 2, "cleared": 2, "hist": hist, "stats": stats,
+            "seen": [code, code2], "hints": {code: 2}, "hintStock": 7}
+    ui.open(base)
     ui.ev("go('stats')")
-    off = ui.ev(STATS_ROWS)
-    ui.open(dict(base, scoreOn=True))
+    new = ui.ev(STATS_ROWS)
+    old_hist = [dict(hist[0], p=75, st=3), dict(hist[1], p=60, st=1)]
+    ui.open(dict(base, hist=old_hist, best={code: 75, code2: 60}, scoreOn=True))
+    ui.check_no_errors("古い保存データ（best・scoreOn・履歴の p/st 入り）を読んでも JS エラー 0")
     ui.ev("go('stats')")
-    on = ui.ev(STATS_ROWS)
-    ui.check("統計: 一覧に「累計スコア」の行が無い（点数表示オンでも）",
-             "累計スコア" in on[0] or "累計スコア" in ui.ev("$('stats').innerText"), False)
-    ui.check("統計: 上の項目は点数表示オフと同じ 6 つ", [on[0], len(on[0])], [off[0], 6])
-    ui.check("統計: 上の 6 項目の高さが点数表示オフと同じ", on[1], off[1])
+    old = ui.ev(STATS_ROWS)
+    ui.check("統計: 一覧に「累計スコア」の行が無い",
+             "累計スコア" in old[0] or "累計スコア" in ui.ev("$('stats').innerText"), False)
+    ui.check("統計: 上の項目は古い保存データの無いときと同じ 6 つ", [old[0], len(old[0])], [new[0], 6])
+    ui.check("統計: 上の 6 項目の高さが同じ", old[1], new[1])
     ui.check("統計: 画面のどこにも星（★☆）が無い", ui.ev("/[★☆]/.test($('stats').innerText)"), False)
-    ui.check("統計: 履歴の右端に何も出さない（子は左の 1 つだけ）", on[3], ["", ""])
+    ui.check("統計: 履歴の右端に何も出さない（子は左の 1 つだけ）", old[3], ["", ""])
     ui.check("統計: 履歴のどこにも点数（「N 点」）が出ない",
              ui.ev(r"/\d+ 点/.test($('stathist').innerText)"), False)
     ui.check("統計: 履歴の左の並び（番号・難易度・秒）は今までどおり",
@@ -148,22 +154,29 @@ def stats_scores(ui):
     ui.check("統計: 履歴の各行が横にはみ出さない",
              ui.ev("[...$('stathist').querySelectorAll('.toggle')].every(e=>e.scrollWidth<=e.clientWidth)"),
              True)
-    ui.check("統計: 履歴の行の高さが点数表示オフと同じ", on[2], off[2])
+    ui.check("統計: 履歴の行の高さが同じ", old[2], new[2])
     ui.check("統計: 横にはみ出さない",
              ui.ev("$('stats').scrollWidth<=$('stats').clientWidth"), True)
-    ui.check("統計: 点数・星の記録は G に残っている",
-             ui.ev("[G.best[%r],G.hist[0].p,G.hist[0].st,G.hist[1].st,totalScore()]" % code),
-             [75, 75, 3, 1, 135])
-    # 問題を解いても点数と星は今までどおり記録され、保存データに入る
+    ui.check("読み込み: 履歴の p・st は読み捨て、c/d/s/m はそのまま（8.7）",
+             ui.ev("G.hist"), hist)
+    ui.check("読み込み: ほかの記録は変わらない（進行・クリア数・統計・解いた問題・ヒント）",
+             ui.ev("[G.ci,G.cleared,G.stats,G.seen,G.hints,G.hintStock]"),
+             [2, 2, stats, [code, code2], {code: 2}, 7])
+    ui.check("読み込み: best・scoreOn は G に無い", ui.ev("['best' in G,'scoreOn' in G]"), [False, False])
     ui.ev("start('course'); loadPuzzle(COURSE[2])")
     ui.solve()
     ui.ev("go('stats')")
     ui.check("統計: 解いたあとも星は出ない", ui.ev("/[★☆]/.test($('stats').innerText)"), False)
-    ui.check("統計: 保存データ（localStorage）に点数と星が残っている",
-             ui.ev("(()=>{const s=JSON.parse(localStorage.getItem(%r)),h=s.hist[0];"
-                   "return [s.best[%r],h.p>0,[1,2,3].includes(h.st),s.hist.length]})()"
-                   % ("make10.progress.v4", code)),
-             [75, True, True, 3])
+    saved = ui.ev("JSON.parse(localStorage.getItem(%r))" % "make10.progress.v4")
+    ui.check("保存: best・scoreOn を書かない", ["best" in saved, "scoreOn" in saved], [False, False])
+    ui.check("保存: 履歴のどの行にも p・st が無い（新しい行の形は c/d/s/m）",
+             [sorted(h.keys()) for h in saved["hist"]], [["c", "d", "m", "s"]] * 3)
+    ui.check("保存: 古い履歴の 2 行は c/d/s/m がそのまま残る", saved["hist"][1:], hist)
+    ui.check("保存: 新しい行は今解いた問題", [saved["hist"][0]["c"], saved["hist"][0]["m"]],
+             [ui.ev("codeOf(COURSE[2])"), "course"])
+    ui.check("保存: 統計とクリア数は 1 問ぶん進む",
+             [saved["stats"]["n"], saved["cleared"], saved["hintStock"], saved["hints"]],
+             [3, 3, 7, {code: 2}])
     ui.check_no_errors("統計画面で JS エラー 0")
     home_layout(ui)
     stats_grid(ui)

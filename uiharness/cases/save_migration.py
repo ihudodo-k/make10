@@ -61,13 +61,14 @@ def run(ui):
     ui.check("chalShown: 生きている 2 件だけ",
              ui.ev("G.chalShown"), [live["chal0"], live["chal1"]])
     # ── 捨てないもの ──────────────────────────────────────
-    ui.check("best: 3 件とも残る", ui.ev("Object.keys(G.best).length"), 3)
-    ui.check("best: 消えたコードの点数も残る",
-             ui.ev("G.best[%s]" % json.dumps(dead[0])), 55)
+    # 8.7 で点数を消した。best・scoreOn は読まず、履歴の p・st は読み捨てる（次の保存で消える）
+    ui.check("best・scoreOn は G に入らない（8.7）", ui.ev("['best','scoreOn'].filter(k=>k in G)"), [])
     ui.check("hints: 消えたコードの到達段階も残る",
              ui.ev("G.hints[%s]" % json.dumps(dead[1])), 2)
     ui.check("seen: 3 件とも残る", ui.ev("G.seen.length"), 3)
     ui.check("hist: 3 件とも残る", ui.ev("G.hist.length"), 3)
+    ui.check("hist: 各行の p・st は読み捨て、c/d/s/m はそのまま（8.7）", ui.ev("G.hist"),
+             [{k: h[k] for k in ("c", "d", "s", "m")} for h in save["hist"]])
     ui.check("ヒント残数は保たれる", ui.ev("G.hintStock"), 50)
     ui.check("chalRem は保たれる", ui.ev("G.chalRem"), 1)
     ui.check("5.0 で廃止した held 系は G に入らない",

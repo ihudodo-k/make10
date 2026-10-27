@@ -244,7 +244,6 @@ def run(ui):
     ui.click("m-course"); ui.ev('__look("play")')
     for i in range(3):
         ui.click("hint"); ui.ev('__look("hint%d")' % (i + 1))
-    ui.ev('G.scoreOn=true')
     ui.solve(); ui.ev('__look("win")')
     ui.ev('go("stats");__look("stats2")')
     ui.check("画面を巡っても、置き換えの印やキーが文字のまま出ない", ui.ev("__LEFT"), [])

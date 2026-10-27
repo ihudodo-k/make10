@@ -138,10 +138,10 @@ def mid(ui):
 
 
 def state(ui):
-    """消費・減点・保存に関わるもの。全解答を見ても変わらないこと"""
+    """消費・保存に関わるもの。全解答を見ても変わらないこと（8.7 で減点 hintMax は外した）"""
     ui.ev("save()")
     time.sleep(0.2)
-    return ui.ev("[G.hintStock,JSON.stringify(G.hints),hintMax,localStorage.getItem(SAVE_KEY)]")
+    return ui.ev("[G.hintStock,JSON.stringify(G.hints),localStorage.getItem(SAVE_KEY)]")
 
 
 def fits(ui):
@@ -259,9 +259,9 @@ def run(ui):
     ui.check("k が変わっても段階表示・本文の枠・‹ › ×・2 段目の k の箱が動かない（9 → 10 を含む）",
              [g for g in gs if g != g0], [])
     ui.check("どの解答も 1 行に収まり、箱の高さは 58px のまま", fit, [True] * n)
-    ui.check("送っても残数・到達段階・減点の段階・保存データが変わらない", state(ui), before)
+    ui.check("送っても残数・到達段階・保存データが変わらない", state(ui), before)
     ui.check("保存データに解答の位置のキーは無い",
-             sorted(k for k in json.loads(before[3]) if "hint" in k.lower()), ["hintStock", "hints"])
+             sorted(k for k in json.loads(before[2]) if "hint" in k.lower()), ["hintStock", "hints"])
     # 位置の記憶
     tap(ui)
     tap(ui)

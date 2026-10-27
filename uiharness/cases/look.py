@@ -36,7 +36,7 @@ def uses(ui, var):
 
 def run(ui):
     # ── 1. 金は 3 か所だけ ────────────────────────────────
-    ui.open({"ci": 137, "cleared": 162, "hintStock": 10, "scoreOn": True})
+    ui.open({"ci": 137, "cleared": 162, "hintStock": 10})
     ui.check("金と赤と文字の色は別の色", ui.ev("new Set(['--gold','--coral','--paper','--dim','--slate','--ink'].map(%s)).size" % V), 6)
     gold_idle = ["#cbar:地", "#wnext:枠Bottom"]
     ui.check("ホーム: 金は進捗の線（と、まだ出ていない「つぎへ」の下線）だけ", uses(ui, "--gold"), gold_idle)
@@ -51,9 +51,8 @@ def run(ui):
     ui.check("解くと「正解」", ui.solve(), "10|正解")
     ui.check("正解: 金は「10」・進捗の線・「つぎへ」の下線の 3 か所だけ",
              uses(ui, "--gold"), ["#cbar:地", "#eq:文字", "#wnext:枠Bottom"])
-    ui.check("正解: 「10」と「つぎへ」が見えていて、点数のカードの文字は金ではない",
-             [ui.visible("eq"), ui.visible("wnext"), ui.visible("win"),
-              ui.ev("getComputedStyle($('wpts')).color===%s('--paper')" % V)], [True, True, True, True])
+    ui.check("正解: 「10」と「つぎへ」が見えていて、点数のカードは無い（8.7）",
+             [ui.visible("eq"), ui.visible("wnext"), ui.ev("$('win')===null")], [True, True, True])
     ui.check("正解: 「正解」の字は字間 24%・中央のまま",
              ui.ev("(()=>{const s=$('sub'),c=getComputedStyle(s),r=document.createRange();r.selectNodeContents(s);"
                    "const b=r.getBoundingClientRect(),q=$('eq').getBoundingClientRect(),f=parseFloat(c.fontSize);"

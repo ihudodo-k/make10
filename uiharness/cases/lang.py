@@ -125,11 +125,11 @@ def run(ui):
     ui.ev("G.lang='auto';applyLang(true)")
 
     # ── 8. 進捗をリセットしても言語は戻さない
-    ui.ev("G.ci=5;G.cleared=5;G.lang='en';G.scoreOn=true;save();applyLang(true)")
+    ui.ev("G.ci=5;G.cleared=5;G.lang='en';G.easy=true;save();applyLang(true)")
     ui.click("reset")
     ui.click("reset")
     ui.check("リセット: 進捗は消え、言語と設定のスイッチは残る",
-             ui.ev("[G.ci,G.cleared,G.lang,G.scoreOn,LANG]"), [0, 0, "en", True, "en"])
+             ui.ev("[G.ci,G.cleared,G.lang,G.easy,LANG]"), [0, 0, "en", True, "en"])
     ui.check("リセットのあと、設定の行は「English」のまま", ui.text("t-lang-v"), "English")
     ui.check("リセットのあと保存される lang も en", stored(ui).get("lang"), "en")
 
@@ -150,9 +150,9 @@ def run(ui):
              ui.ev("[$('m-free').querySelector('.mt').textContent,$('ctot').textContent]"),
              ["Free Play", "Solved: 0"])
     ui.check("複数形は n で選ぶ（1 のときだけ単数）",
-             ui.ev('[t("win.points",{n:1}),t("win.points",{n:2}),t("win.points",{n:0}),'
+             ui.ev('[t("unit.puzzle",{n:1}),t("unit.puzzle",{n:2}),t("unit.puzzle",{n:0}),'
                    't("unit.puzzle",{n:1}),t("unit.puzzle",{n:1000}),t("unit.times",{n:1}),t("unit.times",{n:94})]'),
-             ["1 pt", "2 pts", "0 pts", "puzzle", "puzzles", "hint", "hints"])
+             ["puzzle", "puzzles", "puzzles", "puzzle", "puzzles", "hint", "hints"])
     ui.click("navback")
     ui.check("問題画面に戻ると、問題番号とヒントが英語になっている",
              [ui.ev("SCR"), ui.text("pmode"), ui.ev("$('hintbox').textContent.includes('Uses')"),

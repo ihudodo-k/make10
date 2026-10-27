@@ -72,9 +72,9 @@ def tour(ui, tag):
 
     ui.open(lang="en")
     codes = ui.ev("[codeOf(COURSE[3]),codeOf(CHAL[0]),codeOf(FREE.find(p=>p.rc!=='N')),codeOf(COURSE[900])]")
-    save = {"ci": 137, "cleared": 152, "scoreOn": True, "hintStock": 97, "seen": codes,
+    save = {"ci": 137, "cleared": 152, "hintStock": 97, "seen": codes,
             "stats": {"n": 152, "sec": 6100, "best": 7, "band": {"3-8": 60, "9-13": 70, "14-16": 15, "17+": 7}},
-            "hist": [{"c": c, "d": 17, "s": 123, "m": "chal", "p": 300, "st": 3} for c in codes]}
+            "hist": [{"c": c, "d": 17, "s": 123, "m": "chal"} for c in codes]}
     ui.open(save, lang="en")
     ui.ev(HELPERS)
     look("ホーム")
@@ -85,7 +85,7 @@ def tour(ui, tag):
     for i in (1, 2, 3):
         ui.click("hint"); look("ヒント %d" % i)
     ui.click("hint-close")
-    ui.solve(); look("正解（点数表示オン）")
+    ui.solve(); look("正解")
     ui.ev("go('home');go('stats')"); look("統計")
     ui.ev("G.hist=[];G.stats={n:0,sec:0,best:0,band:{}};renderStats()"); look("統計（記録なし）")
     ui.ev("go('home')"); ui.click("gear"); look("設定（自動）")
@@ -305,14 +305,19 @@ def run(ui):
     ui.check("設定で英語に切り替えて戻ると、英語のラベル幅で縮め直してある（80%）・見ていた解答のまま",
              ui.ev(look) + [ui.ev("hintSolAt")], ["Solution", True, "80%" if narrow else "", 43])
 
-    # ── 英語の区切りは「 · 」（7.7）。日本語は全角の空白のまま
-    for lang, pat in [("en", r"^Difficulty \d+ · \d+s · Hint 1( · New best!)?$"),
-                      ("ja", r"^難易度 \d+　\d+秒　ヒント1(　自己ベスト更新)?$")]:
-        ui.open({"ci": 0, "scoreOn": True}, lang=lang)
+    # ── 英語の区切りは「 · 」（7.7）。8.7 で正解カードの詳細行を消したので、統計の履歴の行で見る
+    ui.open(lang="en")
+    ui.check("統計の履歴の行（en）の区切りは「 · 」で、全角の空白が無い",
+             ui.ev("[t('stats.hist_meta',{d:3,n:12}),t('stats.hist_meta',{d:3,n:12}).includes('　')]"),
+             ["Difficulty 3 · 12s", False])
+    # ── 正解の後は「10」「Correct」と「Next」だけ（8.7。点数のカードは無い）
+    for lang in ("en", "ja"):
+        ui.open({"ci": 0}, lang=lang)
         ui.click("m-course")
         ui.click("hint")
         ui.solve()
-        ui.check("正解カードの詳細行（%s）の区切り" % lang,
-                 ui.ev("[new RegExp(%s).test($('wmeta').textContent),$('wmeta').textContent.includes('　')]"
-                       % json.dumps(pat)), [True, lang == "ja"])
+        ui.check("正解の後（%s）: 点数のカードが無く、「つぎへ」が出る" % lang,
+                 [ui.ev("$('win')===null"), ui.visible("wnext"),
+                  ui.ev(r"/\d+ (pts?|点)|Difficulty|難易度|New best|自己ベスト/.test($('play').innerText)")],
+                 [True, True, False])
     ui.check_no_errors("JS エラー 0（設定・遊び方・ヒント）")

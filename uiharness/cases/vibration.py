@@ -56,7 +56,7 @@ def run(ui):
     ui.check("「振動」は既定でオン", ui.ev("$('t-vib').classList.contains('on')"), True)
     vib(ui)
     # ── オン: ボタンで振動する ─────────────────────────────
-    ui.click("t-score")
+    ui.click("t-easy")
     ui.check("オン: 設定の項目で 1 回", vib(ui), [btn])
     ui.click("navback")
     ui.check("オン: 左上の戻るで 1 回", vib(ui), [btn])
@@ -113,7 +113,7 @@ def run(ui):
     ui.click("t-vib")
     ui.check("「振動」をオフにした見た目", ui.ev("$('t-vib').classList.contains('on')"), False)
     ui.check("オフにした操作そのものでは振動しない", vib(ui), [])
-    ui.click("t-score")
+    ui.click("t-easy")
     ui.click("navback")
     for el in ["clear", "hint", "pcodev"]:
         ui.click(el)

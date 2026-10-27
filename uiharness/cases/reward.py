@@ -6,8 +6,8 @@
 そろって確定することを見る。二重計上しないことも同じだけ大事。
 
 6.5 からは正解したときの表示もここで見る（win_display）―― 「正解」は
-読み出し行の 1 か所だけ、正解カードは点数表示オフで「つぎへ」だけ・オンで点数と詳細行、
-カードが出ても式・トレイ・.foot が動かないこと、正解の 10 の倍率。
+読み出し行の 1 か所だけ、正解の後に出るのは「つぎへ」だけ（8.7 で点数のカードと
+「スコアを表示する」設定を消した）、「つぎへ」が出ても式・トレイ・.foot が動かないこと、正解の 10 の倍率。
 6.6 で星と「お見事」の表示をやめた。読み出し行は段階によらず「正解」、カードに星は
 無い。段階（winLevel()）は光り方と振動の強さに残っているので、その違いもここで見る（win_levels）。
 """
@@ -141,11 +141,6 @@ WORDS = ("(()=>{const w=document.createTreeWalker($('play'),NodeFilter.SHOW_TEXT
          "while(n=w.nextNode()){const p=n.parentElement;if(!p.getClientRects().length)"
          "continue;a+=(n.data.match(/正解/g)||[]).length;b+=(n.data.match(/お見事/g)||[]).length}"
          "return [a,b]})()")
-# 点数表示オンの正解カードの高さ（点数 1 行・詳細行 1 行・枠と余白）。6.6 で
-# 星を消す前後で実測して同じだった値（normal / compact とも同じ）
-CARD_H = 55.5
-# 見えている正解カードの中の要素（display:none でなく大きさがあるもの）の id
-CARD_VISIBLE = ("[...$('win').querySelectorAll('[id]')].filter(e=>e.offsetHeight>0).map(e=>e.id)")
 
 
 # 「つぎへ」#wnext とトレイの見た目（7.3。6.5〜7.2 は「トレイと同じ面と枠」だった）。計算後のスタイルで見る。
@@ -280,7 +275,7 @@ def next_is_easy_to_press(ui):
 
 def win_display(ui):
     """正解まわりの表示（6.5。GAME-SPEC 8 章）。判定は画面に見える値で取る。"""
-    # ── 点数表示オフ（既定）: 「正解」は読み出し行だけ・カードは「つぎへ」だけ ──
+    # ── 「正解」は読み出し行だけ・正解の後は「つぎへ」だけ（8.7 で点数のカードを消した）──
     ui.open({"ci": 0, "cleared": 0, "hintStock": 10})
     ui.ev("start('course')")
     before = ui.ev(RECTS)
@@ -299,7 +294,10 @@ def win_display(ui):
     ui.check("式の大きさ: 正解カードが出たあとも正解の前と同じ", ui.ev(EXPR_SIZE), size0)
     ui.check("オフ: 「正解」は画面に 1 つだけ・「お見事」は無い", ui.ev(WORDS), [1, 0])
     ui.check("オフ: 「つぎへ」が見えている", ui.visible("wnext"), True)
-    ui.check("オフ: 点数のカードは出ない", ui.visible("win"), False)
+    ui.check("オフ: 点数のカードの要素が無い（#win・#wpts・#wmeta。8.7）",
+             ui.ev("['win','wpts','wmeta'].map(i=>$(i)===null)"), [True, True, True])
+    ui.check("オフ: 画面に点数（「N 点」）も詳細行（難易度・自己ベスト）も出ない",
+             ui.ev(r"/\d+ 点|難易度 \d|自己ベスト/.test($('play').innerText)"), False)
     ui.check("オフ: 「つぎへ」は .foot の中に置いてある",
              ui.ev("$('wnext').parentElement.classList.contains('foot')"), True)
     ui.check("オフ: 「つぎへ」は #clear と #hint の間の中央・同じ縦位置と高さ・幅 200px・両側に隙間",
@@ -346,53 +344,27 @@ def win_display(ui):
     ui.check("崩すと「正解」も消える", ui.ev(WORDS), [0, 0])
     ui.check("崩しても「つぎへ」は出たまま（記録は確定済み）", ui.visible("wnext"), True)
 
-    # ── 点数表示オン: 点数・詳細行と「つぎへ」（星は 6.6 で廃止）。「正解」はカードに出さない ──
+    # ── 古い保存データ（8.6 まで。「スコアを表示する」がオン）でも、正解の後は「つぎへ」だけ ──
     ui.open({"ci": 0, "cleared": 0, "hintStock": 10, "scoreOn": True})
     ui.ev("start('course')")
     before = ui.ev(RECTS)
-    ui.check("オン: 解くと「正解」", ui.solve(), "10|正解")
-    ui.check("オン: 「正解」は画面に 1 つだけ・「お見事」は無い", ui.ev(WORDS), [1, 0])
-    ui.check("オン: カードに見えているのは点数・詳細行（「つぎへ」は入れない）",
-             ui.ev(CARD_VISIBLE), ["wpts", "wmeta"])
-    ui.check("オン: カードの中に「つぎへ」は無い",
-             [ui.ev("$('win').contains($('wnext'))"), ui.ev("/つぎへ/.test($('win').innerText)")],
-             [False, False])
-    ui.check("オン: 「つぎへ」はオフと同じ .foot の中央",
+    ui.check("古い scoreOn: 解くと「正解」", ui.solve(), "10|正解")
+    ui.check("古い scoreOn: 「正解」は画面に 1 つだけ・「お見事」は無い", ui.ev(WORDS), [1, 0])
+    ui.check("古い scoreOn: 点数も詳細行も出ない・「つぎへ」が見えている",
+             [ui.ev(r"/\d+ 点|難易度 \d|自己ベスト|[★☆]/.test($('play').innerText)"), ui.visible("wnext")],
+             [False, True])
+    ui.check("古い scoreOn: 「つぎへ」は .foot の中央",
              ui.ev(NEXT_IN_FOOT), [True, True, True, 200, True, True])
-    ui.check("オン: 当たりが #clear / #hint と重ならない", ui.ev(NEXT_HITS), [True, True, True, True, True])
-    ui.check("オン: 点数だけ（星は出さない）", ui.ev(r"/^\d+ 点$/.test($('wpts').innerText.trim())"), True)
-    ui.check("オン: カードのどこにも星（★☆）が無い", ui.ev("/[★☆]/.test($('win').innerText)"), False)
-    ui.check("オン: 星を消しても記録の星の段階（G.hist の st）は残る",
-             ui.ev("[1,2,3].includes(G.hist[0].st)"), True)
-    ui.check("オン: 詳細行", ui.ev(r"/^難易度 3　\d+秒$/.test($('wmeta').innerText)"), True)
-    ui.check("オン: カードに「正解」「お見事」は無い",
-             ui.ev("/正解|お見事/.test($('win').innerText)"), False)
-    # 7.3: 枠も面も見せない。枠の太さだけは残す（高さ 55.5px を変えないため）
-    ui.check("オン: カードは枠も面も見えない（太さ 1px の透明の枠だけ残す）・文字は中央",
-             ui.ev("(()=>{const c=getComputedStyle($('win')),w=$('win').getBoundingClientRect(),"
-                   "p=$('wpts').getBoundingClientRect(),m=$('wmeta').getBoundingClientRect();"
-                   "return [c.borderTopWidth,c.borderTopColor,c.backgroundColor,"
-                   "Math.abs((p.left+p.right)/2-(w.left+w.right)/2)<0.6,"
-                   "Math.abs((m.left+m.right)/2-(w.left+w.right)/2)<0.6]})()"),
-             ["1px", NONE, NONE, True, True])
-    ui.check("オン: カードの高さ（点数・詳細行の 2 行。星を消しても同じ）",
-             ui.ev("Math.round($('win').getBoundingClientRect().height*10)/10"), CARD_H)
-    ui.check("オン: 式・トレイ・.foot・読み出し行が解く前と同じ位置", ui.ev(RECTS), before)
-    ui.check("オン: カードは式（#exprwrap）より下・.foot より上",
-             ui.ev("(()=>{const w=$('win').getBoundingClientRect(),"
-                   "e=$('exprwrap').getBoundingClientRect(),f=document.querySelector('.foot')"
-                   ".getBoundingClientRect();return w.top>=e.bottom&&w.bottom<=f.top})()"), True)
-    check_wnext_colors(ui, "オン")
-    ui.ev("G.theme='paper'; applyTheme()")
-    check_wnext_colors(ui, "オン・白テーマ")
-    ui.ev("G.theme='ai'; applyTheme()")
-    # 設定を切り替えて戻ると、カードの形もその場で変わる（showWinCard は出すたびに G.scoreOn を見る）
+    ui.check("古い scoreOn: 式・トレイ・.foot・読み出し行が解く前と同じ位置", ui.ev(RECTS), before)
+    ui.check("古い scoreOn: 記録の行に点数 p と星 st を書かない",
+             ui.ev("['p' in G.hist[0],'st' in G.hist[0],Object.keys(G.hist[0]).sort()]"),
+             [False, False, ["c", "d", "m", "s"]])
+    # 設定にスコアの行が無い。設定へ行って戻っても「つぎへ」だけ
     ui.click("menu")
-    ui.click("t-score")
+    ui.check("設定: 「スコアを表示する」の行が無い（#t-score・文）",
+             [ui.ev("$('t-score')===null"), ui.ev("/スコア/.test($('settings').innerText)")], [True, False])
     ui.click("navback")
-    ui.check("オン → 設定でオフ → 戻るとカードは消えて「つぎへ」だけ",
-             [ui.visible("win"), ui.visible("wnext")], [False, True])
-    ui.check("切り替えても「つぎへ」の場所は同じ", ui.ev(NEXT_IN_FOOT), [True, True, True, 200, True, True])
+    ui.check("設定から戻っても「つぎへ」だけ", [ui.ev("$('win')===null"), ui.visible("wnext")], [True, True])
     ui.check("戻っても「正解」は 1 つだけ", ui.ev(WORDS), [1, 0])
 
     win_levels(ui)
@@ -408,7 +380,7 @@ LEVEL_FX = ("(()=>{const t=document.querySelectorAll('#expr .tok.op,#expr .tok.f
 def win_levels(ui):
     """段階（winLevel()）は表示から外したが、光り方と振動の強さには残っている（6.6）。
     読み出し行はどの段階でも「正解」。段階の区切りは仕様の値（d>=9 / d>=14、60 秒で 1 段）を直に書く"""
-    ui.open({"ci": 0, "cleared": 0, "hintStock": 10, "scoreOn": True})
+    ui.open({"ci": 0, "cleared": 0, "hintStock": 10})
     ui.ev("window.__VIB=[];Object.defineProperty(navigator,'vibrate',"
           "{value:x=>{__VIB.push(x);return true},configurable:true})")
     # 記号を置く・ボタンの振動は数えない（解いた直後に空にし、win() の 1 回だけを見る）
@@ -431,8 +403,8 @@ def win_levels(ui):
         ui.check(label + ": 読み出し行は「正解」", got, "10|正解")
         time.sleep(1.0)
         ui.check(label + ": 「正解」は画面に 1 つだけ・「お見事」は無い", ui.ev(WORDS), [1, 0])
-        ui.check(label + ": カードに星も「正解」「お見事」も無い",
-                 ui.ev("/[★☆]|正解|お見事/.test($('win').innerText)"), False)
+        ui.check(label + ": 画面に星も「お見事」も無く、点数のカードも無い",
+                 ui.ev("[/[★☆]|お見事/.test($('play').innerText),$('win')===null]"), [False, True])
         fx = ui.ev(LEVEL_FX)
         ui.check(label + ": 段階", fx[0], lv)
         ui.check(label + ": 演算子・階乗が光る（段階 2 以上）",

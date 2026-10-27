@@ -53,18 +53,6 @@ def toast_above_next(ui):
                  "!(t.left<n.right&&n.left<t.right&&t.top<n.bottom&&n.top<t.bottom)]})()")
 
 
-def toast_in_gap(ui):
-    """点数表示オンで点数のカードが出ているとき（6.5）: トーストは読み出し行（#sub の下端）と
-    式（#exprwrap の上端）のあいだの空きの中央。戻り値は
-    [横は #clear と #hint の間の中央, 縦は空きの中央, #eq・#sub・式・カード・「つぎへ」のどれとも重ならない]"""
-    return ui.ev("(()=>{const r=q=>document.querySelector(q).getBoundingClientRect(),t=r('#toast'),"
-                 "c=r('#clear'),h=r('#hint'),sb=r('#sub'),ew=r('#exprwrap');"
-                 "const ov=b=>t.left<b.right&&b.left<t.right&&t.top<b.bottom&&b.top<t.bottom;"
-                 "return [Math.abs((t.left+t.right)/2-(c.right+h.left)/2)<1,"
-                 "Math.abs((t.top+t.bottom)/2-(sb.bottom+ew.top)/2)<1,"
-                 "!['#eq','#sub','#expr','#win','#wnext'].some(q=>ov(r(q)))]})()")
-
-
 # 見えている文字（innerText）に「正解 N 通り」の形が無い（6.8 で表示をやめた）
 NO_COUNT = "!/通り/.test(document.body.innerText)"
 
@@ -270,32 +258,23 @@ def run(ui):
     time.sleep(0.4)
     ui.check("「つぎへ」で次の問題へ進むと、コピーのトーストは .foot の中央に戻る",
              [ui.visible("wnext"), toast_at_foot(ui)], [False, True])
-    # ── 点数表示オン: 点数のカードが .foot の上にあるので、トーストは読み出し行と式のあいだ（6.5）──
+    # ── 古い保存データ（8.6 まで。「スコアを表示する」がオン）でも、トーストは「つぎへ」の上 ──
+    # 8.7 で点数のカードを消したので、読み出し行と式のあいだへ出す分かれ道（6.5）は無い
     ui.open({"ci": 0, "cleared": 200, "hintStock": 5, "chalRem": 1, "scoreOn": True})
     ui.ev("start('chal')")
     t0 = time.time()
     ui.solve(wait=0)
     time.sleep(max(0, 1.6 - (time.time() - t0)))
-    ui.check("オン・報酬: 文面", ui.text("toast"), "ヒント +1（残り 6）")
-    ui.check("オン・報酬: 点数のカードと「つぎへ」が出ている",
-             [ui.visible("win"), ui.visible("wnext")], [True, True])
-    ui.check("オン・報酬: 読み出し行と式のあいだに出て、カード・「つぎへ」・式・読み出し行に重ならない",
-             toast_in_gap(ui), [True, True, True])
-    ui.check("オン・報酬: カードは星の無い点数・詳細行の 2 行（6.6）",
-             ui.ev(r"[/^\d+ 点$/.test($('wpts').innerText.trim()),/[★☆]/.test($('win').innerText)]"),
-             [True, False])
+    ui.check("古い scoreOn・報酬: 文面", ui.text("toast"), "ヒント +1（残り 6）")
+    ui.check("古い scoreOn・報酬: 点数のカードは無く「つぎへ」が出ている",
+             [ui.ev("$('win')===null"), ui.visible("wnext")], [True, True])
+    ui.check("古い scoreOn・報酬: 「つぎへ」の上に出て「つぎへ」に重ならない",
+             toast_above_next(ui), [True, True, True])
     time.sleep(max(0, 4.1 - (time.time() - t0)))
     stub(ui, "ok")
     ui.click("pcodev")
     time.sleep(0.4)
-    ui.check("オン・正解後のコピー: 同じ空きに出て何にも重ならない", toast_in_gap(ui), [True, True, True])
-    time.sleep(1.1)
-    ui.click("wnext")
-    stub(ui, "ok")
-    ui.click("pcodev")
-    time.sleep(0.4)
-    ui.check("オン: 次の問題へ進むと .foot の中央に戻る",
-             [ui.visible("win"), toast_at_foot(ui)], [False, True])
+    ui.check("古い scoreOn・正解後のコピー: 「つぎへ」の上", toast_above_next(ui), [True, True, True])
     # ── 難易度の言葉（区切りは演出の段階と同じ）─────────────────────
     # 6.5 で英語に（6.4 は かんたん／ふつう／むずかしい）。区切り TIER_AT は変えていない
     for d, word in [(3, "EASY"), (8, "EASY"), (9, "NORMAL"), (13, "NORMAL"),

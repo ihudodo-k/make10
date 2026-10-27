@@ -81,7 +81,6 @@ def run(ui):
     ui.click("hint")
     ui.check("いきなり 3 が開く", ui.ev("hintLv"), 3)
     ui.check("残数は減らない", ui.ev("G.hintStock"), 5)
-    ui.check("減点の段階（SC.hint の表）", ui.ev("SC.hint"), [1, 0.75, 0.5, 0.3])
     ui.check("ヒントを開いてもスクロールしない", ui.scrolls(), False)
 
     # ── 6.4: 閉じているときは閉じる直前の段階をもう一度（消費しない）─────
@@ -187,7 +186,6 @@ def run(ui):
     ui.check("「つぎへ」が出ている（正解の表示）", ui.visible("wnext"), True)
     ui.check("ヒントの箱は閉じている", ui.visible("hintbox"), False)
     ui.check("閉じても見たヒントの記録は消えない", ui.ev("G.hints[codeOf(cur)]"), 2)
-    ui.check("減点の段階も下がらない", ui.ev("hintMax"), 2)
     ui.click("hint")
     ui.check("正解のあと押すと閉じる直前の 1 が出る（減らない）", seen(ui), ["1 / 3", "3"])
     ui.check("「つぎへ」は出たまま", ui.visible("wnext"), True)

@@ -545,17 +545,10 @@ body.rings #hint::before{border-color:var(--ring)}
    6.4 までは正解カードを .field と .bottom のあいだに流し込んでいたので、カードが出ると
    .readout と .field が縮んで式が上へ動いていた（normal で 103px）。
    「正解」は読み出し行（#sub）の 1 か所だけに出し、ここには出さない（6.6 で「お見事」は廃止）。
-   「つぎへ」#wnext は .foot の中央（#clear と #hint の間）。点数表示のオン・オフで
-     場所が変わらない。.foot は justify-content:space-between で両端の丸ボタンが同じ幅
+   「つぎへ」#wnext は .foot の中央（#clear と #hint の間）。.foot は justify-content:space-between で両端の丸ボタンが同じ幅
      なので、真ん中の要素は中央に来る。高さは隣と同じ --btnW（.foot の高さは変わらない）、
      幅は JS の NEXT_BTN.w を applyMetrics() が --nextW として流す（寸法の定数は JS に 1 か所）。
-   点数表示オンのときだけ、点数・詳細行のカード #win（星は 6.6 で廃止）を .overlays の中（.foot の上）に
-     重ねて出す。カードに「つぎへ」は入れない */
-/* 点数のカードは枠も面も持たない（7.3）。枠は透明にして残す（高さ 55.5px を変えない）。文字は中央 */
-#win{display:flex;flex-direction:column;gap:2px;align-items:center;
- background:none;border:1px solid transparent;padding:8px 14px}
-#win .meta{font-size:11.5px;color:var(--dim);line-height:1.35}
-#win .pts{font-size:14px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+   点数・詳細行のカード #win（点数表示オンのときだけ .foot の上に出していた）は 8.7 で消した */
 /* 「つぎへ」は面を持たず、金の下線 1 本（7.3。金を使う 3 か所の 1 つ。7.2 まではトレイと同じ面と枠）。
    上と左右の枠は透明にして残す（大きさを変えない）。文字は記号 .chip と同じ --paper、押したときは
    .chip:active と同じく地を変えず薄くするだけ（button:active の --edge の地を打ち消す）*/
@@ -580,7 +573,6 @@ button.pressed,[role="button"].pressed{opacity:.5}
 /* .foot の中央（#clear と #hint の間）に出すとき（6.4。toast(msg,{at:"foot"})）。
    left / top は toast() が #clear と #hint の実測から入れる。トレイに重ねないため。
    「つぎへ」が .foot の中央に出ているあいだは、その上（.foot の上端から TOAST_FOOT_GAP 上）に
-   出す。点数のカードも出ているとき（点数表示オン）は、読み出し行と式のあいだの空きの中央に
    出す（6.5。top は toast() が入れる）*/
 #toast.atfoot{bottom:auto;transform:translate(-50%,-50%) translateY(12px)}
 #toast.atfoot.show{transform:translate(-50%,-50%)}
@@ -681,12 +673,6 @@ button.pressed,[role="button"].pressed{opacity:.5}
       <div class="overlays">
         <div class="facttable" id="facttable"></div>
         <div class="hintbox" id="hintbox"></div>
-        <!-- 正解カード（6.5。点数表示オンのときだけ出す。式を動かさないため浮かせ表示）。
-             「つぎへ」は入れない（.foot の中央の #wnext） -->
-        <div id="win" class="hide">
-          <div class="pts" id="wpts"></div>
-          <div class="meta" id="wmeta"></div>
-        </div>
       </div>
       <div class="trayrow">
         <span id="trayhead" data-i18n="tray.head_drag"></span>
@@ -699,7 +685,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
             <path d="M18.4 2.2v4.2h-4.2"/>
           </svg>
         </button>
-        <!-- 正解したら出る「つぎへ」（6.5）。.foot の中央。点数表示のオン・オフで場所は変わらない -->
+        <!-- 正解したら出る「つぎへ」（6.5）。.foot の中央 -->
         <button id="wnext" class="hide"><span data-i18n="play.next"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         <button id="alt" class="hide" data-i18n="play.skip"></button>
         <button id="hint" class="iconbtn" data-i18n-label="btn.hint">
@@ -721,7 +707,6 @@ button.pressed,[role="button"].pressed{opacity:.5}
     <h2 data-i18n="settings.title"></h2>
     <h3 data-i18n="settings.sec_controls"></h3>
     <div class="group">
-      <button class="toggle" id="t-score"><span data-i18n="settings.score"></span><span class="sw"></span></button>
       <button class="toggle" id="t-easy"><span data-i18n="settings.easy"></span><span class="sw"></span></button>
       <button class="toggle" id="t-vib"><span data-i18n="settings.vib"></span><span class="sw"></span></button>
       <button class="toggle" id="t-tap"><span data-i18n="settings.tap"></span><span class="sw"></span></button>
@@ -852,7 +837,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="8.6";
+const APP_VERSION="8.7";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -948,11 +933,6 @@ const STR_APP={ja:{
   "play.alt_none":"代わりの問題が見つかりませんでした",
   "play.fact_btn":"階乗表",
   "play.fact_note":"( 3! )! は 6! なので 720。階乗は 12! までしか使えません。",
-  "win.points":{other:"{n} 点"},
-  "win.meta":{other:"難易度 {d}　{n}秒"},
-  "win.meta_sep":"　",
-  "win.meta_hint":"ヒント{lv}",
-  "win.meta_best":"自己ベスト更新",
   "toast.copied":"コピーしました",
   "toast.share_copied":"共有の文面をコピーしました",
   "toast.copy_failed":"コピーできません　{code}",
@@ -984,7 +964,6 @@ const STR_APP={ja:{
   "unit.times":{other:"回"},
   "settings.title":"設定",
   "settings.sec_controls":"操作",
-  "settings.score":"スコアを表示する",
   "settings.easy":"途中の値を表示する",
   "settings.vib":"振動",
   "settings.tap":"タップで配置する",
@@ -1049,11 +1028,6 @@ en:{
   "play.alt_none":"No other puzzle found",
   "play.fact_btn":"Factorials",
   "play.fact_note":"( 3! )! is 6!, which is 720. Factorials go up to 12!.",
-  "win.points":{one:"{n} pt",other:"{n} pts"},
-  "win.meta":{one:"Difficulty {d} · {n}s",other:"Difficulty {d} · {n}s"},
-  "win.meta_sep":" · ",
-  "win.meta_hint":"Hint {lv}",
-  "win.meta_best":"New best!",
   "toast.copied":"Copied!",
   "toast.share_copied":"Share text copied!",
   "toast.copy_failed":"Couldn't copy · {code}",
@@ -1085,7 +1059,6 @@ en:{
   "unit.times":{one:"hint",other:"hints"},
   "settings.title":"Settings",
   "settings.sec_controls":"Controls",
-  "settings.score":"Show score",
   "settings.easy":"Show intermediate values",
   "settings.vib":"Vibration",
   "settings.tap":"Tap to place",
@@ -39977,7 +39950,7 @@ const shareText=p=>t("share.text",{code:codeOf(p)});
 /* ═══ 進捗（端末に保存） ═══ */
 const SAVE_KEY="make10.progress.v4";
 const G={ci:0,cleared:0,tap:false,fact:false,vib:true,easy:false,theme:'ai',
-  stats:{n:0,sec:0,best:0,band:{}},hist:[],best:{},scoreOn:false,seen:[],swap:{},chalDone:[],
+  stats:{n:0,sec:0,best:0,band:{}},hist:[],seen:[],swap:{},chalDone:[],
   // 挑戦モードで「出題した」問題のコード。クリアしたかは問わない。chalDone（クリア済み）
   // と同じ形の配列。抽選はこちらを除外するので、解かずに送った問題も二度は出ない
   // （GAME-SPEC 7）
@@ -39987,9 +39960,8 @@ const G={ci:0,cleared:0,tap:false,fact:false,vib:true,easy:false,theme:'ai',
   // 始めることで成り立つ ―― 基準となるクリア数を別に保存する必要はない。
   // chalDone.length から毎回計算する形にはしない（既存プレイヤーに一度に配ってしまう）
   chalRem:0,
-  // 問題ごとに「見たヒントの最大段階」。セッション変数の hintMax だけだと画面を
-  // 離れた時点で消え、解き直すと倍率が戻ってしまう（G.best は最高点だけを残すので
-  // 一度でも抜け道を通ればその点数が永久に残る）。端末に残して塞ぐ
+  // 問題ごとに「見たヒントの最大段階」。端末に残すので、解き直しても見返しは無料のまま
+  // （GAME-SPEC 5-4。8.6 まではヒントの減点の抜け道を塞ぐ役も持っていた）
   hints:{},
   // ヒントの残数。段階を「初めて」開くたびに 1 減る（見返しは無料。GAME-SPEC 5-4）
   hintStock:HINT_START,
@@ -40003,9 +39975,12 @@ function load(){
       G.ci=s.ci|0; G.cleared=s.cleared|0; G.tap=!!s.tap; G.fact=!!s.fact;
       G.vib=s.vib!==false; G.easy=!!s.easy; G.dev=!!s.dev; if(s.theme)G.theme=s.theme;
       if(s.stats)G.stats=Object.assign(G.stats,s.stats);
-      if(Array.isArray(s.hist))G.hist=s.hist.slice(0,100);
-      if(s.best&&typeof s.best==='object')G.best=s.best;
-      G.scoreOn=!!s.scoreOn;
+      // 8.7 で点数を消した。履歴の行の点数 p と星 st は読み捨てる。最高点 best と
+      // 「スコアを表示する」scoreOn は読まない（load() はキーごとに明示代入するので、
+      // 次の save() で JSON からも消える）
+      if(Array.isArray(s.hist))G.hist=s.hist.slice(0,100).map(h=>{
+        if(!h||typeof h!=="object")return h;
+        const {p,st,...r}=h;return r});
       // 7.6 で追加。項目が無い（か、知らない値の）保存データは "auto" で始める
       G.lang=LANGS.includes(s.lang)?s.lang:"auto";
       if(Array.isArray(s.seen))G.seen=s.seen;
@@ -40037,7 +40012,7 @@ function load(){
          - chalDone / chalShown … 分母が CHAL.length の「N / 1929」の分子なので、
            分母に無いものを数えると分数の意味が壊れる。捨てても失うのは
            「もう出題しない」という抑制だけで、その問題自体がもう存在しない
-         **best / seen / hist / hints は捨てない。** 自己ベストと「解いた事実」は
+         **seen / hist / hints は捨てない。** 「解いた事実」は
          記録そのもので、BLOB の組み替えで消してよいものではない（消えた問題が
          後の版で戻ってくることもある）
          捨てるのは **読み込んだ G の中だけ**で、保存 JSON は書き換えない。
@@ -40068,8 +40043,11 @@ function save(){
 let MODE="course", cur=null, t0=0, moves=0, hintMax=0, lastScore=null;
 /* solved = この問題の記録が確定済みか。正解した瞬間に立て、loadPuzzle() で降ろす。
    立っている間は win() を予約し直さないので、崩して組み直しても記録は動かない。
-   lastWin = 正解カードに出す内容。画面を離れて戻ったときはこれを出し直すだけで
-   スコアを計算し直さない（GAME-SPEC 3・8）。
+   lastWin = 正解の表示に使う内容（今は演出の段階 lv だけ）。画面を離れて戻ったときは
+   「つぎへ」を出し直すだけ（GAME-SPEC 3・8）。
+   moves（手数）・hintMax・lastScore は 8.7 で点数を消してから本編では読まない。宣言の文と、
+   手数を数える盤の処理（onUp など）はデイリーに 1 文字も変えずに複製してある（DAILY-SPEC 18-3）
+   ので、照合をそろえるために残している。
    hitLv = 正解した瞬間に決めた演出の段階（1〜3）。win() の光り方と振動の強さがこれを読む
    （6.5 では読み出し行の「正解／お見事」も読んでいたが、6.6 で常に「正解」にした）。
    win() は 260ms 後に走るので、そこで測り直すと
@@ -40631,40 +40609,18 @@ $("expr").addEventListener("pointerdown",e=>{
   if(z&&tapMode&&held&&z.classList.contains("live")){const k=held,p=+z.dataset.p;
     captureCloseSet(afterInsert(p));put(k,p);held=null;moves++;render(k)}});
 
-/* ═══ スコア ═══
-   難易度を土台に、速さ・手際で 1.0〜1.8 倍、ヒントで 0.3〜1.0 倍。
-   倍率は 0.3〜1.8 に収まるので、難易度の差を逆転できない。      */
-const SC={base:20,fastMax:.5,neatMax:.3,hint:[1,.75,.5,.3]};
-/* 速さ・手際の基準は難易度に応じて伸ばす。難問をじっくり解いても不利にならないように */
-const parSec=d=>30+d*4, parWaste=d=>6+d*.5;
-function calcScore(){
-  const sec=Math.max(1,Math.round((performance.now()-t0)/1000));
-  const waste=Math.max(0,moves-T().length);
-  const ps=parSec(cur.d), pw=parWaste(cur.d);
-  const fast=Math.max(0,(ps-sec)/ps)*SC.fastMax;
-  const neat=Math.max(0,(pw-waste)/pw)*SC.neatMax;
-  const k=(1+fast+neat)*SC.hint[Math.min(hintMax,3)];
-  return {sec,waste,k,pts:Math.round(cur.d*SC.base*k),stars:k>=1.5?3:k>=1.15?2:1};
-}
-/* 星の文字列。6.6 で正解カード・統計の履歴とも星を出さなくなり、今は呼ぶ所が無い。
-   記録（G.hist の st）は残しているので、表示を戻すときのために関数も残す */
-const stars=n=>"★".repeat(n)+"☆".repeat(3-n);
-const totalScore=()=>Object.values(G.best).reduce((a,b)=>a+b,0);
+/* 点数（スコア）は 8.7 で消した（計算・最高点・星・ヒントの減点・設定の「スコアを表示する」）*/
 
 /* ═══ 正解演出 ═══ */
 function win(){
   if(!solved)return;              // 別の問題へ移った後に発火した予約は無効
   // ヒントの箱を開いたまま正解したら閉じる（6.4）。win() の始め（正解が決まって 0.26 秒後）に、× と同じく
   // 瞬時に（箱はもともと動きを持たない）。正解カード（520ms 後）より先に消えるので重ならない。
-  // 閉じた段階は hintLast に入り、G.hints（到達）と hintMax（減点）には触らない
+  // 閉じた段階は hintLast に入り、G.hints（到達）には触らない
   if(hintLv>0)hintSet(0);
   const code=codeOf(cur);
-  // record() が G.best を書き換えるので、自己ベスト更新の判定は記録より先に取る
-  const prev=G.best[code]||0;
-  lastScore=calcScore();
-  const secs=lastScore.sec;
   const lv = hitLv;                // 正解した瞬間に winLevel() で決めた段階（読み出し行と共有）
-  lastWin={lv,secs,d:cur.d,hint:hintMax,sc:lastScore,beat:prev>0&&lastScore.pts>prev};
+  lastWin={lv};
   // 挑戦の報酬（5.0）。数えるのはここ ―― record() と同じ「クリアが確定する 1 点」で、
   // solved のガードにより 1 回の正解につき 1 度しか通らない。advance()（つぎへ）では
   // なく win() に置くのは、ホームへ戻って「つぎへ」を押さなくてもクリアだからである。
@@ -40689,9 +40645,7 @@ function win(){
   if(lv>=3){$("bg").classList.remove("flash");void $("bg").offsetWidth;$("bg").classList.add("flash")}
   if(G.vib)navigator.vibrate?.(lv>=3?[18,40,26]:lv>=2?[16,36,18]:16);
   setTimeout(showWinCard,520);
-  // 正解カードが出てから知らせる（520ms のカードと重ならないように後ろへ置く）。
-  // トーストにしたのは、正解カードの詳細行 #wmeta が「点数を表示する」設定のときしか
-  // 中身を出さないため ―― 既定（scoreOn=false）のプレイヤーに伝わらない
+  // 「つぎへ」が出てから知らせる（520ms の「つぎへ」と重ならないように後ろへ置く）。
   // 位置は .foot の中央（トレイに重ねない。6.4）。表示時間は既定の 2.4 秒のまま。
   // 文面は compact の .foot の中央（236px）に収まる長さ
   if(gained)setTimeout(()=>toast(t("toast.hint_reward",{stock:G.hintStock}),{at:"foot"}),900);
@@ -40707,28 +40661,14 @@ function chalReward(){
   renderHintStock();              // 丸ボタンのバッジをその場で追従させる
   return true;
 }
-/* 正解カードは lastWin に確定させた内容を出すだけ。設定などから戻ったときも
-   ここを呼び直す（スコアも記録も作り直さない）。点数表示の有無だけは
-   出すたびに G.scoreOn を見る */
+/* 正解の後の表示は「つぎへ」だけ（「10」「正解」は読み出し行。8.7 で点数のカードを消した）。
+   設定などから戻ったときもここを呼び直す（記録は作り直さない） */
 function showWinCard(){
   if(!solved||!lastWin)return;
-  const w=lastWin;
-  // 「正解」はカードに出さない（読み出し行の #sub だけ。6.5）。
-  // 「つぎへ」は .foot の中央に必ず出す。点数・詳細行のカードは点数表示オンのときだけ。
-  // 星（sc.stars）はカードに出さない（6.6。表示を減らすため）。記録 G.hist の st は残す
   $("wnext").classList.remove("hide");
-  $("win").classList.toggle("hide",!G.scoreOn);
-  if(G.scoreOn){
-    $("wpts").textContent=t("win.points",{n:w.sc.pts});
-    $("wmeta").textContent=t("win.meta",{d:w.d,n:w.secs})
-      + (w.hint?t("win.meta_sep")+t("win.meta_hint",{lv:w.hint}):"") + (w.beat?t("win.meta_sep")+t("win.meta_best"):"");
-  }else{
-    $("wpts").textContent="";
-    $("wmeta").textContent="";
-  }
 }
-/* 正解の表示（カードと「つぎへ」）を隠す。出すのは showWinCard() だけ */
-function hideWin(){$("win").classList.add("hide");$("wnext").classList.add("hide")}
+/* 正解の表示（「つぎへ」）を隠す。出すのは showWinCard() だけ */
+function hideWin(){$("wnext").classList.add("hide")}
 $("wnext").onclick=()=>{
   if(!solved)return;              // 2 回目以降は無視する（進行を二重に進めない）
   solved=false;
@@ -40751,17 +40691,13 @@ function loadPuzzle(p){
   if(MODE==="chal"&&!G.chalShown.includes(codeOf(p))){G.chalShown.push(codeOf(p));save()}
   $("pmode").textContent=pmodeText(MODE);   // 書き換えはここだけ（古い表記の残りを作らない）
   cur=p;uid=1;S={toks:p.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
-  held=null;t0=performance.now();moves=0;lastScore=null;hintLv=0;hintLast=0;
+  held=null;t0=performance.now();moves=0;hintLv=0;hintLast=0;
   hintSols=null;hintSolAt=0;        // 段階 3 の解答の位置は問題ごとに 1 本目から（6.9）
   solved=false;lastWin=null;hitLv=0;
-  hintMax=G.hints[codeOf(p)]||0;   // 見たヒントは端末に残る。解き直しても戻らない
   hideWin();
   showHint();render()}
 /* 「全部消す」。次の問題を読む loadPuzzle() とは別物にする。
-   時間 t0・手数 moves・ヒント hintMax は引き継ぐ（GAME-SPEC 4-3）。
-   waste = moves − トークン数 は「置いては外した空回り」を測るもので、
-   全部消しは空回りそのもの。ここで 0 に戻すと、行き詰まったら全部消せば
-   手際の減点を避けられてしまう */
+   時間 t0 は引き継ぐ（GAME-SPEC 4-3）。全部消しても解き始めからの時間は戻らない */
 function clearAll(){
   uid=1;S={toks:cur.id.split("").map(v=>({id:uid++,t:"num",v:+v}))};
   held=null;
@@ -40790,9 +40726,8 @@ function nextOf(mode){
   return rnd(FREE)}
 function record(){
   const s=Math.max(1,Math.round((performance.now()-t0)/1000));
-  const sc=lastScore||calcScore(), code=codeOf(cur);
-  if(!G.best[code]||sc.pts>G.best[code])G.best[code]=sc.pts;
-  G.hist.unshift({c:code,d:cur.d,s:sc.sec,m:MODE,p:sc.pts,st:sc.stars});
+  const code=codeOf(cur);
+  G.hist.unshift({c:code,d:cur.d,s,m:MODE});
   if(G.hist.length>100)G.hist.length=100;
   const st=G.stats; st.n++; st.sec+=s;
   if(!st.best||s<st.best)st.best=s;
@@ -40876,14 +40811,9 @@ function toast(msg,opts={}){
     const c=$("clear").getBoundingClientRect(), h=$("hint").getBoundingClientRect();
     t.style.left=(c.right+h.left)/2+"px";
     // 「つぎへ」が .foot の中央に出ているあいだは、その上に出す（6.5）。
-    // 中心を .foot の上端から TOAST_FOOT_GAP＋トーストの高さの半分だけ上へ。
-    // 点数のカード #win も出ている（点数表示オン）ときは、その位置がカードと重なるので、
-    // 読み出し行（#sub の下端）と式（#exprwrap の上端）のあいだの空きの中央に出す
+    // 中心を .foot の上端から TOAST_FOOT_GAP＋トーストの高さの半分だけ上へ
     const above=!$("wnext").classList.contains("hide");
-    const card=above&&!$("win").classList.contains("hide");
-    if(card){const sb=$("sub").getBoundingClientRect(), ew=$("exprwrap").getBoundingClientRect();
-      t.style.top=(sb.bottom+ew.top)/2+"px"}
-    else t.style.top=(above?c.top-TOAST_FOOT_GAP-t.offsetHeight/2:(c.top+c.bottom)/2)+"px";
+    t.style.top=(above?c.top-TOAST_FOOT_GAP-t.offsetHeight/2:(c.top+c.bottom)/2)+"px";
   }else{t.style.left="";t.style.top=""}
   t.classList.toggle("atfoot",foot);
   t.classList.add("show");
@@ -40933,8 +40863,6 @@ function renderHome(){
   // 主役の数字と分母（7.4）。#cnum 全体の文字は「137 / 1000 問」のまま
   $("chero").textContent=doneC;
   $("cden").textContent=" "+t("home.total_den",{total:COURSE.length});
-  // 累計点数はホームに出さない（6.6。表示を減らすため）。点数の記録 G.best と
-  // totalScore() はそのまま残すので、表示を戻すときはここに足すだけでよい
   $("ctot").textContent=t("home.total",{n:G.cleared});
   const lk=G.cleared<CHAL_AT;
   $("m-chal").classList.toggle("lock",lk);
@@ -40948,7 +40876,7 @@ function renderHome(){
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
-    G.ci=0;G.cleared=0;G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.best={};G.chalDone=[];G.chalShown=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
+    G.ci=0;G.cleared=0;G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.chalDone=[];G.chalShown=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
     delete b.dataset.armed;s.textContent=t("settings.reset");toast(t("toast.reset"));return}
   b.dataset.armed="1";s.textContent=t("settings.reset_confirm");
   setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent=t("settings.reset")}},3500);
@@ -40983,7 +40911,6 @@ function applyTheme(){
 }
 function renderSettings(){
   $("dv-open-row").classList.toggle("hide",!G.dev);   // パネル本体は #app 直下にある
-  $("t-score").classList.toggle("on",G.scoreOn);
   $("t-easy").classList.toggle("on",G.easy);
   $("t-vib").classList.toggle("on",G.vib);
   $("t-tap").classList.toggle("on",G.tap);
@@ -41018,7 +40945,6 @@ function applyLang(redraw){
 $("t-lang").onclick=()=>{
   const order=["auto",...LANGS];
   G.lang=order[(order.indexOf(G.lang)+1)%order.length];save();applyLang(true)};
-$("t-score").onclick=()=>{G.scoreOn=!G.scoreOn;save();renderSettings()};
 $("t-easy").onclick=()=>{G.easy=!G.easy;save();renderSettings();playDirty=true};
 // オンにした瞬間の手応えは、下の「ボタンの振動」が出す（切り替えた後の G.vib を見るので、
 // オンにしたときだけ振動し、オフにしたときは振動しない）
@@ -41313,8 +41239,6 @@ $("menu").onclick=()=>go("settings");   // プレイ画面の三本線。既存�
 function renderStats(){
   const st=G.stats, avg=st.n?Math.round(st.sec/st.n):0;
   const rows=[
-    // 累計スコアは出さない（6.6。正解カード・ホームと揃えて表示を減らす）。
-    // 記録 G.best と totalScore() は残すので、表示を戻すときはここに 1 行足すだけでよい
     // [名前, 数字, 単位]。数字が null なら記録が無い ―― 数字の場所に「—」を副次色で出す（7.4）。
     // 単位は辞書の複数形で引く（7.5）。n は単位が掛かる数（「137 / 1000 問」なら分母）
     [t("stats.solved"),G.seen.length,t("unit.puzzle",{n:G.seen.length})],
@@ -41335,8 +41259,7 @@ function renderStats(){
     const b=document.createElement("button");
     b.className="toggle";   // 行の間隔は .group の区切り線が持つ（margin は付けない）
     const cs=p&&p.rc!=="N"?" "+t("stats.banned",{op:GLYPH[OPOF[p.rc[0]]]}):"";
-    // 右端の点数と星は出さない（6.6。点数を出すのは点数表示オンの正解カードだけ）。
-    // 記録 it.p / it.st は残すので、表示を戻すときはここに足し直すだけでよい
+    // 行に出すのは問題・難易度・時間だけ（点数と星は 6.6 で出さなくなり、8.7 で記録からも消した）
     b.innerHTML=`<span>${p?p.id:"????"}${cs}　<span style="opacity:.6">${t("stats.hist_meta",{d:it.d,n:it.s})}</span></span>`;
     b.onclick=()=>{const q=byCode(it.c); if(!q)return;
       MODE="share";loadPuzzle(q);go("play")};
@@ -41409,7 +41332,7 @@ let hintLast=0;
 /* 段階 3 で送る解答の一覧と、いま見ている位置（6.9）。hintLast と同じ扱い ――
    開いている問題の中だけ覚えて保存しない。loadPuzzle()（問題の切り替え）と再起動で
    1 本目に戻る。‹ で 2 に戻ってから › で 3 に来ても、閉じて開き直しても、見ていた解答のまま。
-   2 本目以降を見ても消費も減点も無い（G.hintStock・G.hints・hintMax・保存データに触らない）*/
+   2 本目以降を見ても消費は無い（G.hintStock・G.hints・保存データに触らない）*/
 let hintSols=null, hintSolAt=0;
 const curSols=()=>hintSols||(hintSols=solsOf(cur));
 const pretty=s=>s.replace(/\*/g,"×").replace(/\//g,"÷").replace(/-/g,"−");
@@ -41554,9 +41477,9 @@ function showHint(){
     `<button class="hbtn" id="hint-close" aria-label="${t("hint.close")}">${ICON_HCLOSE}</button></div>`;
   $("hint-prev").onclick=()=>hintSet(hintLv-1);   // 1 のときは disabled で押せない
   $("hint-next").onclick=()=>hintSet(hintLv+1);   // 到達済みの範囲なので消費しない
-  $("hint-close").onclick=()=>hintSet(0);         // hintMax は下げない（減点は据え置き）
+  $("hint-close").onclick=()=>hintSet(0);         // 到達（G.hints）は下げない
   if(tap){
-    // 次の解答へ。最後の次は 1 本目。消費も減点も無い（残数・G.hints・hintMax に触らない）
+    // 次の解答へ。最後の次は 1 本目。消費は無い（残数・G.hints に触らない）
     const next=byKey=>{hintSolAt=(hintSolAt+1)%tap;showHint();if(byKey)$("hint-sol").focus()};
     $("hint-sol").onclick=()=>next(false);
     $("hint-sol").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();next(true)}};
@@ -41582,7 +41505,6 @@ $("hint").onclick=()=>{
     }
     G.hintStock--;
     G.hints[codeOf(cur)]=next;         // 端末に残す。解き直しても見返しは無料
-    hintMax=Math.max(hintMax,next);    // 減点（SC.hint）は今までどおり
     save();
   }
   hintSet(next);
