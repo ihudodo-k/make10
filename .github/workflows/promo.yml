@@ -38,7 +38,7 @@ jobs:
       DRY: ${{ github.event_name == 'schedule' && 'false' || (inputs.dry_run && 'true' || 'false') }}
       DATA: promo-data-wt/promo/data
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 何を流すか
         run: echo "task=$TASK dry_run=$DRY event=${{ github.event_name }}"
       - name: 手元の試し（鍵なし。落ちたら送らない）

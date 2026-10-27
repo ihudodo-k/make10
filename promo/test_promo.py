@@ -230,11 +230,20 @@ def main():
         print("  （--no-chrome: ページの JS との照合は飛ばした）")
 
     print("■ 3 つの型の文")
-    check("例の形 A", post.compose(12, "6183", "A"), "Make10 #12\n6 1 8 3\n#Make10")
-    check("例の形 B", post.compose(12, "6183", "B"), "Make10 #12\n6 1 8 3\nCan you make 10?\n#Make10")
-    check("例の形 C", post.compose(12, "6183", "C", "Yesterday (#11): 63% solved, 41% without hints"),
-          "Make10 #12\n6 1 8 3\nYesterday (#11): 63% solved, 41% without hints\n#Make10")
-    check("C で 3 行目が無いとき", post.compose(12, "6183", "C", ""), "Make10 #12\n6 1 8 3\n#Make10")
+    check("文の版は 2", post.TMPL, "2")
+    check("例の形 A", post.compose(12, "6183", "A"),
+          "Make10 Daily #12\nToday's numbers: 6 · 1 · 8 · 3\nUse all four, in order, to make 10.\n"
+          "Play free — link in profile.\n#Make10 #DailyPuzzle #MathPuzzle")
+    check("例の形 B", post.compose(12, "6183", "B"),
+          "Can you make 10 from 6 · 1 · 8 · 3?\nKeep the order. + − × ÷ ^ ! ( ) allowed.\n"
+          "Make10 Daily #12 — link in profile.\n#Make10 #DailyPuzzle #BrainTeaser")
+    check("例の形 C", post.compose(12, "6183", "C", "Yesterday's puzzle: 63% solved, 41% with no hints."),
+          "Make10 Daily #12: 6 · 1 · 8 · 3\nYesterday's puzzle: 63% solved, 41% with no hints.\n"
+          "Your turn — make 10. Link in profile.\n#Make10 #DailyPuzzle #MathPuzzle")
+    check("C で昨日の行が無いとき（2 行目を除く）", post.compose(12, "6183", "C", ""),
+          "Make10 Daily #12: 6 · 1 · 8 · 3\nYour turn — make 10. Link in profile.\n#Make10 #DailyPuzzle #MathPuzzle")
+    check("X の数え方: 英数字・·・— は 1、−（U+2212）と日本語は 2",
+          [post.x_len("ab1"), post.x_len("·—"), post.x_len("−"), post.x_len("あ")], [3, 2, 2, 2])
     check("型は番号で順に回る（#1 A・#2 B・#3 C・#4 A・#12 C）", [post.type_of(n) for n in (1, 2, 3, 4, 12)],
           list("ABCAC"))
     with env(PROMO_TYPE="b"):
@@ -245,24 +254,30 @@ def main():
             check("PROMO_TYPE が A・B・C 以外なら止める", "止まらなかった", "Fail")
         except c.Fail:
             check("PROMO_TYPE が A・B・C 以外なら止める", "Fail", "Fail")
-    worst = "Yesterday (#%d): 100%% solved, 100%% without hints" % (len(rows) - 1)
+    worst = "Yesterday's puzzle: 100% solved, 100% with no hints."
     bad = []
     longest = 0
     for r in rows:
         for t in "ABC":
             for line in (("", worst) if t == "C" else ("",)):
                 txt = post.compose(r["no"], r["digits"], t, line)
-                longest = max(longest, len(txt))
+                longest = max(longest, post.x_len(txt))
                 if post.problems(txt, r):
                     bad.append((r["no"], t, post.problems(txt, r)))
-    check("列の全 %d 日 × 3 つの型（C は 3 行目の有り無し）: 280 字以内・決まった形・答えが入らない" % len(rows), bad, [])
-    check("いちばん長い文でも 280 字より十分短い（%d 字）" % longest, longest <= 80, True)
+    check("列の全 %d 日 × 3 つの型（C は昨日の行の有り無し）: 280 字以内・決まった形・答えが入らない" % len(rows), bad, [])
+    check("いちばん長い文でも 280 字より十分短い（X の数え方で %d 字）" % longest, longest <= 200, True)
     r12 = rows[11]
+    a12 = post.compose(12, r12["digits"], "A")
     check("答えが入った文は送らない", "答えが入っている" in post.problems(
-        "Make10 #12\n%s\n%s\n#Make10" % (" ".join(r12["digits"]), r12["sols"][0]), r12), True)
-    check("番号と数字がその日の問題と違う文は送らない", post.problems("Make10 #12\n1 2 3 4\n#Make10", r12) != [], True)
-    check("リンクの入った文は送らない", post.problems(post.compose(12, r12["digits"], "A") + " https://make10.app/daily/", r12) != [],
-          True)
+        a12.replace("Use all four, in order, to make 10.", r12["sols"][0]), r12), True)
+    check("番号と数字がその日の問題と違う文は送らない",
+          [post.problems(post.compose(12, "1234", t), r12) != [] for t in "ABC"] +
+          [post.problems(post.compose(13, r12["digits"], t), r12) != [] for t in "ABC"], [True] * 6)
+    check("リンクの入った文は送らない", post.problems(a12 + " https://make10.app/daily/", r12) != [], True)
+    check("B の決まりの行の外に記号があれば送らない", "演算の記号が入っている" in post.problems(
+        post.compose(12, r12["digits"], "B").replace("link in profile", "link (profile)"), r12), True)
+    check("C の昨日の行が決まった形でなければ送らない",
+          post.problems(post.compose(12, r12["digits"], "C", "Yesterday's puzzle: everyone solved it."), r12) != [], True)
 
     print("■ C の数字（みんなの結果）")
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Mock)
@@ -275,16 +290,16 @@ def main():
             reset()
             S["agg"]["11"] = (200, {"n": 11, "s": 63, "g": 37, "s0": 26, "b": [0, 0, 0, 0, 0]})
             check("63 / 100 解いた・ヒントなし 26 / 63（41.3%）", post.c_line(12)[0],
-                  "Yesterday (#11): 63% solved, 41% without hints")
+                  "Yesterday's puzzle: 63% solved, 41% with no hints.")
             S["agg"]["11"] = (200, {"n": 11, "s": 1, "g": 39, "s0": 1, "b": [0, 0, 0, 0, 0]})
             check("四捨五入はページの Math.round と同じ（1 / 40 = 2.5% → 3%。Python の round なら 2%）", post.c_line(12)[0],
-                  "Yesterday (#11): 3% solved, 100% without hints")
+                  "Yesterday's puzzle: 3% solved, 100% with no hints.")
             S["agg"]["11"] = (200, {"n": 11, "s": 20, "g": 9, "s0": 3, "b": [0, 0, 0, 0, 0]})
-            check("29 件（30 件未満）なら 3 行目を出さず、記録にそう残す", post.c_line(12), ("", "30 件未満（29 件）"))
+            check("29 件（30 件未満）なら昨日の行を出さず、記録にそう残す", post.c_line(12), ("", "30 件未満（29 件）"))
             S["agg"]["11"] = (200, {"n": 11, "s": 20, "g": 10, "s0": 3, "b": [0, 0, 0, 0, 0]})
-            check("30 件ちょうどなら出す", post.c_line(12)[0], "Yesterday (#11): 67% solved, 15% without hints")
+            check("30 件ちょうどなら出す", post.c_line(12)[0], "Yesterday's puzzle: 67% solved, 15% with no hints.")
             S["agg"]["11"] = (200, {"n": 11, "s": 0, "g": 30, "s0": 0, "b": [0, 0, 0, 0, 0]})
-            check("解いた人が 0 なら「ヒントなし」は付けない", post.c_line(12)[0], "Yesterday (#11): 0% solved")
+            check("解いた人が 0 なら「ヒントなし」は付けない", post.c_line(12)[0], "Yesterday's puzzle: 0% solved.")
             S["agg"]["11"] = (500, {"e": "x"})
             check("集計が 500 なら出さない", post.c_line(12)[0], "")
             S["agg"]["11"] = (200, {"n": 10, "s": 50, "g": 0, "s0": 0})
@@ -306,7 +321,7 @@ def main():
             check("dry-run: 終了コード 0・送らない・CSV を作らない・鍵が無くても動く",
                   [code, S["posted"], os.path.exists(os.path.join(tmp, "posts.csv"))], [0, [], False])
             check("dry-run: 送る文と型を出す", ["型 C" in out, post.compose(n, rows[n - 1]["digits"], "C",
-                                                 "Yesterday (#2): 80% solved, 75% without hints") in out], [True, True])
+                                                 "Yesterday's puzzle: 80% solved, 75% with no hints.") in out], [True, True])
             code, out = run(post, "--now", at(n), "--data", tmp)
             check("鍵が無いと止め、足りない名前だけ出す（送らない）",
                   [code, "X_API_KEY" in out and "X_ACCESS_SECRET" in out, S["posted"]], [1, True, []])
@@ -314,13 +329,16 @@ def main():
                 code, out = run(post, "--now", at(n), "--data", tmp)
                 check("送る: 終了コード 0・1 回だけ送る・署名が通る", [code, len(S["posted"]), S["bad_auth"]], [0, 1, []])
                 check("送った文はその日の C の文", S["posted"][0]["text"],
-                      post.compose(n, rows[n - 1]["digits"], "C", "Yesterday (#2): 80% solved, 75% without hints"))
+                      post.compose(n, rows[n - 1]["digits"], "C", "Yesterday's puzzle: 80% solved, 75% with no hints."))
                 p = c.read_table(tmp, "posts.csv")
                 row = p.get(D(n).isoformat(), {})
-                check("posts.csv に 1 行（型・番号・数字・tweet の番号・フォロワー・C の記録）",
-                      [len(p), row.get("type"), row.get("n"), row.get("digits"), row.get("tweet_id"), row.get("followers"),
-                       row.get("c_note"), row.get("posted_at")],
-                      [1, "C", str(n), rows[n - 1]["digits"], "1001", "100", "出した（s=40 g=10 s0=30）", at(n)])
+                check("posts.csv に 1 行（型・文の版・番号・数字・tweet の番号・フォロワー・C の記録）",
+                      [len(p), row.get("type"), row.get("tmpl"), row.get("n"), row.get("digits"), row.get("tweet_id"),
+                       row.get("followers"), row.get("c_note"), row.get("posted_at")],
+                      [1, "C", "2", str(n), rows[n - 1]["digits"], "1001", "100", "出した（s=40 g=10 s0=30）", at(n)])
+                with open(os.path.join(tmp, "posts.csv"), encoding="utf-8") as fh:
+                    check("CSV のファイルにも tmpl=2 が書いてある", fh.readline().split(",")[3] == "tmpl" and ",C,2," in fh.read(),
+                          True)
                 check("鍵の値を出さない", [v in out for v in KEYS.values() if "LEAK" in v], [False, False, False])
                 code, out = run(post, "--now", at(n, "09:30"), "--data", tmp)
                 check("同じ日に 2 回流しても、2 回目は送らない", [code, len(S["posted"])], [0, 1])
@@ -336,7 +354,7 @@ def main():
                 code6, out6 = run(post, "--now", at(n + 3), "--data", tmp)   # #6 は C。集計が取れない
                 p = c.read_table(tmp, "posts.csv")
                 check("型が順に回る（#3 C・#5 B・#6 C）", [p[D(k).isoformat()]["type"] for k in (3, 5, 6)], ["C", "B", "C"])
-                check("C で集計が取れない日は 3 行目なしで送り、記録にそう残す",
+                check("C で集計が取れない日は昨日の行なしで送り、記録にそう残す",
                       [code6, p[D(6).isoformat()]["text"], p[D(6).isoformat()]["c_note"]],
                       [0, post.compose(6, rows[5]["digits"], "C", ""), "取れない（集計が HTTP 400（range））"])
                 code, out = run(post, "--now", "%sT08:30:00Z" % (start - datetime.timedelta(days=1)), "--data", tmp)
@@ -411,6 +429,38 @@ def main():
                 ln.startswith("| %s |" % D(5)) and "| +4 |" in ln for ln in lines), True)
             code, out = run(report, "--data", os.path.join(tmp, "空"))
             check("まだ何も無いときも出せる", [code, "まだ投稿が無い" in out], [0, True])
+            # tmpl の列ができる前の posts.csv（#1・#2）に、版 2 の行が足された形
+            old = os.path.join(tmp, "旧")
+            os.makedirs(old)
+            head = [f for f in c.POSTS if f != "tmpl"]
+            with open(os.path.join(old, "posts.csv"), "w", encoding="utf-8", newline="") as fh:
+                fh.write(",".join(head) + "\n")
+                for k, t, imp in ((1, "A", 100), (2, "B", 200)):
+                    r = {f: "" for f in head}
+                    r.update({"date": D(k).isoformat(), "n": str(k), "type": t, "digits": rows[k - 1]["digits"],
+                              "tweet_id": str(k), "m24_at": "x", "m24_impressions": str(imp), "m24_likes": "1",
+                              "m24_replies": "0", "m24_reposts": "0"})
+                    fh.write(",".join(r[f] for f in head) + "\n")
+            p = c.read_table(old, "posts.csv")
+            check("tmpl の列が無い古い行（#1・#2）は版 1 として読む", [p[D(k).isoformat()]["tmpl"] for k in (1, 2)], ["1", "1"])
+            p[D(4).isoformat()] = {f: "" for f in c.POSTS}
+            p[D(4).isoformat()].update({"date": D(4).isoformat(), "n": "4", "type": "A", "tmpl": "2", "tweet_id": "4",
+                                        "m24_at": "x", "m24_impressions": "900", "m24_likes": "9", "m24_replies": "0",
+                                        "m24_reposts": "0"})
+            c.write_table(old, "posts.csv", p)
+            check("書き戻すと、古い行にも tmpl=1 が入る", [r["tmpl"] for _, r in sorted(c.read_table(old, "posts.csv").items())],
+                  ["1", "1", "2"])
+            code, out = run(report, "--data", old)
+            sec = {v: out.split("## 文の版 %s" % v)[1].split("\n## ")[0] for v in ("1", "2")}
+            arow = lambda v: next((ln for ln in sec[v].splitlines() if ln.startswith("| A | ")), "")  # noqa: E731
+            check("まとめは版ごとに分かれ、新しい版が上", [code, out.index("## 文の版 2") < out.index("## 文の版 1")], [0, True])
+            check("版 2 の A は #4 だけ（表示 900）・版 1 の A は #1 だけ（表示 100）。混ざらない",
+                  [arow("2").split(" | ")[1:4], arow("1").split(" | ")[1:4]], [["1", "1", "900"], ["1", "1", "100"]])
+            check("版 2 に B は無い（B は版 1 の #2 だけ）",
+                  ["| B | " in sec["2"].split("### ")[0], "| B | " in sec["1"].split("### ")[0]], [False, True])
+            check("日ごとの表に文の版の列", [any(ln.startswith("| %s | " % D(k)) and " | %s | %s | " % (v, t) in ln
+                                         for ln in out.splitlines()) for k, v, t in ((1, "1", "A"), (4, "2", "A"))],
+                  [True, True])
     finally:
         srv.shutdown()
         srv.server_close()
