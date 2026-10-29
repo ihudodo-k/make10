@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://make10.app/sitemap.xml
