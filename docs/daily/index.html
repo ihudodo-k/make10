@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title data-i18n="daily.page_title"></title>
+<!-- 題と説明（検索。D1.2）。題は英語で最初から書く（検索と、スクリプトを動かさない読み手のため）。開いた後は
+     applyI18n() が言語に合わせて daily.page_title に書き換える。説明は og:description と同じ文 -->
+<title data-i18n="daily.page_title">Make10 Daily — one number puzzle a day</title>
+<meta name="description" content="Use four digits, in order, to make 10. A new puzzle every day.">
+<link rel="canonical" href="https://make10.app/daily/">
 <!-- リンクを貼ったときの見た目（OGP。D0.20。DAILY-SPEC 9 章）。貼られた先はスクリプトを動かさないので、辞書を引かずに
      ここへ直に書く。英語だけ（D1.1。海外向け。D0.20〜D1.0 は日本語だけ）。URL は絶対パス。画像はどの日も同じ 1 枚（og.png。1200×630） -->
 <meta property="og:type" content="website">
@@ -688,7 +692,7 @@ html:not(.dark) .dcard{box-shadow:0 8px 28px rgba(0,0,0,.12)}
 </div>
 <script>
 /* デイリー独自の版（本編の APP_VERSION とは別。DAILY-SPEC 18-2）。変えたら CHANGELOG.md と CLAUDE.md の変更履歴に「D」の印で書く */
-const DAILY_VERSION="1.1";
+const DAILY_VERSION="1.2";
 /* 解いた後の「もっと解きたい人はアプリで」（#applink）を出すか。アプリのリリースが決まるまで出さない（D0.38。13-5）。
    出すときは true にするだけ（導線・文・CSS・並びの計算は残してある） */
 const APP_LINK=false;
@@ -2658,6 +2662,9 @@ const DAILY_DAYS=DAILY?DAILY.split("\n").map(ln=>{
 /* ?date=YYYY-MM-DD で「今日」を固定できる（確かめのための入口。記録は保存しない。DAILY-SPEC 11 章）*/
 const DATE_URL=(()=>{try{return parseYmd(new URLSearchParams(location.search).get("date"))}catch(e){return null}})();
 const TEST_MODE=!!DATE_URL;
+/* テスト表示（?date=）は検索に出さない（D1.2。DAILY-SPEC 2 章）。canonical は /daily/ を指すが、それだけでは
+   ほかの日の問題の表示が拾われることがあるので、noindex をはっきり付ける */
+if(TEST_MODE){const m=document.createElement("meta");m.name="robots";m.content="noindex";document.head.appendChild(m)}
 /* ?date= に &try=1 を足すと、別の端末へ移すことを試せる（D0.39。10-1）。テスト表示のまま、記録と設定を本物とは別のキー
    （DAILY_KEY_TRY）に保存し、設定に「別の端末へ移す」を出す。集計へは送らない（テスト表示のまま）*/
 const TRY_MODE=TEST_MODE&&(()=>{try{return new URLSearchParams(location.search).get("try")==="1"}catch(e){return false}})();

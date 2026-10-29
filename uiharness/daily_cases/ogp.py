@@ -5,6 +5,9 @@
 - URL（og:url・og:image・twitter:image）が https://make10.app/daily/ で始まる絶対パスであること
 - 画像 og.png が docs/daily/ にあり、1200×630 の PNG で、300KB 以下であること（タグの寸法とも合う）
 - 貼られた先はスクリプトを動かさないので、タグはソースに直に書いてあること（JS が後から書く形ではない）
+- 検索（D1.2。DAILY-SPEC 2 章）: ソースの <title> が英語の題（og:title と同じ）・<meta name="description">（og:description と同じ）・
+  canonical（https://make10.app/daily/）が 1 つずつあること。robots の meta はソースに無く、?date=（テスト表示）で開いたときだけ
+  noindex が 1 つ付くこと（?date= の無いふつうの表示には付かない）
 """
 import os
 import re
@@ -71,6 +74,19 @@ def run(ui):
              [True, True, True, True])
     ui.check("別の言語の og（og:locale:alternate）は付けない", [k for k in og if "alternate" in k], [])
 
+    # ══ 検索（D1.2）══
+    titles = re.findall(r"<title\b[^>]*>(.*?)</title>", head, re.S)
+    ui.check("<title> が 1 つで、中身は英語の題（og:title と同じ）",
+             titles, ["Make10 Daily — one number puzzle a day"])
+    ui.check("og:title も同じ題", og.get("og:title"), "Make10 Daily — one number puzzle a day")
+    desc = [c for a, k, c in metas if a == "name" and k == "description"]
+    ui.check("<meta name=\"description\"> が 1 つで、og:description と同じ文", desc, [og.get("og:description")])
+    canon = re.findall(r'<link\b[^>]*\brel="canonical"[^>]*>', head)
+    ui.check("canonical が 1 つで、https://make10.app/daily/ を指す",
+             [re.search(r'\bhref="([^"]*)"', c).group(1) for c in canon], [BASE])
+    ui.check("robots の meta はソースに無い（ふつうの表示は検索に出す）",
+             [k for a, k, c in metas if a == "name" and k == "robots"], [])
+
     # ══ 画像 ══
     path = os.path.join(dui.DOCS, "daily", "og.png")
     there = os.path.isfile(path)
@@ -99,4 +115,22 @@ def run(ui):
             break
         time.sleep(0.1)
     ui.check("画像がページと同じ場所から読める（1200×630）", ui.ev("window.__og"), [1200, 630])
+
+    # ══ 開いたページの検索のタグ（D1.2）══
+    robots = ("[...document.head.querySelectorAll('meta[name=\"robots\"]')].map(m=>m.getAttribute('content'))")
+    seo = ("[document.querySelectorAll('title').length,"
+           "document.head.querySelector('meta[name=\"description\"]')?.content,"
+           "[...document.head.querySelectorAll('link[rel=\"canonical\"]')].map(l=>l.getAttribute('href'))]")
+    for lang, title in (("ja", "Make10 デイリー"), ("en", "Make10 Daily")):
+        ui.open(date=start.isoformat(), lang=lang)
+        ui.check("%s: ?date=（テスト表示）では robots の noindex が 1 つだけ付く" % lang, ui.ev(robots), ["noindex"])
+        ui.check("%s: 開いた後の題は今までどおり言語に合わせて書き換わる（daily.page_title）" % lang,
+                 ui.ev("document.title"), title)
+        ui.check("%s: 開いた後も、説明と canonical は 1 つずつのまま" % lang, ui.ev(seo),
+                 [1, og.get("og:description"), [BASE]])
+    for lang in ("ja", "en"):
+        ui.open(date=None, lang=lang)
+        ui.check("%s: ?date= の無いふつうの表示には robots の meta が付かない" % lang, ui.ev(robots), [])
+    ui.open(date=None, lang="en", extra="&date=bad")
+    ui.check("?date= の日付が読めない（テスト表示にならない）ときは付けない", ui.ev(robots), [])
     ui.check_no_errors()
