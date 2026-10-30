@@ -17,6 +17,36 @@
     make10.app の同じパスへ転送される）
   - ドメインは今後変えない（移すと localStorage の記録が消えるため）
 - **デイリーはずっと /daily/ に置く**（共有されたリンクを壊さないため）
+- **検索（基本の SEO。D1.2。ユーザーの指示）**: 検索に出すのはデイリーの `https://make10.app/daily/` だけ（お試し版の `/` とプライバシーポリシーは触らない）
+  - デイリーの head: `<title>` に英語の題 `Make10 Daily — one number puzzle a day` を最初から書く（og:title と同じ。開いた後は今までどおり
+    `applyI18n()` が言語に合わせて `daily.page_title` に書き換える）／`<meta name="description">` に og:description と同じ英語の文／
+    `<link rel="canonical" href="https://make10.app/daily/">`
+  - **テスト表示（`?date=` が日付として読めたとき。11 章）だけ、JS で `<meta name="robots" content="noindex">` を足す**（ほかの日の問題を検索に出さない）。
+    `?date=bad` のように読めないときはふつうの表示なので付けない。ソースには robots の meta を書かない
+  - `docs/robots.txt`: すべてを許し、`Sitemap: https://make10.app/sitemap.xml` を書く
+  - `docs/sitemap.xml`: `https://make10.app/daily/` の 1 件だけ。`lastmod` は書かない（毎日中身が変わるページで、正しい日付を保てないため）
+  - 検証はケース `ogp`（11 章）と、公開サイトの見守り `check_site.py`（20-2）
+- **アイコン（D1.2）**: 暗い地に金の「10」（X のアイコンと同じ形）。**ファイルは docs/ 直下**（サイトの一番上。`favicon.ico` は Google がそこへ探しに来る）
+  | ファイル | 中身 | head |
+  |---|---|---|
+  | `docs/favicon.ico` | 16・32・48px の PNG を中に持つ ICO | `<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">` |
+  | `docs/icon-192.png` | 192×192 の PNG | `<link rel="icon" type="image/png" href="/icon-192.png" sizes="192x192">` |
+  | `docs/apple-touch-icon.png` | 180×180 の PNG | `<link rel="apple-touch-icon" href="/apple-touch-icon.png">` |
+  - 指すのはデイリーの head だけ（お試し版の `docs/index.html` は触らない。ただし `favicon.ico` は一番上にあるので、ブラウザはお試し版でも拾う）
+  - **絵の決まり**: 地は `--ink` `#121213`（四角のまま。角の丸めと透明は使わない ―― iOS と Android が自分で丸める）、
+    「10」は `--gold` `#DCBD6E`（og.png の「10」と同じ。**金はこの「10」だけ**。BRAND.md）、字は **Zen Kaku Gothic New の太字（700）**。
+    線も枠も入れない。アプリの中のアイコンは線で描く（DESIGN.md 3-1-2）が、これはサイトの印なので og.png と同じ塗りの字
+  - **置き方**: 字の外形（canvas の `measureText` の `actualBoundingBox`）を測って、縦横の真ん中に置く（字の送りや行の高さでは合わせない）
+  - **「10」の幅 ÷ 一辺**（小さいほど大きく描いて、16px でも読めるようにする。180・192 は角の丸めで欠けないよう内側に寄せる）:
+    | 一辺 | 16 | 32 | 48 | 180 | 192 | 512（見比べ用。置かない） |
+    |---|---|---|---|---|---|---|
+    | 幅の割合 | 0.88 | 0.82 | 0.78 | 0.62 | 0.62 | 0.62 |
+  - **作り方**: 元はリポジトリの外の `Documents\make10_daily_screens\icon\`（og.png の `og\` と同じ考え）。
+    `icon.html`（canvas に描く `draw(一辺, 幅の割合)`。字を Google Fonts から読み、読めたら `__ready` が `ok`）と
+    `make.py`（`python make.py <リポジトリ> out`。リポジトリの `uiharness/cdp.py` で headless Chrome を立ち上げ、各寸法を canvas から PNG で受け取り、
+    16・32・48 を 1 つの ICO に詰める。Pillow は使わない。見比べ用の `sheet.html` も書く）。
+    出た `out\icon-180.png` を `docs/apple-touch-icon.png`、`out\icon-192.png` を `docs/icon-192.png`、`out\favicon.ico` を `docs/favicon.ico` に写す
+  - **名前は変えない**（ブラウザと検索が覚えている URL を壊さないため。og.png と同じ）。検証はケース `ogp`（寸法と ICO の中身・開いたページから 200）
 - **アプリを公開して本編の Web 版を非公開にしたあとは、make10.app/ を開いたら /daily/ へ自動で転送する**
   - GitHub Pages はサーバーの側で転送できないので、`docs/index.html` を転送だけのページに置き換える形になる
     （やり方はそのときに決める）
@@ -613,7 +643,11 @@ python make10.py daily --rebuild              # ページの行を捨てて頭�
     決めた名前で 1 つずつ揃い、中身が空でないこと／**`og:url`・`og:image`・`twitter:image` が `https://make10.app/daily/` で始まる絶対パスであること**／
     題に「Make10 Daily」、説明に「four digits」と「10」が入り、og と twitter で同じであること（D1.1 で英語に替えた）／`og:locale` が `en_US` で、別の言語の og を付けていないこと／
     **`docs/daily/og.png` があり、1200×630 の PNG で、300KB 以下であること**（PNG の先頭を読む。タグの寸法とも合う）／
-    開いたページの head のタグが、日本語でも英語でもソースと同じであること（スクリプトが書き換えない）／画像がページと同じ場所から読めること
+    開いたページの head のタグが、日本語でも英語でもソースと同じであること（スクリプトが書き換えない）／画像がページと同じ場所から読めること／
+    **検索（D1.2。2 章）**: ソースの `<title>` が 1 つで英語の題（og:title と同じ）・`description` が og:description と同じ・canonical が `/daily/` の 1 つ・
+    robots の meta がソースに無いこと。開いたページで、`?date=` のときだけ `noindex` が 1 つ付き、題は今までどおり言語に合わせて書き換わること。
+    `?date=` の無い表示と `?date=bad` には付かないこと／**アイコン（D1.2。2 章）**: link が 3 つで一番上を指す・PNG の寸法（192・180）・
+    ICO の中身が 16・32・48 の PNG・開いたページから 3 つとも 200 で読めること
     言語の決め方を見る `lang` だけが、`lang=None` や端末の言語の差し替え（`nav=`）で開く
   - **`popup`（ポップアップ。D0.26。13-12）**: 3 つとも、幕が画面いっぱいでカードが dialog（`aria-modal`・名前は見出し）であること・
     カードが面 `--panel` と線 `--edge` 1px・角丸 16px・影なしであること・幅と中央と上下 24px の空き・× がカードの右上／
@@ -2393,6 +2427,7 @@ D0.3〜D0.23 は、画面を見ている間だけ数えていた）。**60 分�
 | 確かめ | 中身 |
 |---|---|
 | ページ | `https://make10.app/`・`/daily/`・`/privacy/` が 200 で返る |
+| 検索（D1.2） | `/robots.txt` が 200 で sitemap の場所を書いている・`/sitemap.xml` が 200 で `/daily/` がある・デイリーの head の題・説明・canonical が空でなく main と同じ（`daily_head()`） |
 | 版 | 公開ページの `APP_VERSION`・`DAILY_VERSION` が、main（定期実行が取り出したリポジトリ）と同じ |
 | デイリーの中身 | 公開ページの起点日と列（問題番号・4 桁・制約・解答例）が、main と同じ |
 | プライバシーポリシー | 題（日本語と英語）と、問い合わせ先のリンクがある |
@@ -2440,6 +2475,6 @@ D0.3〜D0.23 は、画面を見ている間だけ数えていた）。**60 分�
 - 台本は、作ったときに公開サイトへ当てて通した（公開前の今は 14 項目）。**期待値をわざと変えて、項目ごとに落ちることを確かめた**
   （ページの場所・本編とデイリーの版・今日を起点日にする／列の終わりの後にする／終わりの 5 週前にする・列の残りの下限・
   集計の送り先・証明書の下限・最後のコミットからの上限・`--fail`。手元の列から 1 行を落とす・起点日を変える・解答例を変える、の 3 通りは複製で）
-- 通信しない部分（公開前と公開後の切り替え・問題番号・列の残り・返事の形・証明書の残り日数の計算）と、ワークフローの設定
+- 通信しない部分（公開前と公開後の切り替え・問題番号・列の残り・返事の形・証明書の残り日数の計算・head の読み取り）と、ワークフローの設定
   （時刻・手で流す入口・読むだけの権限・秘密の値を使わない・プッシュでは走らせない）は、`verify_daily.py` のケース `monitor` が見る
 - 無料の範囲: 公開リポジトリで標準のランナーを使う分は無料。1 回 1 分ほどの確かめを 1 日 2 回
