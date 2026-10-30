@@ -8,6 +8,7 @@ GitHub Actions の定期実行（.github/workflows/site-check.yml。1 日 2 回�
 
 確かめること
   1. https://make10.app/・/daily/・/privacy/ が 200 で返ること
+     robots.txt と sitemap.xml が 200 で返り、デイリーの head に題・説明・canonical があること（D1.2）
   2. 公開ページの版（APP_VERSION・DAILY_VERSION）と、デイリーの起点日・列が、このリポジトリ（main）と同じこと
   3. デイリーに今日の問題があること。列の残りが 8 週を切ったら落とす
   4. 集計のサーバー https://api.make10.app/r が、決めたとおりの返事をすること
@@ -72,6 +73,15 @@ def versions(main_html, daily_html):
     a = re.search(r'const APP_VERSION="([^"]+)"', main_html or "")
     d = re.search(r'const DAILY_VERSION="([^"]+)"', daily_html or "")
     return (a.group(1) if a else None, d.group(1) if d else None)
+
+
+def daily_head(html):
+    """デイリーの head から、検索のための [題, 説明, canonical] を読む（D1.2）。無いものは None"""
+    head = (html or "").split("</head>", 1)[0]
+    t = re.search(r"<title\b[^>]*>(.*?)</title>", head, re.S)
+    d = re.search(r'<meta\s+name="description"\s+content="([^"]*)"', head)
+    c = re.search(r'<link\s+rel="canonical"\s+href="([^"]*)"', head)
+    return [t.group(1).strip() or None if t else None, d.group(1) if d else None, c.group(1) if c else None]
 
 
 def agg_ok(j, no):
@@ -159,6 +169,13 @@ def main(argv=None):
         st, _, body = fetch(args.site + path)
         pages[path] = body if st == 200 else ""
         check("%s が 200 で返る" % path, st == 200, "状態 %s%s" % (st, "" if st else "  " + body[:120]))
+    # robots.txt と sitemap.xml（D1.2。DAILY-SPEC 2 章）: 200 で、sitemap の場所とデイリーの URL が書いてある
+    st, _, body = fetch(args.site + "/robots.txt")
+    check("/robots.txt が 200 で、sitemap の場所を書いている",
+          st == 200 and "Sitemap: %s/sitemap.xml" % SITE in body, "状態 %s" % st)
+    st, _, body = fetch(args.site + "/sitemap.xml")
+    check("/sitemap.xml が 200 で、デイリーの URL がある",
+          st == 200 and "<loc>%s/daily/</loc>" % SITE in body, "状態 %s" % st)
 
     # 2. 版と、デイリーの起点日・列が、このリポジトリと同じ
     local_main, local_daily = read_local("docs", "index.html"), read_local("docs", "daily", "index.html")
@@ -170,6 +187,11 @@ def main(argv=None):
     got = versions(pages["/"], pages["/daily/"])
     check("本編の版が main と同じ", got[0] is not None and got[0] == want[0], "公開 %s ／ main %s" % (got[0], want[0]))
     check("デイリーの版が main と同じ", got[1] is not None and got[1] == want[1], "公開 %s ／ main %s" % (got[1], want[1]))
+    # 検索のため（D1.2）: デイリーの head の題・説明・canonical が、main と同じで空でない
+    gh, wh = daily_head(pages["/daily/"]), daily_head(local_daily)
+    check("デイリーの head に題・説明・canonical があり、main と同じ",
+          None not in gh and gh == wh and gh[2] == SITE + "/daily/",
+          "公開 %s ／ main %s" % (gh, wh) if gh != wh or None in gh else "canonical %s" % gh[2])
     check("プライバシーポリシーのページに題と問い合わせ先がある",
           "プライバシーポリシー" in pages["/privacy/"] and "Privacy Policy" in pages["/privacy/"]
           and "mailto:" in pages["/privacy/"])
