@@ -8,6 +8,8 @@
 - 検索（D1.2。DAILY-SPEC 2 章）: ソースの <title> が英語の題（og:title と同じ）・<meta name="description">（og:description と同じ）・
   canonical（https://make10.app/daily/）が 1 つずつあること。robots の meta はソースに無く、?date=（テスト表示）で開いたときだけ
   noindex が 1 つ付くこと（?date= の無いふつうの表示には付かない）
+- アイコン（D1.2）: head が /favicon.ico・/icon-192.png・/apple-touch-icon.png を指し、docs/ 直下のファイルが寸法どおり
+  （ICO は 16・32・48 の PNG を中に持つ）で、開いたページから 200 で読めること
 """
 import os
 import re
@@ -40,6 +42,13 @@ def _png_size(path):
     """PNG の先頭（署名と IHDR）だけを読んで、(幅, 高さ) を返す。PNG でなければ None"""
     with open(path, "rb") as f:
         b = f.read(24)
+    if len(b) < 24 or b[:8] != b"\x89PNG\r\n\x1a\n" or b[12:16] != b"IHDR":
+        return None
+    return list(struct.unpack(">II", b[16:24]))
+
+
+def _png_size_bytes(b):
+    """PNG のバイト列の先頭から (幅, 高さ)。PNG でなければ None（favicon.ico の中身を見る）"""
     if len(b) < 24 or b[:8] != b"\x89PNG\r\n\x1a\n" or b[12:16] != b"IHDR":
         return None
     return list(struct.unpack(">II", b[16:24]))
@@ -87,6 +96,32 @@ def run(ui):
     ui.check("robots の meta はソースに無い（ふつうの表示は検索に出す）",
              [k for a, k, c in metas if a == "name" and k == "robots"], [])
 
+    # ══ アイコン（D1.2）══
+    links = []
+    for tag in re.findall(r"<link\b[^>]*>", head):
+        rel = re.search(r'\brel="([^"]*)"', tag)
+        href = re.search(r'\bhref="([^"]*)"', tag)
+        if rel and href and "icon" in rel.group(1):
+            links.append([rel.group(1), href.group(1)])
+    ui.check("アイコンの link が 3 つ（favicon.ico・icon-192.png・apple-touch-icon.png。サイトの一番上を指す）", links,
+             [["icon", "/favicon.ico"], ["icon", "/icon-192.png"], ["apple-touch-icon", "/apple-touch-icon.png"]])
+    ui.check("PNG のアイコンは寸法どおり（icon-192.png は 192×192・apple-touch-icon.png は 180×180）",
+             [_png_size(os.path.join(dui.DOCS, n)) if os.path.isfile(os.path.join(dui.DOCS, n)) else None
+              for n in ("icon-192.png", "apple-touch-icon.png")], [[192, 192], [180, 180]])
+    ico = os.path.join(dui.DOCS, "favicon.ico")
+    entries = None
+    if os.path.isfile(ico):
+        with open(ico, "rb") as f:
+            b = f.read()
+        if b[:4] == b"\x00\x00\x01\x00":
+            n = struct.unpack("<H", b[4:6])[0]
+            entries = []
+            for i in range(n):
+                w, h, _c, _r, _p, _bpp, size, off = struct.unpack("<BBBBHHII", b[6 + 16 * i:22 + 16 * i])
+                entries.append([w, h, _png_size_bytes(b[off:off + size])])
+    ui.check("favicon.ico は 16・32・48 の 3 枚（中身はそれぞれの寸法の PNG）", entries,
+             [[16, 16, [16, 16]], [32, 32, [32, 32]], [48, 48, [48, 48]]])
+
     # ══ 画像 ══
     path = os.path.join(dui.DOCS, "daily", "og.png")
     there = os.path.isfile(path)
@@ -133,4 +168,15 @@ def run(ui):
         ui.check("%s: ?date= の無いふつうの表示には robots の meta が付かない" % lang, ui.ev(robots), [])
     ui.open(date=None, lang="en", extra="&date=bad")
     ui.check("?date= の日付が読めない（テスト表示にならない）ときは付けない", ui.ev(robots), [])
+
+    # 開いたページから、アイコンの 3 つが読める（サイトの一番上の /favicon.ico など）
+    ui.ev("(function(){window.__ic='wait';Promise.all([...document.head.querySelectorAll('link[rel~=\"icon\"],link[rel=\"apple-touch-icon\"]')]"
+          ".map(l=>fetch(l.href,{cache:'no-store'}).then(r=>[new URL(l.href).pathname,r.status])))"
+          ".then(a=>{window.__ic=a},()=>{window.__ic='error'})})()")
+    for _ in range(50):
+        if ui.ev("window.__ic") != "wait":
+            break
+        time.sleep(0.1)
+    ui.check("開いたページからアイコンの 3 つが 200 で読める", ui.ev("window.__ic"),
+             [["/favicon.ico", 200], ["/icon-192.png", 200], ["/apple-touch-icon.png", 200]])
     ui.check_no_errors()
