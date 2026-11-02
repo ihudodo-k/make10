@@ -10,7 +10,7 @@
 | いつ（UTC） | 日本 | 何をする | 中身 |
 |---|---|---|---|
 | 毎日 8:00 | 17:00 | `promo/collect.py` | X・Cloudflare Web Analytics・みんなの結果の数を集めて CSV に足し、まとめ（`report.md`）を書き直す |
-| 毎日 8:30 | 17:30 | `promo/post.py` | その日の問題を 1 本投稿し、`posts.csv` に 1 行足す |
+| 毎日 8:30 | 17:30 | `promo/post.py` | その日の問題の画像（`promo/image.py`）を付けて 1 本投稿し、`posts.csv` に 1 行足す |
 
 - 動かすのは GitHub Actions の `.github/workflows/promo.yml`。**時刻に起こすのは Cloudflare Workers の Cron Triggers**（`promo/cron/`。
   下の「定期実行の起こし役」）。promo.yml の `schedule` は予備として残してある。**main に入ってから動く**
@@ -99,11 +99,11 @@ npx.cmd wrangler secret put GH_TOKEN
 ### 投稿の 3 つの型
 
 型は問題番号で順に回す（(番号 - 1) を 3 で割った余り。#1 が A・#2 が B・#3 が C・#4 が A…）。**リンクは付けない**
-（リンク付きの投稿は API の料金が高い。リンクはプロフィールに置く）。**答えは載せない**（送る前に `post.py` が、決まった形か・
-列の解答のどれも入っていないか・280 字以内かを確かめ、外れたら送らずに失敗にする）。文には「link in profile」と書く。
+（リンク付きの投稿は API の料金が高い。リンクはプロフィールに置く）。**文にリンクの案内も書かない**（版 3 から）。**答えは載せない**（送る前に `post.py` が、決まった形か・
+列の解答のどれも入っていないか・280 字以内かを確かめ、外れたら送らずに失敗にする）。
 
-文は 2026-10-27 に今の形（**文の版 2**）にした。#1・#2 は前の短い文（版 1。`Make10 #1` / `8 7 5 2` / `#Make10` の形）で送った。
-例は #12（6 1 8 3）の日。
+文の版: 版 1 は #1・#2 の短い文（`Make10 #1` / `8 7 5 2` / `#Make10` の形）。版 2 は 2026-10-27 からの文（`link in profile` と `#DailyPuzzle` が入る）。
+今は**版 3**（画像が付き、リンクの案内を消し、ハッシュタグは 3 つで、どの型にも `#puzzle`）。例は #12（6 1 8 3）の日。
 
 **A**
 
@@ -111,8 +111,7 @@ npx.cmd wrangler secret put GH_TOKEN
 Make10 Daily #12
 Today's numbers: 6 · 1 · 8 · 3
 Use all four, in order, to make 10.
-Play free — link in profile.
-#Make10 #DailyPuzzle #MathPuzzle
+#Make10 #puzzle #MathPuzzle
 ```
 
 **B**
@@ -120,8 +119,8 @@ Play free — link in profile.
 ```
 Can you make 10 from 6 · 1 · 8 · 3?
 Keep the order. + − × ÷ ^ ! ( ) allowed.
-Make10 Daily #12 — link in profile.
-#Make10 #DailyPuzzle #BrainTeaser
+Make10 Daily #12
+#Make10 #puzzle #BrainTeaser
 ```
 
 **C**
@@ -129,17 +128,59 @@ Make10 Daily #12 — link in profile.
 ```
 Make10 Daily #12: 6 · 1 · 8 · 3
 Yesterday's puzzle: 63% solved, 41% with no hints.
-Your turn — make 10. Link in profile.
-#Make10 #DailyPuzzle #MathPuzzle
+Your turn — make 10.
+#Make10 #puzzle #MathPuzzle
 ```
 
 - C の 2 行目は、昨日の問題のみんなの結果（`GET https://api.make10.app/r?n=…`）。正解率 ＝ 解いた ÷（解いた ＋ ギブアップ）、
   ヒントなし ＝ ヒント 0 回で解いた ÷ 解いた（ページの「みんなの結果」と同じ数え方・同じ四捨五入）
 - **集計が 30 件未満・取れない・#1（昨日が無い）のときは、2 行目を除いて送り**、`posts.csv` の `c_note` に理由を残す。
   解いた人が 0 のときは、ヒントなしを付けずに `Yesterday's puzzle: 0% solved.` にする
-- 字数は X の数え方（英数字や `·`・`—` は 1 字、`−` や日本語は 2 字）で 280 字まで。いちばん長い文でも 160 字ほど
+- 字数は X の数え方（英数字や `·`・`—` は 1 字、`−` や日本語は 2 字）で 280 字まで。いちばん長い文でも 140 字ほど
 - B の 2 行目（使える記号の一覧）だけは記号を書く。ほかの行に演算の記号や括弧があれば、`post.py` は送らない
 - 制約のある日（使えない演算がある日）も、文は同じ（ページの共有の文と同じく、制約は書かない）
+
+### 画像（`promo/image.py`）
+
+毎日の投稿に、その日の問題の画像（1200×675 の PNG）を付ける。
+
+- 絵: 主役は穴埋めの式「6 ? 8 ? 2 ? 3 = 10」。下に使える記号の段（本編の盤と同じ字と並び）と決まりの 1 行、上に小さく「#番号」と「Make10 DAILY」。
+  **金は式の 10 だけ。答えは載せない**（渡すのは番号・4 つの数字・制約だけ。撮る前に、画面の文字が決まった並びと同じかを確かめる）
+- 制約がある日（全体の約 37%）は、使えない記号を盤と同じ無効の見た目にし、決まりの行に「− isn't allowed.」を足す
+- 描くのは headless Chrome（Actions の ubuntu-latest に入っている。pip を増やさない）。字は Zen Kaku Gothic New を
+  google/fonts の決まったコミットから取り、SHA-256 を確かめる（リポジトリには入れない。読めなければ別の字で描かずに失敗にする）
+- 上げるのは `POST /2/media/upload`（multipart・`tweet_image`）、代わりの文（`Make10 #8. Digits: 6, 8, 2, 3. Use all four, in order, to make 10.`）は
+  `POST /2/media/metadata`、投稿は `POST /2/tweets` の `media.media_ids`。鍵は今の OAuth 1.0a のまま
+
+**その日の投稿を落とさない**:
+
+| 起きたこと | どうする | `posts.csv` の `image` |
+|---|---|---|
+| 画像を作れない・上げられない | 文字だけで送り、ログに `注意: 画像なしで投稿する: 理由` | `0` |
+| 代わりの文だけ入らない | 画像は付けて送り、ログに注意 | `1` |
+| 画像付きの投稿が 4xx で断られた | 文字だけで 1 回送り直す | `0` |
+| 画像付きの投稿が 5xx・通信の失敗 | 送り直さずに失敗にする（出ているかもしれないので、2 本にしない） | 行を足さない |
+
+手で流す `dry_run` の post は、送らずに画像を作り、実行の画面の **Artifacts** の `promo-image` に残す（7 日で消える）。
+
+### 画像を上げられるかを確かめる（`media_test`。人が行う）
+
+投稿はせず、`posts.csv` にも書かない。X に画像を上げ、代わりの文を入れて、`media_id` と状態をログに出すだけ。
+
+1. Actions → promo →「Run workflow」で、`task` を **media_test** にして流す（`dry_run` のチェックは関係ない。**上げる分の料金はかかる**）
+2. ログの「画像を X に上げるだけ」に `media_id: … 上げたときの状態: HTTP 200 代わりの文の状態: 200` が出れば緑。画像は Artifacts の `promo-image` にも残る
+
+赤になったら、ログの `HTTP` の数字を見る:
+
+| 状態 | 見る所 |
+|---|---|
+| 401 | 鍵の取り違え・作り直しの反映漏れ。OAuth 1.0a の鍵のままでは受け付けないときもここに出る |
+| 403 | App の権限が Read and write か（変えたら Access Token を作り直す）。本文に OAuth 2.0 や `media.write` とあれば、**今の鍵では上げられない**ので、OAuth 2.0 のユーザーの鍵に替える作業が要る |
+| 402・`credits` の文 | Developer Console の残高と上限 |
+| 429 | 回数の制限。時間を置く |
+| 400 | 本文の形。`post.py` を直す（X の仕様が変わった可能性） |
+
+断られたままでも毎日の投稿は止まらない（文字だけで出る）。`posts.csv` の `image` が `0` の日が続いたら、ここへ戻る。
 
 ### 表（`promo-data` ブランチの `promo/data/`）
 
@@ -147,7 +188,7 @@ Your turn — make 10. Link in profile.
 
 | ファイル | 1 行 | 中身 |
 |---|---|---|
-| `posts.csv` | 投稿 1 本 | 日付・番号・型・**文の版**（`tmpl`。今は 2。列ができる前の #1・#2 は空で、読むときに 1 とみなし、次に書き戻すときに 1 が入る）・数字・文・C の記録（`c_note`）・tweet の番号・投稿の時刻・その時のフォロワー数。X の指標（表示回数・いいね・返信・リポスト・引用・プロフィールのクリック）を 2 組: **約 24 時間の値**（`m24_*`。投稿から 20〜36 時間の間に初めて集めた値。毎日 8:00 に集めるので、ふつうは 23.5 時間の値）と、**最新の値**（`last_*`。投稿から 7 日まで毎日上書き） |
+| `posts.csv` | 投稿 1 本 | 日付・番号・型・**文の版**（`tmpl`。今は 2。列ができる前の #1・#2 は空で、読むときに 1 とみなし、次に書き戻すときに 1 が入る）・数字・文・C の記録（`c_note`）・**画像を付けたか**（`image`。`1` か `0`。列ができる前の行は空）・tweet の番号・投稿の時刻・その時のフォロワー数。X の指標（表示回数・いいね・返信・リポスト・引用・プロフィールのクリック）を 2 組: **約 24 時間の値**（`m24_*`。投稿から 20〜36 時間の間に初めて集めた値。毎日 8:00 に集めるので、ふつうは 23.5 時間の値）と、**最新の値**（`last_*`。投稿から 7 日まで毎日上書き） |
 | `visits.csv` | 1 日 | make10.app/daily/ の訪問数・ページの表示数・参照元が `t.co` の訪問・`x.com`（と `twitter.com`）の訪問。毎日、昨日までの 7 日ぶんを書き直す |
 | `agg.csv` | 1 問 | 昨日（UTC）の問題の、解いた数 `s`・ギブアップ `g`・ヒントなしで解いた数 `s0`・遊んだ人 `players`（s ＋ g） |
 | `report.md` | — | 型ごとのまとめ（下の「まとめを読む」）。collect のたびに書き直す |
@@ -168,8 +209,11 @@ Your turn — make 10. Link in profile.
 | `CF_API_TOKEN` | Cloudflare の My Profile → API Tokens → Create Token → Custom token。権限は **Account → Account Analytics → Read** だけ。Account Resources は make10.app のあるアカウント |
 | `CF_ACCOUNT_ID` | Cloudflare のダッシュボードの右側（アカウントのホーム）にある Account ID |
 
-- X の API は使った分だけ料金がかかる（投稿・読み取りとも。Developer Portal で残高と上限を見る）。この仕組みが 1 日に呼ぶのは、
-  投稿 1 回・自分の情報 1 回・投稿の指標の読み取り 1 回（最大 7 本ぶん）
+- X の API は使った分だけ料金がかかる（投稿・読み取りとも）。この仕組みが 1 日に呼ぶのは、
+  投稿 1 回・画像の upload 1 回・代わりの文 1 回・自分の情報 1 回・投稿の指標の読み取り 1 回（最大 7 本ぶん）
+- **料金の確かめ方**: X の Developer Console（https://console.x.com/ ）の料金表で、`Content: Create`・`Media Metadata`・Media の upload の行の単価を見る。
+  残高と上限も同じ所で見る。説明書の表は https://docs.x.com/x-api/getting-started/pricing 。2026-11 に見たときは投稿 $0.015・Media Metadata $0.005 で、
+  upload だけの単価は説明書に見つからなかった（値は変わるので、ここの数字ではなく Console を正とする）
 - 非公開の指標（表示回数・プロフィールのクリック）は、投稿したアカウント自身の鍵（OAuth 1.0a のユーザーの鍵）で、投稿から 30 日以内だけ読める
 - 型を固定するときは **Variables**（同じ画面の隣のタブ）に `PROMO_TYPE` を入れる（下の「型を 1 つに決める」）
 
@@ -188,7 +232,8 @@ Your turn — make 10. Link in profile.
 ```
 python promo/test_promo.py               # 手元の試し（返事のまねのサーバーで X・Cloudflare・集計を試す。ページとの照合に Chrome を使う）
 python promo/test_promo.py --no-chrome   # Chrome を使う照合を飛ばす
-python promo/post.py --dry-run           # 今日の文と型を出すだけ（C の日は、本物の集計を 1 回読む）
+python promo/post.py --dry-run           # 今日の文と型を出し、画像を作るだけ（C の日は、本物の集計を 1 回読む）
+python promo/image.py --no 8 --out 8.png # #8 の画像を作る
 python promo/post.py --dry-run --now 2026-10-27T08:30:00Z   # その時刻の文
 ```
 
