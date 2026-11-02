@@ -12,12 +12,12 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "流すもの（post は投稿・collect は集める）"
+        description: "流すもの（post は投稿・collect は集める・media_test は画像を X に上げるだけで投稿しない）"
         type: choice
-        options: [post, collect]
+        options: [post, collect, media_test]
         default: post
       dry_run:
-        description: "送らずに試す（post は X へ送らない・collect は promo-data に書かない）"
+        description: "送らずに試す（post は X へ送らない・collect は promo-data に書かない。media_test はこのチェックに関係なく上げる）"
         type: boolean
         default: true
 
@@ -37,6 +37,7 @@ jobs:
       TASK: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 8 * * *' && 'collect' || 'post') || inputs.task }}
       DRY: ${{ github.event_name == 'schedule' && 'false' || (inputs.dry_run && 'true' || 'false') }}
       DATA: promo-data-wt/promo/data
+      IMG: promo-image-out
     steps:
       - uses: actions/checkout@v5
       - name: 何を流すか
@@ -63,7 +64,23 @@ jobs:
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
           PROMO_TYPE: ${{ vars.PROMO_TYPE }}
-        run: python3 promo/post.py --data "$DATA" ${{ env.DRY == 'true' && '--dry-run' || '' }}
+        run: python3 promo/post.py --data "$DATA" --image-dir "$IMG" ${{ env.DRY == 'true' && '--dry-run' || '' }}
+      - name: 画像を X に上げるだけ（media_test。投稿しない・posts.csv に書かない）
+        if: env.TASK == 'media_test'
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: python3 promo/post.py --media-test --data "$DATA" --image-dir "$IMG"
+      - name: 画像を残す（dry_run の post と media_test。実行の画面の Artifacts から見る）
+        if: ${{ !cancelled() && (env.TASK == 'media_test' || (env.TASK == 'post' && env.DRY == 'true')) }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: promo-image
+          path: ${{ env.IMG }}/
+          if-no-files-found: warn
+          retention-days: 7
       - name: 集める（collect）
         if: env.TASK == 'collect'
         env:
@@ -81,7 +98,7 @@ jobs:
           cat "$DATA/report.md" >> "$GITHUB_STEP_SUMMARY"
       - name: promo-data にコミットする
         # 前の手順が落ちても、取れた分は残す（ワークフローは失敗のまま）
-        if: ${{ !cancelled() && env.DRY == 'false' }}
+        if: ${{ !cancelled() && env.DRY == 'false' && env.TASK != 'media_test' }}
         working-directory: promo-data-wt
         run: |
           git add -A promo/data
