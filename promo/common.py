@@ -108,9 +108,10 @@ def agg_get(n):
 
 # ── HTTP ──
 
-def request(method, url, headers=None, body=None, timeout=30):
-    """(状態, JSON か None, 本文)。HTTP のエラーも返す。通信できないときは Fail。ヘッダー（鍵）は出さない"""
-    data = None
+def request(method, url, headers=None, body=None, timeout=30, raw=None):
+    """(状態, JSON か None, 本文)。HTTP のエラーも返す。通信できないときは Fail。ヘッダー（鍵）は出さない。
+    body は JSON で送る値。raw はそのまま送るバイト列（Content-Type は headers に入れる）"""
+    data = raw
     h = {"User-Agent": "make10-promo"}
     h.update(headers or {})
     if body is not None:
@@ -168,13 +169,27 @@ def x_keys():
     return tuple(os.environ[k] for k in X_KEYS)
 
 
-def x_call(method, path, keys, query=None, body=None):
-    """X の API v2 を呼ぶ。(状態, JSON, 本文)"""
+def x_call(method, path, keys, query=None, body=None, raw=None, ctype=None):
+    """X の API v2 を呼ぶ。(状態, JSON, 本文)。本文（JSON・multipart）は OAuth 1.0a の署名に入れない"""
     url = api("X_API") + path
     query = query or {}
     full = url + ("?" + "&".join("%s=%s" % (q(k), q(v)) for k, v in query.items()) if query else "")
     auth = oauth_header(method, url, query, keys)
-    return request(method, full, headers={"Authorization": auth}, body=body)
+    headers = {"Authorization": auth}
+    if ctype:
+        headers["Content-Type"] = ctype
+    return request(method, full, headers=headers, body=body, raw=raw)
+
+
+def x_upload_image(keys, png):
+    """画像（PNG）を POST /2/media/upload で上げる（multipart/form-data）。(状態, JSON, 本文)"""
+    b = "make10" + secrets.token_hex(16)
+    raw = b"".join([
+        ('--%s\r\nContent-Disposition: form-data; name="media_category"\r\n\r\ntweet_image\r\n' % b).encode(),
+        ('--%s\r\nContent-Disposition: form-data; name="media"; filename="make10.png"\r\n'
+         'Content-Type: image/png\r\n\r\n' % b).encode(),
+        png, ('\r\n--%s--\r\n' % b).encode()])
+    return x_call("POST", "/2/media/upload", keys, raw=raw, ctype="multipart/form-data; boundary=" + b)
 
 
 def x_error(st, j, text):
@@ -189,7 +204,7 @@ def x_error(st, j, text):
 
 # ── CSV（キーで 1 行。同じキーは上書きするので、2 回集めても重複しない） ──
 
-POSTS = ("date", "n", "type", "tmpl", "digits", "text", "c_note", "tweet_id", "posted_at", "followers",
+POSTS = ("date", "n", "type", "tmpl", "digits", "text", "c_note", "image", "tweet_id", "posted_at", "followers",
          "m24_at", "m24_impressions", "m24_likes", "m24_replies", "m24_reposts", "m24_quotes", "m24_profile_clicks",
          "last_at", "last_impressions", "last_likes", "last_replies", "last_reposts", "last_quotes", "last_profile_clicks")
 VISITS = ("date", "visits", "pageviews", "from_tco", "from_x", "collected_at")

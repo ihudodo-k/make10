@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """その日の投稿を作って X へ送る（promo/README.md）。毎日 1 本。GitHub Actions が UTC 8:30（日本の 17:30）に流す。
 
-  python promo/post.py --dry-run     送らずに、送る文と型を出すだけ（鍵は要らない）
+  python promo/post.py --dry-run     送らずに、送る文と型を出し、画像を作るだけ（鍵は要らない）
   python promo/post.py               送る（鍵 4 つが環境変数に要る）。送ったら promo/data/posts.csv に 1 行足す
+  python promo/post.py --media-test  画像を作って X に上げ、代わりの文も入れて、状態を出すだけ（投稿しない・CSV に書かない）
 
 - 問題番号と 4 つの数字は、docs/daily/index.html の起点日と列から、UTC の日付で出す。**答えは載せない**（送る前に確かめる）
-- 文の版は TMPL（posts.csv の tmpl に残す。今は 2。版 1 は #1・#2 の短い文。tmpl が空の行は版 1 として読む）
+- 文の版は TMPL（posts.csv の tmpl に残す。今は 3。版 1 は #1・#2 の短い文。tmpl が空の行は版 1 として読む）
+- 画像を付ける（promo/image.py）。作れない・上げられないときは、その日は文字だけで送り、ログに理由を出す（posts.csv の image が 0）。
+  代わりの文が入らないだけなら画像は付ける。画像付きが 4xx で断られたら、文字だけで 1 回送り直す
 - 型は 3 つを、問題番号で順に回す（(番号 - 1) を 3 で割った余り。#1 が A・#2 が B・#3 が C）。
   1 つに決めたら、環境変数 PROMO_TYPE（GitHub の Variables）に A・B・C のどれかを入れる。型を自動で選ぶ処理は無い
 - リンクは付けない（リンク付きの投稿は API の料金が高い。リンクはプロフィールに置く）
@@ -15,15 +18,16 @@ import argparse
 import os
 import re
 import sys
+import tempfile
 
 import common as c
 
 TYPES = "ABC"
-TMPL = "2"                 # 文の版（posts.csv の tmpl）。文を変えたら上げる。report.py は版ごとに分けて集計する
+TMPL = "3"                 # 文の版（posts.csv の tmpl）。文を変えたら上げる。report.py は版ごとに分けて集計する
 SEP = " · "                # 4 つの数字の間
 RULE_B = "Keep the order. + − × ÷ ^ ! ( ) allowed."
-TAGS = {"A": "#Make10 #DailyPuzzle #MathPuzzle", "B": "#Make10 #DailyPuzzle #BrainTeaser",
-        "C": "#Make10 #DailyPuzzle #MathPuzzle"}
+TAGS = {"A": "#Make10 #puzzle #MathPuzzle", "B": "#Make10 #puzzle #BrainTeaser",
+        "C": "#Make10 #puzzle #MathPuzzle"}
 TEXT_MAX = 280             # X の重みつきの字数（x_len）
 
 
@@ -58,23 +62,22 @@ def compose(n, digits, typ, line=""):
     """その型の文（版 TMPL）。line は C の 2 行目（空なら、その行を除く）"""
     d = SEP.join(digits)
     if typ == "A":
-        lines = ["Make10 Daily #%d" % n, "Today's numbers: %s" % d, "Use all four, in order, to make 10.",
-                 "Play free — link in profile."]
+        lines = ["Make10 Daily #%d" % n, "Today's numbers: %s" % d, "Use all four, in order, to make 10."]
     elif typ == "B":
-        lines = ["Can you make 10 from %s?" % d, RULE_B, "Make10 Daily #%d — link in profile." % n]
+        lines = ["Can you make 10 from %s?" % d, RULE_B, "Make10 Daily #%d" % n]
     else:
-        lines = ["Make10 Daily #%d: %s" % (n, d)] + ([line] if line else []) + ["Your turn — make 10. Link in profile."]
+        lines = ["Make10 Daily #%d: %s" % (n, d)] + ([line] if line else []) + ["Your turn — make 10."]
     return "\n".join(lines + [TAGS[typ]])
 
 
 _D = r"(?P<d1>\d) · (?P<d2>\d) · (?P<d3>\d) · (?P<d4>\d)"
 SHAPES = [re.compile(x) for x in (
     r"Make10 Daily #(?P<n>\d+)\nToday's numbers: " + _D + r"\nUse all four, in order, to make 10\.\n"
-    r"Play free — link in profile\.\n#Make10 #DailyPuzzle #MathPuzzle",
-    r"Can you make 10 from " + _D + r"\?\n" + re.escape(RULE_B) + r"\nMake10 Daily #(?P<n>\d+) — link in profile\.\n"
-    r"#Make10 #DailyPuzzle #BrainTeaser",
+    r"#Make10 #puzzle #MathPuzzle",
+    r"Can you make 10 from " + _D + r"\?\n" + re.escape(RULE_B) + r"\nMake10 Daily #(?P<n>\d+)\n"
+    r"#Make10 #puzzle #BrainTeaser",
     r"Make10 Daily #(?P<n>\d+): " + _D + r"\n(?:Yesterday's puzzle: \d{1,3}% solved(?:, \d{1,3}% with no hints)?\.\n)?"
-    r"Your turn — make 10\. Link in profile\.\n#Make10 #DailyPuzzle #MathPuzzle")]
+    r"Your turn — make 10\.\n#Make10 #puzzle #MathPuzzle")]
 
 
 def x_len(text):
@@ -115,9 +118,61 @@ def plan(day, page=None):
     return n, rows[n - 1], type_of(n)
 
 
+def alt_text(n, digits):
+    """画像の代わりの文"""
+    return "Make10 #%d. Digits: %s. Use all four, in order, to make 10." % (n, ", ".join(digits))
+
+
+def make_image(n, row):
+    """その日の画像（PNG のバイト列）。作れないときは Fail（文字だけの投稿に落とす）"""
+    try:
+        import image
+    except ImportError as e:
+        raise c.Fail("画像の部品を読めない: %s" % e)
+    return image.make(n, row["digits"], row["rc"])
+
+
+def save_image(png, n, out_dir):
+    """画像を out_dir に書いて、パスを返す（既定は一時フォルダー）"""
+    out_dir = out_dir or os.path.join(tempfile.gettempdir(), "make10-promo-image")
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, "make10-%d.png" % n)
+    with open(path, "wb") as f:
+        f.write(png)
+    return path
+
+
+def upload(keys, png, n, digits):
+    """画像を上げて代わりの文を入れる。(media_id, 上げたときの状態, 代わりの文の状態か理由)。上げられないときは Fail"""
+    st, j, txt = c.x_upload_image(keys, png)
+    mid = (j or {}).get("data", {}).get("id") if isinstance(j, dict) else None
+    if st not in (200, 201) or not isinstance(mid, str) or not re.fullmatch(r"[0-9]{1,19}", mid):
+        raise c.Fail("X が画像を断った: " + c.x_error(st, j, txt))
+    alt = alt_text(n, digits)
+    try:
+        st2, j2, txt2 = c.x_call("POST", "/2/media/metadata", keys,
+                                 body={"id": mid, "metadata": {"alt_text": {"text": alt}}})
+    except c.Fail as e:
+        return mid, st, str(e)
+    return mid, st, st2 if st2 in (200, 201) else c.x_error(st2, j2, txt2)
+
+
+def media_test(n, row, out_dir):
+    """画像を作って上げるだけ（手で流す確かめ。投稿しない・CSV に書かない）。上げられなければ Fail"""
+    png = make_image(n, row)
+    print("画像: %s（%d バイト）" % (save_image(png, n, out_dir), len(png)))
+    mid, st, alt = upload(c.x_keys(), png, n, row["digits"])
+    print("media_id: %s  上げたときの状態: HTTP %s  代わりの文の状態: %s" % (mid, st, alt))
+    if alt not in (200, 201):
+        raise c.Fail("代わりの文が入らなかった: %s" % alt)
+    print("投稿はしていない")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="その日の投稿を作って X へ送る")
-    ap.add_argument("--dry-run", action="store_true", help="送らずに、送る文と型を出すだけ")
+    ap.add_argument("--dry-run", action="store_true", help="送らずに、送る文と型を出し、画像を作るだけ")
+    ap.add_argument("--media-test", action="store_true", help="画像を作って X に上げるだけ（投稿しない・CSV に書かない）")
+    ap.add_argument("--image-dir", help="画像を書き出す場所（--dry-run・--media-test。既定は一時フォルダー）")
     ap.add_argument("--data", help="CSV の置き場所（既定は promo/data。環境変数 PROMO_DATA でも）")
     ap.add_argument("--page", help="問題の列を読むページ（既定は docs/daily/index.html）")
     ap.add_argument("--now", help="今の時刻を決める（試しのため。2026-10-26T08:30:00Z の形）")
@@ -128,6 +183,9 @@ def main(argv=None):
         n, row, typ = plan(day, a.page)
         if row is None:
             print("%s（UTC）は起点日より前（#%d）。送らない" % (day, n))
+            return 0
+        if a.media_test:
+            media_test(n, row, a.image_dir)
             return 0
         ddir = c.data_dir(a.data)
         posts = c.read_table(ddir, "posts.csv")
@@ -144,6 +202,12 @@ def main(argv=None):
         print(text)
         print("----  %d 字（X の数え方）" % x_len(text))
         if a.dry_run:
+            try:
+                png = make_image(n, row)
+                print("画像: %s（%d バイト）" % (save_image(png, n, a.image_dir), len(png)))
+            except c.Fail as e:
+                print("注意: 画像を作れない（本番なら文字だけで送る）: %s" % e)
+            print("代わりの文: %s" % alt_text(n, row["digits"]))
             print("dry-run なので送らない")
             return 0
         keys = c.x_keys()
@@ -153,15 +217,30 @@ def main(argv=None):
             followers = str(j["data"].get("public_metrics", {}).get("followers_count", ""))
         else:
             print("注意: フォロワーの数が読めない（%s）。投稿は続ける" % c.x_error(st, j, txt))
-        st, j, txt = c.x_call("POST", "/2/tweets", keys, body={"text": text})
+        mid = None
+        try:
+            mid, st, alt = upload(keys, make_image(n, row), n, row["digits"])
+            print("画像を上げた: media_id %s" % mid)
+            if alt not in (200, 201):
+                print("注意: 代わりの文が入らない（画像は付ける）: %s" % alt)
+        except c.Fail as e:
+            print("注意: 画像なしで投稿する: %s" % e)
+        body = {"text": text}
+        if mid:
+            body["media"] = {"media_ids": [mid]}
+        st, j, txt = c.x_call("POST", "/2/tweets", keys, body=body)
+        if mid and 400 <= st < 500:     # 届いて断られた。5xx や通信の失敗は、出ているかもしれないので送り直さない
+            print("注意: 画像付きを断られたので、文字だけで送り直す: " + c.x_error(st, j, txt))
+            mid = None
+            st, j, txt = c.x_call("POST", "/2/tweets", keys, body={"text": text})
         tid = (j or {}).get("data", {}).get("id") if isinstance(j, dict) else None
         if st not in (200, 201) or not tid:
             raise c.Fail("X が投稿を断った: " + c.x_error(st, j, txt))
         posts[day.isoformat()] = {"date": day.isoformat(), "n": str(n), "type": typ, "tmpl": TMPL, "digits": row["digits"],
-                                  "text": text, "c_note": note, "tweet_id": str(tid), "posted_at": c.iso(now),
+                                  "text": text, "c_note": note, "image": "1" if mid else "0", "tweet_id": str(tid), "posted_at": c.iso(now),
                                   "followers": followers}
         c.write_table(ddir, "posts.csv", posts)
-        print("送った: tweet %s（フォロワー %s）" % (tid, followers or "?"))
+        print("送った: tweet %s（フォロワー %s・画像 %s）" % (tid, followers or "?", "あり" if mid else "なし"))
         return 0
     except c.Fail as e:
         print("失敗: %s" % e)

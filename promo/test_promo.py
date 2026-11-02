@@ -9,10 +9,12 @@
 - 3 つの型の文: 280 字以内・答えが入らない・決まった形。C の数字の作り方（ページと同じ四捨五入）と、集計が足りない・取れないときの形
 - X・Cloudflare・集計は、返事のまねのサーバー（このファイルの中）で試す。X の署名は、まねのサーバーが別に計算し直して確かめる
 - CSV: 同じ日を 2 回集めても重複しない。同じ日に 2 回流しても 2 回送らない
+- 画像: 上げる → 付けて投稿する。作れない・上げられないときは文字だけで投稿する。media_test は投稿しない
 """
 import base64
 import contextlib
 import datetime
+import email.parser
 import hashlib
 import hmac
 import io
@@ -48,12 +50,28 @@ KEYS = {"X_API_KEY": "test-consumer-key", "X_API_SECRET": "test-consumer-secret-
         "X_ACCESS_TOKEN": "test-token", "X_ACCESS_SECRET": "test-token-secret-SHOULD-NOT-LEAK",
         "CF_API_TOKEN": "test-cf-token-SHOULD-NOT-LEAK", "CF_ACCOUNT_ID": "acct123"}
 S = {}                       # まねのサーバーの状態（試しごとに reset() で作り直す）
+PNG = b"\x89PNG\r\n\x1a\n" + bytes(range(256)) + b"--\r\n"   # 本文の区切りに見える並びも入れる
 
 
 def reset():
     S.clear()
     S.update({"agg": {}, "posted": [], "post_resp": None, "tweets": {}, "followers": 100, "cf": None,
-              "cf_req": [], "calls": [], "bad_auth": [], "next_id": 1000})
+              "cf_req": [], "calls": [], "bad_auth": [], "next_id": 1000, "image": PNG, "uploads": [], "upload_resp": None,
+              "metas": [], "meta_resp": None, "media_resp": None})
+
+
+def parse_multipart(ctype, raw):
+    """multipart の本文を {名前: (filename, Content-Type, バイト列)} にする（common.x_upload_image とは別に読む）"""
+    msg = email.parser.BytesParser().parsebytes(b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + raw)
+    return {p.get_param("name", header="content-disposition"):
+            (p.get_filename(), p.get_content_type(), p.get_payload(decode=True)) for p in msg.get_payload()}
+
+
+def fake_image(n, row):
+    """post.make_image の代わり（Chrome も字も使わない）。S["image"] が None なら作れない日"""
+    if S["image"] is None:
+        raise c.Fail("まねの失敗: Chrome が無い")
+    return S["image"]
 
 
 def verify_oauth(method, base_url, query, header):
@@ -93,7 +111,8 @@ class Mock(BaseHTTPRequestHandler):
         u = urllib.parse.urlsplit(self.path)
         query = urllib.parse.parse_qsl(u.query, keep_blank_values=True)
         n = int(self.headers.get("Content-Length") or 0)
-        body = self.rfile.read(n).decode() if n else ""
+        raw = self.rfile.read(n) if n else b""
+        body = raw.decode("utf-8", "replace")
         S["calls"].append((method, u.path))
         if u.path == "/agg/r":
             if self.headers.get("Origin") != c.ORIGIN:
@@ -110,8 +129,20 @@ class Mock(BaseHTTPRequestHandler):
             if u.path == "/x/2/users/me":
                 return self.send(200, {"data": {"id": "1", "username": "make10app",
                                                 "public_metrics": {"followers_count": S["followers"]}}})
+            if u.path == "/x/2/media/upload" and method == "POST":
+                S["uploads"].append(parse_multipart(self.headers.get("Content-Type"), raw))
+                if S["upload_resp"]:
+                    return self.send(*S["upload_resp"])
+                return self.send(200, {"data": {"id": "770077", "media_key": "3_770077", "size": len(raw)}})
+            if u.path == "/x/2/media/metadata" and method == "POST":
+                S["metas"].append(json.loads(body))
+                if S["meta_resp"]:
+                    return self.send(*S["meta_resp"])
+                return self.send(200, {"data": {"id": json.loads(body)["id"]}})
             if u.path == "/x/2/tweets" and method == "POST":
                 S["posted"].append(json.loads(body))
+                if S["media_resp"] and "media" in S["posted"][-1]:
+                    return self.send(*S["media_resp"])
                 if S["post_resp"]:
                     return self.send(*S["post_resp"])
                 S["next_id"] += 1
@@ -230,18 +261,23 @@ def main():
         print("  （--no-chrome: ページの JS との照合は飛ばした）")
 
     print("■ 3 つの型の文")
-    check("文の版は 2", post.TMPL, "2")
+    check("文の版は 3", post.TMPL, "3")
     check("例の形 A", post.compose(12, "6183", "A"),
           "Make10 Daily #12\nToday's numbers: 6 · 1 · 8 · 3\nUse all four, in order, to make 10.\n"
-          "Play free — link in profile.\n#Make10 #DailyPuzzle #MathPuzzle")
+          "#Make10 #puzzle #MathPuzzle")
     check("例の形 B", post.compose(12, "6183", "B"),
           "Can you make 10 from 6 · 1 · 8 · 3?\nKeep the order. + − × ÷ ^ ! ( ) allowed.\n"
-          "Make10 Daily #12 — link in profile.\n#Make10 #DailyPuzzle #BrainTeaser")
+          "Make10 Daily #12\n#Make10 #puzzle #BrainTeaser")
     check("例の形 C", post.compose(12, "6183", "C", "Yesterday's puzzle: 63% solved, 41% with no hints."),
           "Make10 Daily #12: 6 · 1 · 8 · 3\nYesterday's puzzle: 63% solved, 41% with no hints.\n"
-          "Your turn — make 10. Link in profile.\n#Make10 #DailyPuzzle #MathPuzzle")
+          "Your turn — make 10.\n#Make10 #puzzle #MathPuzzle")
     check("C で昨日の行が無いとき（2 行目を除く）", post.compose(12, "6183", "C", ""),
-          "Make10 Daily #12: 6 · 1 · 8 · 3\nYour turn — make 10. Link in profile.\n#Make10 #DailyPuzzle #MathPuzzle")
+          "Make10 Daily #12: 6 · 1 · 8 · 3\nYour turn — make 10.\n#Make10 #puzzle #MathPuzzle")
+    all_txt = [post.compose(r["no"], r["digits"], t, "Yesterday's puzzle: 63% solved.") for r in rows[:30] for t in "ABC"]
+    check("どの型にもリンクの案内が無い", [t for t in all_txt if "link" in t.lower() or "profile" in t.lower()], [])
+    check("どの型もハッシュタグは 3 つで、#puzzle が入る",
+          sorted({(t.count("#") - 1, "#puzzle" in t.split()) for t in all_txt}), [(3, True)])
+    check("代わりの文の形", post.alt_text(1, "8752"), "Make10 #1. Digits: 8, 7, 5, 2. Use all four, in order, to make 10.")
     check("X の数え方: 英数字・·・— は 1、−（U+2212）と日本語は 2",
           [post.x_len("ab1"), post.x_len("·—"), post.x_len("−"), post.x_len("あ")], [3, 2, 2, 2])
     check("型は番号で順に回る（#1 A・#2 B・#3 C・#4 A・#12 C）", [post.type_of(n) for n in (1, 2, 3, 4, 12)],
@@ -275,7 +311,7 @@ def main():
           [post.problems(post.compose(13, r12["digits"], t), r12) != [] for t in "ABC"], [True] * 6)
     check("リンクの入った文は送らない", post.problems(a12 + " https://make10.app/daily/", r12) != [], True)
     check("B の決まりの行の外に記号があれば送らない", "演算の記号が入っている" in post.problems(
-        post.compose(12, r12["digits"], "B").replace("link in profile", "link (profile)"), r12), True)
+        post.compose(12, r12["digits"], "B").replace("Make10 Daily", "Make10 (Daily)"), r12), True)
     check("C の昨日の行が決まった形でなければ送らない",
           post.problems(post.compose(12, r12["digits"], "C", "Yesterday's puzzle: everyone solved it."), r12) != [], True)
 
@@ -284,6 +320,7 @@ def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = "http://127.0.0.1:%d" % srv.server_address[1]
     tmp = tempfile.mkdtemp(prefix="make10-promo-data-")
+    post.make_image = fake_image
     try:
         with env(PROMO_X_API=base + "/x", PROMO_CF_API=base + "/cf", PROMO_AGG_API=base + "/agg", PROMO_DATA=None,
                  PROMO_TYPE=None, **{k: None for k in KEYS}):
@@ -335,9 +372,19 @@ def main():
                 check("posts.csv に 1 行（型・文の版・番号・数字・tweet の番号・フォロワー・C の記録）",
                       [len(p), row.get("type"), row.get("tmpl"), row.get("n"), row.get("digits"), row.get("tweet_id"),
                        row.get("followers"), row.get("c_note"), row.get("posted_at")],
-                      [1, "C", "2", str(n), rows[n - 1]["digits"], "1001", "100", "出した（s=40 g=10 s0=30）", at(n)])
+                      [1, "C", "3", str(n), rows[n - 1]["digits"], "1001", "100", "出した（s=40 g=10 s0=30）", at(n)])
+                check("画像を上げて付ける: 上げるのは 1 回・本文は multipart・tweet_image・PNG がそのまま届く",
+                      [len(S["uploads"]), S["uploads"][0].get("media_category", (0, 0, 0))[2],
+                       S["uploads"][0].get("media"), S["bad_auth"]],
+                      [1, b"tweet_image", ("make10.png", "image/png", PNG), []])
+                check("代わりの文を media/metadata で入れる", S["metas"], [{"id": "770077", "metadata": {"alt_text": {
+                    "text": post.alt_text(n, rows[n - 1]["digits"])}}}])
+                check("投稿に media_id が付く・posts.csv の image は 1",
+                      [S["posted"][0].get("media"), row.get("image")], [{"media_ids": ["770077"]}, "1"])
+                order = [k[1] for k in S["calls"] if k[1].startswith("/x/2/") and k[0] == "POST"]
+                check("上げる → 代わりの文 → 投稿 の順", order, ["/x/2/media/upload", "/x/2/media/metadata", "/x/2/tweets"])
                 with open(os.path.join(tmp, "posts.csv"), encoding="utf-8") as fh:
-                    check("CSV のファイルにも tmpl=2 が書いてある", fh.readline().split(",")[3] == "tmpl" and ",C,2," in fh.read(),
+                    check("CSV のファイルにも tmpl=3 が書いてある", fh.readline().split(",")[3] == "tmpl" and ",C,3," in fh.read(),
                           True)
                 check("鍵の値を出さない", [v in out for v in KEYS.values() if "LEAK" in v], [False, False, False])
                 code, out = run(post, "--now", at(n, "09:30"), "--data", tmp)
@@ -358,7 +405,69 @@ def main():
                       [code6, p[D(6).isoformat()]["text"], p[D(6).isoformat()]["c_note"]],
                       [0, post.compose(6, rows[5]["digits"], "C", ""), "取れない（集計が HTTP 400（range））"])
                 code, out = run(post, "--now", "%sT08:30:00Z" % (start - datetime.timedelta(days=1)), "--data", tmp)
-                check("起点日より前の日は送らずに 0 で終わる", [code, len(S["posted"])], [0, 4])
+                # 送ったのは #3・#4（断られた画像付き）・#4（文字だけの送り直し。これも断られた）・#5・#6
+                check("起点日より前の日は送らずに 0 で終わる", [code, len(S["posted"])], [0, 5])
+
+                print("■ 画像が付かない日（post.py。X は返事のまね）")
+                tmp2 = os.path.join(tmp, "画像")
+                img = lambda k: c.read_table(tmp2, "posts.csv")[D(k).isoformat()]  # noqa: E731
+
+                def one(k, **kw):
+                    """#k を送る。(終了コード, 出したもの, 送った本文の並び)"""
+                    S.update(posted=[], uploads=[], metas=[], **kw)
+                    code, out = run(post, "--now", at(k), "--data", tmp2)
+                    S.update(image=PNG, upload_resp=None, meta_resp=None, media_resp=None, post_resp=None)
+                    return code, out, S["posted"]
+                code, out, sent = one(7, image=None)
+                check("画像を作れない日: 文字だけで送る・終了コード 0・理由を出す・image は 0・上げない",
+                      [code, len(sent), "media" in sent[0], "Chrome が無い" in out, img(7)["image"], S["uploads"]],
+                      [0, 1, False, True, "0", []])
+                code, out, sent = one(8, upload_resp=(403, {"title": "Forbidden", "detail": "not permitted to upload"}))
+                check("上げるのを断られた日: 文字だけで送る・終了コード 0・理由を出す・image は 0・代わりの文を送らない",
+                      [code, len(sent), "media" in sent[0], "not permitted to upload" in out, img(8)["image"], S["metas"]],
+                      [0, 1, False, True, "0", []])
+                code, out, sent = one(9, upload_resp=(200, {"data": {"media_key": "x"}}))
+                check("返事に media_id が無い日も文字だけ", [code, len(sent), "media" in sent[0], img(9)["image"]], [0, 1, False, "0"])
+                code, out, sent = one(10, meta_resp=(500, {"title": "oops"}))
+                check("代わりの文だけ入らない日: 画像は付ける・ログに出す・image は 1",
+                      [code, sent[0].get("media"), "代わりの文が入らない" in out, img(10)["image"]],
+                      [0, {"media_ids": ["770077"]}, True, "1"])
+                code, out, sent = one(11, media_resp=(400, {"title": "Invalid Request", "detail": "media id invalid"}))
+                check("画像付きが 4xx の日: 文字だけで 1 回送り直す・image は 0・tweet の番号が残る",
+                      [code, [("media" in b) for b in sent], "media id invalid" in out, img(11)["image"], bool(img(11)["tweet_id"])],
+                      [0, [True, False], True, "0", True])
+                code, out, sent = one(12, media_resp=(503, {"title": "Service Unavailable"}))
+                check("画像付きが 5xx の日: 送り直さない（出ているかもしれない）・終了コード 1・行を足さない",
+                      [code, len(sent), D(12).isoformat() in c.read_table(tmp2, "posts.csv")], [1, 1, False])
+                code, out, sent = one(13, media_resp=(403, {"title": "Forbidden"}), post_resp=(403, {"title": "Forbidden"}))
+                check("文字だけの送り直しも断られたら終了コード 1・行を足さない・3 回目は送らない",
+                      [code, len(sent), D(13).isoformat() in c.read_table(tmp2, "posts.csv")], [1, 2, False])
+
+                print("■ media_test（post.py --media-test）")
+                before = len(c.read_table(tmp2, "posts.csv"))
+                S.update(posted=[], uploads=[], metas=[])
+                idir = os.path.join(tmp, "出力")
+                code, out = run(post, "--media-test", "--now", at(14), "--data", tmp2, "--image-dir", idir)
+                check("上げて代わりの文を入れるだけ: 投稿しない・CSV に書かない・media_id と状態を出す",
+                      [code, len(S["uploads"]), len(S["metas"]), S["posted"], len(c.read_table(tmp2, "posts.csv")),
+                       "media_id: 770077" in out, "HTTP 200" in out], [0, 1, 1, [], before, True, True])
+                with open(os.path.join(idir, "make10-14.png"), "rb") as fh:
+                    check("上げた画像を書き出す", fh.read(), PNG)
+                S.update(upload_resp=(403, {"title": "Forbidden", "detail": "oauth1 not permitted"}))
+                code, out = run(post, "--media-test", "--now", at(14), "--data", tmp2)
+                check("断られたら終了コード 1・返事を出す・投稿しない", [code, "oauth1 not permitted" in out, S["posted"]], [1, True, []])
+                S.update(upload_resp=None, meta_resp=(403, {"detail": "no alt"}))
+                code, out = run(post, "--media-test", "--now", at(14), "--data", tmp2)
+                check("代わりの文が断られても終了コード 1", [code, "no alt" in out], [1, True])
+                S.update(meta_resp=None)
+                check("鍵の値を出さない", [v in out for v in KEYS.values() if "LEAK" in v], [False, False, False])
+                S.update(uploads=[])
+                code, out = run(post, "--dry-run", "--now", at(14), "--data", tmp2, "--image-dir", idir)
+                check("dry-run: 画像を書き出す・上げない", [code, "make10-14.png" in out, S["uploads"]], [0, True, []])
+                S.update(image=None)
+                code, out = run(post, "--dry-run", "--now", at(15), "--data", tmp2, "--image-dir", idir)
+                check("dry-run で画像を作れなくても文は出す・終了コード 0", [code, "画像を作れない" in out, "#15" in out], [0, True, True])
+                S.update(image=PNG)
 
             print("■ 集める（collect.py。X・Cloudflare・集計は返事のまね）")
             cf_rows = lambda day, v: [  # noqa: E731
