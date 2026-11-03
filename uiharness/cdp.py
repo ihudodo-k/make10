@@ -172,12 +172,12 @@ class WS:
 class Chrome:
     """headless Chrome を 1 つ立ち上げ、最初のページに繋ぐ。"""
 
-    def __init__(self, port, profile):
+    def __init__(self, port, profile, args=()):
         self.exe = find_chrome()
         os.makedirs(profile, exist_ok=True)
         self.proc = subprocess.Popen(
             [self.exe, "--headless=new", "--disable-gpu", "--no-first-run",
-             "--no-default-browser-check", "--disable-extensions",
+             "--no-default-browser-check", "--disable-extensions", *args,
              "--remote-debugging-port=%d" % port,
              "--user-data-dir=" + profile, "about:blank"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

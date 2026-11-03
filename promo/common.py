@@ -81,6 +81,17 @@ def load_page(path=None):
     return start, rows
 
 
+SYMS = "+−×÷^!()"                      # 使える記号（本編の盤のトレイと同じ字・並び）
+RC_OP = {"N": "", "A0": "+", "S0": "−", "M0": "×", "D0": "÷", "P0": "^", "F0": "!"}   # 制約 → 使えない記号（DATA-SPEC 8-B）
+
+
+def allowed_syms(rc):
+    """その日に使える記号（使えない記号を抜く）。画像の記号の段と型 B の文の両方がこれを使う"""
+    if rc not in RC_OP:
+        raise Fail("制約が分からない: %r" % (rc,))
+    return SYMS.replace(RC_OP[rc], "") if RC_OP[rc] else SYMS
+
+
 def puzzle_no(start, day):
     """その日（UTC の日付）の問題番号。起点日が #1。起点日より前は 0 以下"""
     return (day - start).days + 1

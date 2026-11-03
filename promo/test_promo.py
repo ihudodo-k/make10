@@ -22,15 +22,18 @@ import json
 import os
 import shutil
 import sys
+import re
 import tempfile
 import threading
 import urllib.parse
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.dirname(HERE))
 import common as c          # noqa: E402
+import image                # noqa: E402
 import post                 # noqa: E402
 import collect              # noqa: E402
 import report               # noqa: E402
@@ -252,6 +255,22 @@ def main():
             check("境目: 東京は UTC 14:59 まで同じ日・15:00 に次の日",
                   [page_no(at(n, "14:59"), "Asia/Tokyo")[0], page_no(at(n, "15:00"), "Asia/Tokyo")[0]], [n, n + 1])
             check("ページの JS エラー 0", ui.errors(), [])
+            for n in (8, 47, 32, len(rows)):       # #32 は式がいちばん広い日・最後の日は番号がいちばん長い
+                png = post.make_image(n, rows[n - 1])
+                check("本物の画像 #%d: 1200×675 の PNG・5MB 以下" % n,
+                      [image.png_size(png), len(png) <= image.MAX_BYTES], [(1200, 675), True])
+            bad_dir = tempfile.mkdtemp(prefix="make10-promo-font-")
+            try:
+                with open(os.path.join(bad_dir, "Bold.ttf"), "wb") as fh:
+                    fh.write(b"not a font")
+                with env(PROMO_FONT_DIR=bad_dir), mock.patch.object(image, "FONT_URL", "http://127.0.0.1:9/%s"):
+                    try:
+                        image.make(8, "6823", "N")
+                        check("字が取れない・中身が違うときは描かずに失敗", "描いた", "Fail")
+                    except c.Fail:
+                        check("字が取れない・中身が違うときは描かずに失敗", "Fail", "Fail")
+            finally:
+                shutil.rmtree(bad_dir, ignore_errors=True)
         finally:
             chrome.close()
             srv.shutdown()
@@ -314,6 +333,33 @@ def main():
         post.compose(12, r12["digits"], "B").replace("Make10 Daily", "Make10 (Daily)"), r12), True)
     check("C の昨日の行が決まった形でなければ送らない",
           post.problems(post.compose(12, r12["digits"], "C", "Yesterday's puzzle: everyone solved it."), r12) != [], True)
+
+    print("■ 画像（image.py）")
+    for bad in ((8, "6+23"), (8, "68233"), (0, "6823"), (True, "6823")):
+        try:
+            image.check_input(bad[0], bad[1], "N")
+            check("番号と 4 桁でないものは受け取らない %r" % (bad,), "受け取った", "Fail")
+        except c.Fail:
+            check("番号と 4 桁でないものは受け取らない %r" % (bad,), "Fail", "Fail")
+    check("列の全 %d 日の制約が分かる" % len(rows), [r["rc"] for r in rows if r["rc"] not in c.RC_OP], [])
+    check("決まった並びの例（#8 は制約なし・#47 は − が使えないので段から消える）",
+          [image.expected_text(8, "6823", "N"), image.expected_text(47, "0553", "S0")],
+          ["#8Make10DAILY6?8?2?3=10Allowed+−×÷^!()Useallfourdigits,inorder.",
+           "#47Make10DAILY0?5?5?3=10Allowed+×÷^!()Useallfourdigits,inorder."])
+    # 使えない記号は、ここで別に書いた対応（DATA-SPEC 8-B の A0 S0 M0 D0 P0 F0 ＝ + - * / ^ ! の禁止）から出す
+    ban = {"A0": "+", "S0": "−", "M0": "×", "D0": "÷", "P0": "^", "F0": "!"}
+    leak, differ = [], []
+    for r in rows:
+        h = image.build_html(r["no"], r["digits"], r["rc"])
+        flat = image.expected_text(r["no"], r["digits"], r["rc"])
+        img_syms = re.findall(r'<span class="s">([^<]*)</span>', h)
+        want = [s for s in "+−×÷^!()" if s != ban.get(r["rc"])]
+        if any(s.replace(" ", "") in flat for s in r["sols"]):
+            leak.append(r["no"])
+        if img_syms != want:
+            differ.append((r["no"], img_syms))
+    check("列の全日: 画像の文字に解答のどれも入らない", leak, [])
+    check("列の全 %d 日: 画像の記号の段から、使えない記号だけが抜ける" % len(rows), differ, [])
 
     print("■ C の数字（みんなの結果）")
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Mock)
