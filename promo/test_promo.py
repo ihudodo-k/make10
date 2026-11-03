@@ -315,7 +315,7 @@ def main():
     for r in rows:
         for t in "ABC":
             for line in (("", worst) if t == "C" else ("",)):
-                txt = post.compose(r["no"], r["digits"], t, line)
+                txt = post.compose(r["no"], r["digits"], t, line, r["rc"])
                 longest = max(longest, post.x_len(txt))
                 if post.problems(txt, r):
                     bad.append((r["no"], t, post.problems(txt, r)))
@@ -331,6 +331,10 @@ def main():
     check("リンクの入った文は送らない", post.problems(a12 + " https://make10.app/daily/", r12) != [], True)
     check("B の決まりの行の外に記号があれば送らない", "演算の記号が入っている" in post.problems(
         post.compose(12, r12["digits"], "B").replace("Make10 Daily", "Make10 (Daily)"), r12), True)
+    check("B: 使えない記号のある日（#47 は −）は、その記号を抜く", post.compose(47, rows[46]["digits"], "B", rc=rows[46]["rc"]).split("\n")[1],
+          "Keep the order. + × ÷ ^ ! ( ) allowed.")
+    check("B: その日の制約と違う記号の並びは送らない", "B の記号の並びがその日の制約と違う" in post.problems(
+        post.compose(47, rows[46]["digits"], "B"), rows[46]), True)
     check("C の昨日の行が決まった形でなければ送らない",
           post.problems(post.compose(12, r12["digits"], "C", "Yesterday's puzzle: everyone solved it."), r12) != [], True)
 
@@ -353,13 +357,15 @@ def main():
         h = image.build_html(r["no"], r["digits"], r["rc"])
         flat = image.expected_text(r["no"], r["digits"], r["rc"])
         img_syms = re.findall(r'<span class="s">([^<]*)</span>', h)
+        b_line = post.compose(r["no"], r["digits"], "B", rc=r["rc"]).split("\n")[1]
+        b_syms = b_line[len("Keep the order. "):-len(" allowed.")].split(" ")
         want = [s for s in "+−×÷^!()" if s != ban.get(r["rc"])]
         if any(s.replace(" ", "") in flat for s in r["sols"]):
             leak.append(r["no"])
-        if img_syms != want:
-            differ.append((r["no"], img_syms))
+        if not (img_syms == b_syms == want):
+            differ.append((r["no"], img_syms, b_syms))
     check("列の全日: 画像の文字に解答のどれも入らない", leak, [])
-    check("列の全 %d 日: 画像の記号の段から、使えない記号だけが抜ける" % len(rows), differ, [])
+    check("列の全 %d 日: 画像の記号の段と型 B の文の記号が同じで、使えない記号だけが抜ける" % len(rows), differ, [])
 
     print("■ C の数字（みんなの結果）")
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Mock)

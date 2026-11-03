@@ -25,7 +25,7 @@ import common as c
 TYPES = "ABC"
 TMPL = "3"                 # 文の版（posts.csv の tmpl）。文を変えたら上げる。report.py は版ごとに分けて集計する
 SEP = " · "                # 4 つの数字の間
-RULE_B = "Keep the order. + − × ÷ ^ ! ( ) allowed."
+RULE_B = "Keep the order. %s allowed."     # %s はその日に使える記号（画像の記号の段と同じ）
 TAGS = {"A": "#Make10 #puzzle #MathPuzzle", "B": "#Make10 #puzzle #BrainTeaser",
         "C": "#Make10 #puzzle #MathPuzzle"}
 TEXT_MAX = 280             # X の重みつきの字数（x_len）
@@ -58,13 +58,18 @@ def c_line(n):
     return line + ".", "出した（s=%d g=%d s0=%d）" % (j["s"], j["g"], j["s0"])
 
 
-def compose(n, digits, typ, line=""):
-    """その型の文（版 TMPL）。line は C の 2 行目（空なら、その行を除く）"""
+def rule_b(rc):
+    """B の決まりの行。使えない記号のある日は、その記号を抜く"""
+    return RULE_B % " ".join(c.allowed_syms(rc))
+
+
+def compose(n, digits, typ, line="", rc="N"):
+    """その型の文（版 TMPL）。line は C の 2 行目（空なら、その行を除く）。rc はその日の制約"""
     d = SEP.join(digits)
     if typ == "A":
         lines = ["Make10 Daily #%d" % n, "Today's numbers: %s" % d, "Use all four, in order, to make 10."]
     elif typ == "B":
-        lines = ["Can you make 10 from %s?" % d, RULE_B, "Make10 Daily #%d" % n]
+        lines = ["Can you make 10 from %s?" % d, rule_b(rc), "Make10 Daily #%d" % n]
     else:
         lines = ["Make10 Daily #%d: %s" % (n, d)] + ([line] if line else []) + ["Your turn — make 10."]
     return "\n".join(lines + [TAGS[typ]])
@@ -74,7 +79,7 @@ _D = r"(?P<d1>\d) · (?P<d2>\d) · (?P<d3>\d) · (?P<d4>\d)"
 SHAPES = [re.compile(x) for x in (
     r"Make10 Daily #(?P<n>\d+)\nToday's numbers: " + _D + r"\nUse all four, in order, to make 10\.\n"
     r"#Make10 #puzzle #MathPuzzle",
-    r"Can you make 10 from " + _D + r"\?\n" + re.escape(RULE_B) + r"\nMake10 Daily #(?P<n>\d+)\n"
+    r"Can you make 10 from " + _D + r"\?\nKeep the order\. [^\n]+ allowed\.\nMake10 Daily #(?P<n>\d+)\n"
     r"#Make10 #puzzle #BrainTeaser",
     r"Make10 Daily #(?P<n>\d+): " + _D + r"\n(?:Yesterday's puzzle: \d{1,3}% solved(?:, \d{1,3}% with no hints)?\.\n)?"
     r"Your turn — make 10\.\n#Make10 #puzzle #MathPuzzle")]
@@ -102,7 +107,9 @@ def problems(text, row):
             out.append("答えが入っている")
             break
     # B の決まりの行（使える記号の一覧）だけは記号を書く。その行を除いた残りに記号が無いこと
-    if re.search(r"[+\-*/^!=()×÷−]", text.replace(RULE_B, "")):
+    if m and text.startswith("Can you") and rule_b(row["rc"]) not in text.split("\n"):
+        out.append("B の記号の並びがその日の制約と違う")
+    if re.search(r"[+\-*/^!=()×÷−]", text.replace(rule_b(row["rc"]), "")):
         out.append("演算の記号が入っている")
     return out
 
@@ -193,7 +200,7 @@ def main(argv=None):
             print("%s（#%d）は送ってある（tweet %s）。送らない" % (day, n, posts[day.isoformat()]["tweet_id"]))
             return 0
         line, note = c_line(n) if typ == "C" else ("", "")
-        text = compose(n, row["digits"], typ, line)
+        text = compose(n, row["digits"], typ, line, row["rc"])
         bad = problems(text, row)
         if bad:
             raise c.Fail("この文は送らない: " + "・".join(bad))
