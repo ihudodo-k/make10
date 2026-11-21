@@ -334,15 +334,17 @@ def main():
     else:
         print("  （--no-chrome: ページの JS との照合は飛ばした）")
 
-    print("■ 4 つの文（文の版 4）")
-    check("文の版は 4", post.TMPL, "4")
+    print("■ 4 つの文（文の版 5）")
+    check("文の版は 5", post.TMPL, "5")
     check("例の形 A〜D（6 1 8 3 の日）", [post.compose("6183", t) for t in "ABCD"], [
         "Make 10 with 6, 1, 8, 3 — in this order. Can you?\n#Make10",
-        "Looks easy. Is it?\n6, 1, 8, 3 → 10. Reply with your answer.\n#Make10",
+        "Looks easy. Is it?\n6, 1, 8, 3 → 10, in this order. Reply with your answer.\n#Make10",
         "Four digits, one target: 10.\n6, 1, 8, 3 — in this order.\n#Make10",
         "Today's digits: 6, 1, 8, 3.\nKeep the order. Make 10.\n#Make10"])
     all_txt = [(r, t, post.compose(r["digits"], t)) for r in rows for t in "ABCD"]
     check("どの文も 1〜2 行 ＋ ハッシュタグの行", sorted({x.count("\n") for _, _, x in all_txt}), [1, 2])
+    check("どの文にも順の決まり（in this order・Keep the order）がある",
+          [(r["no"], t) for r, t, x in all_txt if "in this order" not in x and "Keep the order" not in x], [])
     check("どの文にもリンクの案内が無い", [x for _, _, x in all_txt if re.search(r"link|profile|bio|http", x, re.I)], [])
     check("ハッシュタグは #Make10 の 1 つだけ", sorted({tuple(re.findall(r"#\w+", x)) for _, _, x in all_txt}), [("#Make10",)])
     check("数は 4 つの数字と 10 だけ（根拠の無い数字・% が無い）",
@@ -474,7 +476,7 @@ def main():
                 check("posts.csv に 1 行（型・文の版・番号・数字・tweet の番号・フォロワー・c_note は空・画像の型）",
                       [len(p), row.get("type"), row.get("tmpl"), row.get("n"), row.get("digits"), row.get("tweet_id"),
                        row.get("followers"), row.get("c_note"), row.get("posted_at"), row.get("style")],
-                      [1, "C", "4", str(n), rows[n - 1]["digits"], "1001", "100", "", at(n), "4"])
+                      [1, "C", "5", str(n), rows[n - 1]["digits"], "1001", "100", "", at(n), "4"])
                 check("画像を上げて付ける: 上げるのは 1 回・本文は multipart・tweet_image・PNG がそのまま届く",
                       [len(S["uploads"]), S["uploads"][0].get("media_category", (0, 0, 0))[2],
                        S["uploads"][0].get("media"), S["bad_auth"]],
@@ -486,7 +488,7 @@ def main():
                 order = [k[1] for k in S["calls"] if k[1].startswith("/x/2/") and k[0] == "POST"]
                 check("上げる → 代わりの文 → 投稿 の順", order, ["/x/2/media/upload", "/x/2/media/metadata", "/x/2/tweets"])
                 with open(os.path.join(tmp, "posts.csv"), encoding="utf-8") as fh:
-                    check("CSV のファイルにも tmpl=4 が書いてある", fh.readline().split(",")[3] == "tmpl" and ",C,4," in fh.read(),
+                    check("CSV のファイルにも tmpl=5 が書いてある", fh.readline().split(",")[3] == "tmpl" and ",C,5," in fh.read(),
                           True)
                 check("鍵の値を出さない", [v in out for v in KEYS.values() if "LEAK" in v], [False, False, False])
                 code, out = run(post, "--now", at(n, "09:30"), "--data", tmp)
@@ -651,10 +653,10 @@ def main():
             check("画像の型ごとの行（2・4。1 は無い）", [bool(srow("1")), bool(srow("2")), bool(srow("4"))], [False, True, True])
             check("画像 4: 投稿 2・24 時間の値がある日 1・表示 300・反応 10.0 / 1,000",
                   srow("4").split(" | ")[1:5], ["2", "1", "300", "10.0"])
-            check("文の型 × 画像の型の表（版 4 の B は画像 4 に 1 本・表示 300）",
-                  next((ln for ln in sty.splitlines() if ln.startswith("| 4 | B | ")), ""), "| 4 | B | 0 / — | 1 / 300 |")
+            check("文の型 × 画像の型の表（版 5 の B は画像 4 に 1 本・表示 300）",
+                  next((ln for ln in sty.splitlines() if ln.startswith("| 5 | B | ")), ""), "| 5 | B | 0 / — | 1 / 300 |")
             check("日ごとの表に画像の型の列（#5 は 2）",
-                  any(ln.startswith("| %s | " % D(5)) and " | 4 | A | 2 | " in ln for ln in lines), True)
+                  any(ln.startswith("| %s | " % D(5)) and " | 5 | A | 2 | " in ln for ln in lines), True)
             code, out = run(report, "--data", os.path.join(tmp, "空"))
             check("まだ何も無いときも出せる", [code, "まだ投稿が無い" in out], [0, True])
             # tmpl の列ができる前の posts.csv（#1・#2）に、版 2 の行が足された形

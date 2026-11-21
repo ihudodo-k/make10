@@ -6,7 +6,7 @@
   python promo/post.py --media-test  画像を作って X に上げ、代わりの文も入れて、状態を出すだけ（投稿しない・CSV に書かない）
 
 - 問題番号と 4 つの数字は、docs/daily/index.html の起点日と列から、UTC の日付で出す。**答えは載せない**（送る前に確かめる）
-- 文の版は TMPL（posts.csv の tmpl に残す。今は 4。版 1 は #1・#2 の短い文。tmpl が空の行は版 1 として読む）
+- 文の版は TMPL（posts.csv の tmpl に残す。今は 5（版 4 から B に順の決まりを足した）。版 1 は #1・#2 の短い文。tmpl が空の行は版 1 として読む）
 - 文は短い 1〜2 行 ＋ #Make10。4 本（A〜D）を問題番号で順に回す（(番号 - 1) を 4 で割った余り。#1 が A・#5 も A）。
   画像の型（image.style_of。3 つ）と周期がずれるので、12 日で文と画像の全部の組み合わせが出る。
   文を 1 つに決めたら、環境変数 PROMO_TYPE（GitHub の Variables）に A〜D のどれかを入れる。型を自動で選ぶ処理は無い
@@ -26,12 +26,12 @@ import tempfile
 import common as c
 
 TYPES = "ABCD"
-TMPL = "4"                 # 文の版（posts.csv の tmpl）。文を変えたら上げる。report.py は版ごとに分けて集計する
+TMPL = "5"                 # 文の版（posts.csv の tmpl）。文を変えたら上げる。report.py は版ごとに分けて集計する
 SEP = ", "                 # 4 つの数字の間
 TAG = "#Make10"
 TEXTS = {                  # {d} は「6, 8, 2, 3」
     "A": "Make 10 with {d} — in this order. Can you?",
-    "B": "Looks easy. Is it?\n{d} → 10. Reply with your answer.",
+    "B": "Looks easy. Is it?\n{d} → 10, in this order. Reply with your answer.",
     "C": "Four digits, one target: 10.\n{d} — in this order.",
     "D": "Today's digits: {d}.\nKeep the order. Make 10.",
 }
