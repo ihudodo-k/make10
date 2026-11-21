@@ -642,6 +642,16 @@ def main():
             check("曜日の内訳と日ごとの表がある", ["## 曜日の内訳" in out, "## 日ごと" in out], [True, True])
             check("日ごとの表に、フォロワーの増減（#5 は 100 → 104 で +4）", any(
                 ln.startswith("| %s |" % D(5)) and "| +4 |" in ln for ln in lines), True)
+            sty = out.split("## 画像の型")[1].split("\n## ")[0]
+            srow = lambda t: next((ln for ln in sty.splitlines() if ln.startswith("| %s | " % t)), "")  # noqa: E731
+            # 画像の型: #3 は 4・#5 は 2・#6 は 4。24 時間の値は #6 だけ（表示 300・反応 3）
+            check("画像の型ごとの行（2・4。1 は無い）", [bool(srow("1")), bool(srow("2")), bool(srow("4"))], [False, True, True])
+            check("画像 4: 投稿 2・24 時間の値がある日 1・表示 300・反応 10.0 / 1,000",
+                  srow("4").split(" | ")[1:5], ["2", "1", "300", "10.0"])
+            check("文の型 × 画像の型の表（版 4 の B は画像 4 に 1 本・表示 300）",
+                  next((ln for ln in sty.splitlines() if ln.startswith("| 4 | B | ")), ""), "| 4 | B | 0 / — | 1 / 300 |")
+            check("日ごとの表に画像の型の列（#5 は 2）",
+                  any(ln.startswith("| %s | " % D(5)) and " | 4 | A | 2 | " in ln for ln in lines), True)
             code, out = run(report, "--data", os.path.join(tmp, "空"))
             check("まだ何も無いときも出せる", [code, "まだ投稿が無い" in out], [0, True])
             # tmpl の列ができる前の posts.csv（#1・#2）に、版 2 の行が足された形
@@ -666,6 +676,9 @@ def main():
             check("書き戻すと、古い行にも tmpl=1 が入る", [r["tmpl"] for _, r in sorted(c.read_table(old, "posts.csv").items())],
                   ["1", "1", "2"])
             code, out = run(report, "--data", old)
+            check("style の列が無い古い行は、画像の型のまとめに入らない・日ごとの表は「—」",
+                  ["まだ画像の型の記録が無い" in out, any(ln.startswith("| %s | " % D(1)) and " | 1 | A | — | " in ln
+                                                for ln in out.splitlines())], [True, True])
             sec = {v: out.split("## 文の版 %s" % v)[1].split("\n## ")[0] for v in ("1", "2")}
             arow = lambda v: next((ln for ln in sec[v].splitlines() if ln.startswith("| A | ")), "")  # noqa: E731
             check("まとめは版ごとに分かれ、新しい版が上", [code, out.index("## 文の版 2") < out.index("## 文の版 1")], [0, True])
