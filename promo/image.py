@@ -5,7 +5,8 @@
   python promo/image.py --no 8 --style 2 --out 8.jpg    型を決めて作る（見本を作るため）
   （拡張子は形式に合わせて自分で付ける。形式は kind() で分かる）
 
-- 中身は 3 つだけ: 大きな穴埋めの式「6 ? 8 ? 2 ? 3 = 10」・その下の小さな「Use + − × ÷ ^ ! ( )」・右下の小さな「Make10 #8」
+- 中身は 4 つだけ: 大きな穴埋めの式「6 ? 8 ? 2 ? 3 = 10」・その下の小さな「Use + − × ÷ ^ ! ( )」・
+  並べ替えの禁止の 1 行「Keep the order. Don't swap the digits.」（RULE）・右下の小さな「Make10 #8」
 - 制約がある日は、使えない記号を「Use」の行から抜く（common.allowed_syms）
 - **答えや手がかりは載せない。** 渡すのは番号・4 つの数字・制約だけ。出来た画面の文字が決まった並びと同じことも、撮る前に確かめる
 - 見た目の型は 3 つ（STYLES）。問題番号で順に回す（style_of。#1 が型 1・#2 が型 2・#3 が型 4・#4 が型 1）:
@@ -42,6 +43,7 @@ import common as c          # noqa: E402
 WIDTH, HEIGHT = 1080, 1350
 MAX_BYTES = 5 * 1024 * 1024         # X の画像の上限
 USE = "Use"
+RULE = "Keep the order. Don't swap the digits."   # 並べ替えは禁止（並べ替えた答えの返信が来たため）
 FOOT = "Make10 #%d"
 EQ_MAX = 960                        # 式の幅の上限（左右に 60px ずつ残す）
 TIMEOUT = 30                        # 字の読み込みを待つ秒数
@@ -100,7 +102,7 @@ def check_input(n, digits, rc, style):
 
 def expected_text(n, digits, rc):
     """画面に出る文字の全部（空白を除いて上から順）"""
-    return re.sub(r"\s", "", "%s=10%s%s%s" % ("?".join(digits), USE, c.allowed_syms(rc), FOOT % n))
+    return re.sub(r"\s", "", "%s=10%s%s%s%s" % ("?".join(digits), USE, c.allowed_syms(rc), RULE, FOOT % n))
 
 
 def paper_svg(kind):
@@ -134,18 +136,19 @@ html,body{width:%(w)dpx;height:%(h)dpx;overflow:hidden}
 body{background:%(bg)s;color:%(ink)s;font-family:"%(fam)s";font-weight:%(wt)s;position:relative}
 .paper{position:absolute;left:0;top:0}
 .ink{position:absolute;left:0;top:0;width:100%%;height:100%%;%(filter)s}
-.eq,.use{position:absolute;left:0;right:0;display:flex;justify-content:center;align-items:center;white-space:nowrap;line-height:1}
+.eq,.use,.rule{position:absolute;left:0;right:0;display:flex;justify-content:center;align-items:center;white-space:nowrap;line-height:1}
 .eq{top:500px;gap:%(gap)dpx;font-size:%(eq)dpx}
 .use{top:800px;gap:%(ugap)dpx;font-size:%(use)dpx}
 .use{font-weight:%(uwt)s}
 .use .h{margin-right:%(ugap)dpx}
 .use .cr{font-size:%(caret)gem;position:relative;top:.16em}
 .use .mi{font-size:%(minus)gem}
+.rule{top:930px;font-size:%(rule)dpx;font-weight:%(uwt)s}
 .foot{position:absolute;right:64px;bottom:56px;font-size:%(foot)dpx;opacity:.62;white-space:nowrap;line-height:1}
 .eq span,.use span{display:inline-block}
 """ % {"w": WIDTH, "h": HEIGHT, "bg": st["bg"], "ink": st["ink"], "fam": family, "wt": st["wt"],
        "filter": "filter:url(#ink);" if st["rough"] else "", "eq": st["eq"], "use": st["use"], "uwt": st["uwt"], "caret": st["caret"], "minus": st["minus"], "foot": st["foot"],
-       "gap": st["eq"] // 6, "ugap": st["use"] // 3}
+       "rule": round(st["use"] * 0.7), "gap": st["eq"] // 6, "ugap": st["use"] // 3}
 
 
 def jitter(i, k=1.0):
@@ -177,9 +180,9 @@ def build_html(n, digits, rc, style):
                    for i, s in enumerate(c.allowed_syms(rc)))
     return ('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Make10</title><style>%s%s</style></head><body>'
             '%s%s<div class="ink"><div class="eq">%s</div><div class="use"><span class="h">%s</span>%s</div>'
-            '<div class="foot">%s</div></div></body></html>'
+            '<div class="rule">%s</div><div class="foot">%s</div></div></body></html>'
             % (face, css(st, "F"), paper_svg(st["paper"]), ink_filter(st["rough"]), eq, html.escape(USE), syms,
-               html.escape(FOOT % n)))
+               html.escape(RULE), html.escape(FOOT % n)))
 
 
 def font_dir():

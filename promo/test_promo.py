@@ -395,7 +395,10 @@ def main():
     check("列の全 %d 日の制約が分かる" % len(rows), [r["rc"] for r in rows if r["rc"] not in c.RC_OP], [])
     check("決まった並びの例（#8 は制約なし・#47 は − が使えないので行から消える）",
           [image.expected_text(8, "6823", "N"), image.expected_text(47, "0553", "S0")],
-          ["6?8?2?3=10Use+−×÷^!()Make10#8", "0?5?5?3=10Use+×÷^!()Make10#47"])
+          ["6?8?2?3=10Use+−×÷^!()Keeptheorder.Don'tswapthedigits.Make10#8",
+           "0?5?5?3=10Use+×÷^!()Keeptheorder.Don'tswapthedigits.Make10#47"])
+    check("並べ替えの禁止の 1 行がどの日の画像にもある", [r["no"] for r in rows
+          if '<div class="rule">Keep the order. Don&#x27;t swap the digits.</div>' not in image.build_html(r["no"], r["digits"], r["rc"], image.style_of(r["no"]))], [])
     # 使えない記号は、ここで別に書いた対応（DATA-SPEC 8-B の A0 S0 M0 D0 P0 F0 ＝ + - * / ^ ! の禁止）から出す
     ban = {"A0": "+", "S0": "−", "M0": "×", "D0": "÷", "P0": "^", "F0": "!"}
     leak, differ = [], []
