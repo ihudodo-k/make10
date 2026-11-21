@@ -6,10 +6,12 @@
 
 見ること:
 - 問題番号と 4 つの数字の出し方: ページの列と一致する（別の読み方の uiharness と、本物のページの JS の両方と）・日付の境目
-- 3 つの型の文: 280 字以内・答えが入らない・決まった形。C の数字の作り方（ページと同じ四捨五入）と、集計が足りない・取れないときの形
+- 4 つの文（版 4）: 280 字以内・答えが入らない・決まった形・#Make10 だけ・数は 4 つの数字と 10 だけ。文と画像の型の回り方
+- 画像（image.py）: 1080×1350・紙の型は JPEG・全日全型で式が収まる・字に無い文字は描かない・答えが入らない
+- 集計の返事の確かめ（common.agg_get。collect が使う）
 - X・Cloudflare・集計は、返事のまねのサーバー（このファイルの中）で試す。X の署名は、まねのサーバーが別に計算し直して確かめる
 - CSV: 同じ日を 2 回集めても重複しない。同じ日に 2 回流しても 2 回送らない
-- 画像: 上げる → 付けて投稿する。作れない・上げられないときは文字だけで投稿する。media_test は投稿しない
+- 画像: 上げる → 付けて投稿する（PNG・JPEG の形式を中身から渡す）。作れない・上げられないときは文字だけで投稿する。media_test は投稿しない
 """
 import base64
 import contextlib
@@ -54,6 +56,7 @@ KEYS = {"X_API_KEY": "test-consumer-key", "X_API_SECRET": "test-consumer-secret-
         "CF_API_TOKEN": "test-cf-token-SHOULD-NOT-LEAK", "CF_ACCOUNT_ID": "acct123"}
 S = {}                       # まねのサーバーの状態（試しごとに reset() で作り直す）
 PNG = b"\x89PNG\r\n\x1a\n" + bytes(range(256)) + b"--\r\n"   # 本文の区切りに見える並びも入れる
+JPG = b"\xff\xd8\xff\xe0" + bytes(range(256))
 
 
 def reset():
@@ -74,7 +77,36 @@ def fake_image(n, row):
     """post.make_image の代わり（Chrome も字も使わない）。S["image"] が None なら作れない日"""
     if S["image"] is None:
         raise c.Fail("まねの失敗: Chrome が無い")
-    return S["image"]
+    return S["image"], image.style_of(n)
+
+
+def eq_widths(style, rows):
+    """列の全日の、その型の式の幅（px）。1 つのページで数字だけ入れ替えて測る（image.render とは別に書いた）"""
+    from uiharness import cdp
+    work = tempfile.mkdtemp(prefix="make10-promo-width-")
+    srv = ch = None
+    try:
+        with open(os.path.join(work, "index.html"), "w", encoding="utf-8") as fh:
+            fh.write(image.build_html(1, "1111", "N", style))
+        shutil.copy(image.fetch_font(image.font_dir(), image.STYLES[style]["font"]), work)
+        srv = cdp.serve(work, image.free_port())
+        ch = cdp.Chrome(image.free_port(), os.path.join(work, "p"),
+                        args=("--no-sandbox",) if sys.platform.startswith("linux") else ())
+        ch.ws.call("Emulation.setDeviceMetricsOverride", {"width": image.WIDTH, "height": image.HEIGHT,
+                                                          "deviceScaleFactor": 1, "mobile": False})
+        ch.goto("http://127.0.0.1:%d/index.html" % srv.server_address[1], ready="complete|undefined")
+        ch.ws.call("Runtime.evaluate", {"expression": "document.fonts.ready.then(()=>1)", "awaitPromise": True})
+        return ch.ev("""(()=>{const ds=%s;const sp=[...document.querySelector('.eq').children];const out=[];
+          for(const d of ds){[0,2,4,6].forEach((k,i)=>sp[k].textContent=d[i]);
+            const r=sp.map(e=>e.getBoundingClientRect());out.push(Math.ceil(Math.max(...r.map(x=>x.right))-Math.min(...r.map(x=>x.left))))}
+          return out})()""" % json.dumps([r["digits"] for r in rows]))
+    finally:
+        if ch:
+            ch.close()
+        if srv:
+            srv.shutdown()
+            srv.server_close()
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def verify_oauth(method, base_url, query, header):
@@ -255,22 +287,45 @@ def main():
             check("境目: 東京は UTC 14:59 まで同じ日・15:00 に次の日",
                   [page_no(at(n, "14:59"), "Asia/Tokyo")[0], page_no(at(n, "15:00"), "Asia/Tokyo")[0]], [n, n + 1])
             check("ページの JS エラー 0", ui.errors(), [])
-            for n in (8, 47, 32, len(rows)):       # #32 は式がいちばん広い日・最後の日は番号がいちばん長い
-                png = post.make_image(n, rows[n - 1])
-                check("本物の画像 #%d: 1200×675 の PNG・5MB 以下" % n,
-                      [image.png_size(png), len(png) <= image.MAX_BYTES], [(1200, 675), True])
+            for n in (8, 47, 32, len(rows)):       # #47 は − が使えない日・#32 は前の字で式がいちばん広い日・最後の日は番号がいちばん長い
+                for st in image.ORDER:
+                    data = image.make(n, rows[n - 1]["digits"], rows[n - 1]["rc"], st)
+                    check("本物の画像 #%d 型 %d: 1080×1350・%s・5MB 以下" % (n, st, "JPEG" if image.STYLES[st]["jpeg"] else "PNG"),
+                          [image.size(data), image.kind(data), c.image_format(data)[0], len(data) <= image.MAX_BYTES],
+                          [(1080, 1350), "jpeg" if image.STYLES[st]["jpeg"] else "png",
+                           "image/jpeg" if image.STYLES[st]["jpeg"] else "image/png", True])
+            check("同じ入力なら同じ画像（紙の質感も揺れも決まった値）",
+                  image.make(8, rows[7]["digits"], rows[7]["rc"], 1) == image.make(8, rows[7]["digits"], rows[7]["rc"], 1), True)
+            check("post.make_image は番号で型を決める（#5 は型 2・JPEG）",
+                  [post.make_image(5, rows[4])[1], image.kind(post.make_image(5, rows[4])[0])], [2, "jpeg"])
+            for st in image.ORDER:
+                ws = eq_widths(st, rows)
+                i = max(range(len(rows)), key=lambda k: ws[k])
+                check("列の全 %d 日で、型 %d の式が %dpx に収まる（いちばん広い日 #%d %s は %dpx）"
+                      % (len(rows), st, image.EQ_MAX, rows[i]["no"], rows[i]["digits"], ws[i]), max(ws) <= image.EQ_MAX, True)
             bad_dir = tempfile.mkdtemp(prefix="make10-promo-font-")
             try:
-                with open(os.path.join(bad_dir, "Bold.ttf"), "wb") as fh:
+                with open(os.path.join(bad_dir, "Caveat.ttf"), "wb") as fh:
                     fh.write(b"not a font")
-                with env(PROMO_FONT_DIR=bad_dir), mock.patch.object(image, "FONT_URL", "http://127.0.0.1:9/%s"):
+                with env(PROMO_FONT_DIR=bad_dir), mock.patch.object(image, "FONT_URL", "http://127.0.0.1:9/%s/%s"):
                     try:
-                        image.make(8, "6823", "N")
+                        image.make(8, "6823", "N", 2)
                         check("字が取れない・中身が違うときは描かずに失敗", "描いた", "Fail")
                     except c.Fail:
                         check("字が取れない・中身が違うときは描かずに失敗", "Fail", "Fail")
             finally:
                 shutil.rmtree(bad_dir, ignore_errors=True)
+            check("3 つの字は、画面に出す字（数字・?・=・記号・英字・#）を全部持ち、漢字や ★ は持たない",
+                  [(image.font_lacks(image.fetch_font(image.font_dir(), image.STYLES[st]["font"]),
+                                     "0123456789?=+−×÷^!()UseMak#"),
+                    image.font_lacks(image.fetch_font(image.font_dir(), image.STYLES[st]["font"]), "漢 ★"))
+                   for st in image.ORDER], [("", "漢★")] * 3)
+            with mock.patch.object(image, "FOOT", "Make10 #%d 漢"):     # 手書きの字に無い字（別の字で描かれる）
+                try:
+                    image.make(8, "6823", "N", 2)
+                    check("字に無い文字があれば描かずに失敗", "描いた", "Fail")
+                except c.Fail as e:
+                    check("字に無い文字があれば描かずに失敗", ["Fail", "漢" in str(e)], ["Fail", True])
         finally:
             chrome.close()
             srv.shutdown()
@@ -279,95 +334,93 @@ def main():
     else:
         print("  （--no-chrome: ページの JS との照合は飛ばした）")
 
-    print("■ 3 つの型の文")
-    check("文の版は 3", post.TMPL, "3")
-    check("例の形 A", post.compose(12, "6183", "A"),
-          "Make10 Daily #12\nToday's numbers: 6 · 1 · 8 · 3\nUse all four, in order, to make 10.\n"
-          "#Make10 #puzzle #MathPuzzle")
-    check("例の形 B", post.compose(12, "6183", "B"),
-          "Can you make 10 from 6 · 1 · 8 · 3?\nKeep the order. + − × ÷ ^ ! ( ) allowed.\n"
-          "Make10 Daily #12\n#Make10 #puzzle #BrainTeaser")
-    check("例の形 C", post.compose(12, "6183", "C", "Yesterday's puzzle: 63% solved, 41% with no hints."),
-          "Make10 Daily #12: 6 · 1 · 8 · 3\nYesterday's puzzle: 63% solved, 41% with no hints.\n"
-          "Your turn — make 10.\n#Make10 #puzzle #MathPuzzle")
-    check("C で昨日の行が無いとき（2 行目を除く）", post.compose(12, "6183", "C", ""),
-          "Make10 Daily #12: 6 · 1 · 8 · 3\nYour turn — make 10.\n#Make10 #puzzle #MathPuzzle")
-    all_txt = [post.compose(r["no"], r["digits"], t, "Yesterday's puzzle: 63% solved.") for r in rows[:30] for t in "ABC"]
-    check("どの型にもリンクの案内が無い", [t for t in all_txt if "link" in t.lower() or "profile" in t.lower()], [])
-    check("どの型もハッシュタグは 3 つで、#puzzle が入る",
-          sorted({(t.count("#") - 1, "#puzzle" in t.split()) for t in all_txt}), [(3, True)])
-    check("代わりの文の形", post.alt_text(1, "8752"), "Make10 #1. Digits: 8, 7, 5, 2. Use all four, in order, to make 10.")
+    print("■ 4 つの文（文の版 4）")
+    check("文の版は 4", post.TMPL, "4")
+    check("例の形 A〜D（6 1 8 3 の日）", [post.compose("6183", t) for t in "ABCD"], [
+        "Make 10 with 6, 1, 8, 3 — in this order. Can you?\n#Make10",
+        "Looks easy. Is it?\n6, 1, 8, 3 → 10. Reply with your answer.\n#Make10",
+        "Four digits, one target: 10.\n6, 1, 8, 3 — in this order.\n#Make10",
+        "Today's digits: 6, 1, 8, 3.\nKeep the order. Make 10.\n#Make10"])
+    all_txt = [(r, t, post.compose(r["digits"], t)) for r in rows for t in "ABCD"]
+    check("どの文も 1〜2 行 ＋ ハッシュタグの行", sorted({x.count("\n") for _, _, x in all_txt}), [1, 2])
+    check("どの文にもリンクの案内が無い", [x for _, _, x in all_txt if re.search(r"link|profile|bio|http", x, re.I)], [])
+    check("ハッシュタグは #Make10 の 1 つだけ", sorted({tuple(re.findall(r"#\w+", x)) for _, _, x in all_txt}), [("#Make10",)])
+    check("数は 4 つの数字と 10 だけ（根拠の無い数字・% が無い）",
+          [(r["no"], t) for r, t, x in all_txt
+           if "%" in x or sorted(re.findall(r"\d+", x)) != sorted(list(r["digits"]) + ["10", "10"])], [])
+    check("代わりの文の形（記号の並びは画像の「Use」の行と同じ。#47 は − を抜く）",
+          [post.alt_text(1, "8752", "N"), post.alt_text(47, "0553", "S0")],
+          ["Make10 #1. Digits: 8, 7, 5, 2. Use all four, in order, to make 10. Use + − × ÷ ^ ! ( ).",
+           "Make10 #47. Digits: 0, 5, 5, 3. Use all four, in order, to make 10. Use + × ÷ ^ ! ( )."])
     check("X の数え方: 英数字・·・— は 1、−（U+2212）と日本語は 2",
           [post.x_len("ab1"), post.x_len("·—"), post.x_len("−"), post.x_len("あ")], [3, 2, 2, 2])
-    check("型は番号で順に回る（#1 A・#2 B・#3 C・#4 A・#12 C）", [post.type_of(n) for n in (1, 2, 3, 4, 12)],
-          list("ABCAC"))
-    with env(PROMO_TYPE="b"):
-        check("PROMO_TYPE を入れると、その型だけになる", [post.type_of(n) for n in (1, 2, 3)], list("BBB"))
-    with env(PROMO_TYPE="D"):
+    check("文の型は番号で順に回る（#1 A・#2 B・#3 C・#4 D・#5 A・#12 D）", [post.type_of(n) for n in (1, 2, 3, 4, 5, 12)],
+          list("ABCDAD"))
+    check("画像の型は番号で順に回る（#1 1・#2 2・#3 4・#4 1）", [image.style_of(n) for n in (1, 2, 3, 4)], [1, 2, 4, 1])
+    check("文と画像の型は 12 日で全部の組み合わせ（4 × 3）が 1 回ずつ出る",
+          len({(post.type_of(n), image.style_of(n)) for n in range(1, 13)}), 12)
+    with env(PROMO_TYPE="d"):
+        check("PROMO_TYPE を入れると、その型だけになる", [post.type_of(n) for n in (1, 2, 3)], list("DDD"))
+    with env(PROMO_TYPE="E"):
         try:
             post.type_of(1)
-            check("PROMO_TYPE が A・B・C 以外なら止める", "止まらなかった", "Fail")
+            check("PROMO_TYPE が A〜D 以外なら止める", "止まらなかった", "Fail")
         except c.Fail:
-            check("PROMO_TYPE が A・B・C 以外なら止める", "Fail", "Fail")
-    worst = "Yesterday's puzzle: 100% solved, 100% with no hints."
+            check("PROMO_TYPE が A〜D 以外なら止める", "Fail", "Fail")
     bad = []
     longest = 0
-    for r in rows:
-        for t in "ABC":
-            for line in (("", worst) if t == "C" else ("",)):
-                txt = post.compose(r["no"], r["digits"], t, line, r["rc"])
-                longest = max(longest, post.x_len(txt))
-                if post.problems(txt, r):
-                    bad.append((r["no"], t, post.problems(txt, r)))
-    check("列の全 %d 日 × 3 つの型（C は昨日の行の有り無し）: 280 字以内・決まった形・答えが入らない" % len(rows), bad, [])
-    check("いちばん長い文でも 280 字より十分短い（X の数え方で %d 字）" % longest, longest <= 200, True)
+    for r, t, x in all_txt:
+        longest = max(longest, post.x_len(x))
+        if post.problems(x, r):
+            bad.append((r["no"], t, post.problems(x, r)))
+    check("列の全 %d 日 × 4 つの文: 280 字以内・決まった形・答えが入らない" % len(rows), bad, [])
+    check("いちばん長い文でも短い（X の数え方で %d 字）" % longest, longest <= 120, True)
     r12 = rows[11]
-    a12 = post.compose(12, r12["digits"], "A")
-    check("答えが入った文は送らない", "答えが入っている" in post.problems(
-        a12.replace("Use all four, in order, to make 10.", r12["sols"][0]), r12), True)
-    check("番号と数字がその日の問題と違う文は送らない",
-          [post.problems(post.compose(12, "1234", t), r12) != [] for t in "ABC"] +
-          [post.problems(post.compose(13, r12["digits"], t), r12) != [] for t in "ABC"], [True] * 6)
+    a12 = post.compose(r12["digits"], "A")
+    check("答えが入った文は送らない", "答えが入っている" in post.problems(a12.replace("Can you?", r12["sols"][0]), r12), True)
+    check("数字がその日の問題と違う文は送らない", [post.problems(post.compose("1234", t), r12) != [] for t in "ABCD"], [True] * 4)
     check("リンクの入った文は送らない", post.problems(a12 + " https://make10.app/daily/", r12) != [], True)
-    check("B の決まりの行の外に記号があれば送らない", "演算の記号が入っている" in post.problems(
-        post.compose(12, r12["digits"], "B").replace("Make10 Daily", "Make10 (Daily)"), r12), True)
-    check("B: 使えない記号のある日（#47 は −）は、その記号を抜く", post.compose(47, rows[46]["digits"], "B", rc=rows[46]["rc"]).split("\n")[1],
-          "Keep the order. + × ÷ ^ ! ( ) allowed.")
-    check("B: その日の制約と違う記号の並びは送らない", "B の記号の並びがその日の制約と違う" in post.problems(
-        post.compose(47, rows[46]["digits"], "B"), rows[46]), True)
-    check("C の昨日の行が決まった形でなければ送らない",
-          post.problems(post.compose(12, r12["digits"], "C", "Yesterday's puzzle: everyone solved it."), r12) != [], True)
+    check("ハッシュタグを足した文は送らない", post.problems(a12 + " #puzzle", r12) != [], True)
+    check("記号の入った文は送らない", "演算の記号が入っている" in post.problems(a12.replace("Can you?", "Can you (really)?"), r12), True)
 
     print("■ 画像（image.py）")
-    for bad in ((8, "6+23"), (8, "68233"), (0, "6823"), (True, "6823")):
+    for bad in ((8, "6+23", 1), (8, "68233", 1), (0, "6823", 1), (True, "6823", 1), (8, "6823", 3), (8, "6823", 0)):
         try:
-            image.check_input(bad[0], bad[1], "N")
-            check("番号と 4 桁でないものは受け取らない %r" % (bad,), "受け取った", "Fail")
+            image.check_input(bad[0], bad[1], "N", bad[2])
+            check("番号・4 桁・型（1・2・4）でないものは受け取らない %r" % (bad,), "受け取った", "Fail")
         except c.Fail:
-            check("番号と 4 桁でないものは受け取らない %r" % (bad,), "Fail", "Fail")
+            check("番号・4 桁・型（1・2・4）でないものは受け取らない %r" % (bad,), "Fail", "Fail")
+    check("型 3 は外してある（回すのは 1・2・4）", [sorted(image.STYLES), image.ORDER], [[1, 2, 4], (1, 2, 4)])
+    check("紙の型（1・2）は JPEG の品質 90・型 4 は PNG", [image.STYLES[k]["jpeg"] for k in (1, 2, 4)], [90, 90, None])
     check("列の全 %d 日の制約が分かる" % len(rows), [r["rc"] for r in rows if r["rc"] not in c.RC_OP], [])
-    check("決まった並びの例（#8 は制約なし・#47 は − が使えないので段から消える）",
+    check("決まった並びの例（#8 は制約なし・#47 は − が使えないので行から消える）",
           [image.expected_text(8, "6823", "N"), image.expected_text(47, "0553", "S0")],
-          ["#8Make10DAILY6?8?2?3=10Allowed+−×÷^!()Useallfourdigits,inorder.",
-           "#47Make10DAILY0?5?5?3=10Allowed+×÷^!()Useallfourdigits,inorder."])
+          ["6?8?2?3=10Use+−×÷^!()Make10#8", "0?5?5?3=10Use+×÷^!()Make10#47"])
     # 使えない記号は、ここで別に書いた対応（DATA-SPEC 8-B の A0 S0 M0 D0 P0 F0 ＝ + - * / ^ ! の禁止）から出す
     ban = {"A0": "+", "S0": "−", "M0": "×", "D0": "÷", "P0": "^", "F0": "!"}
     leak, differ = [], []
     for r in rows:
-        h = image.build_html(r["no"], r["digits"], r["rc"])
+        h = image.build_html(r["no"], r["digits"], r["rc"], image.style_of(r["no"]))
         flat = image.expected_text(r["no"], r["digits"], r["rc"])
-        img_syms = re.findall(r'<span class="s">([^<]*)</span>', h)
-        b_line = post.compose(r["no"], r["digits"], "B", rc=r["rc"]).split("\n")[1]
-        b_syms = b_line[len("Keep the order. "):-len(" allowed.")].split(" ")
-        want = [s for s in "+−×÷^!()" if s != ban.get(r["rc"])]
-        if any(s.replace(" ", "") in flat for s in r["sols"]):
+        use = re.search(r'<div class="use">(.*?)</div>', h).group(1)
+        img_syms = re.findall(r"<span[^>]*>([^<]*)</span>", use)[1:]     # 先頭は「Use」
+        alt_syms = post.alt_text(r["no"], r["digits"], r["rc"]).rsplit(" Use ", 1)[1].rstrip(".").split(" ")
+        want = [x for x in "+−×÷^!()" if x != ban.get(r["rc"])]
+        if any(x.replace(" ", "") in flat for x in r["sols"]):
             leak.append(r["no"])
-        if not (img_syms == b_syms == want):
-            differ.append((r["no"], img_syms, b_syms))
+        if not (img_syms == alt_syms == want):
+            differ.append((r["no"], img_syms, alt_syms))
     check("列の全日: 画像の文字に解答のどれも入らない", leak, [])
-    check("列の全 %d 日: 画像の記号の段と型 B の文の記号が同じで、使えない記号だけが抜ける" % len(rows), differ, [])
+    check("列の全 %d 日: 画像の記号の行と代わりの文の記号が同じで、使えない記号だけが抜ける" % len(rows), differ, [])
+    check("画像の形式は頭の印から（PNG・JPEG）", [c.image_format(PNG), c.image_format(JPG)],
+          [("image/png", ".png"), ("image/jpeg", ".jpg")])
+    try:
+        c.image_format(b"GIF89a")
+        check("PNG でも JPEG でもなければ止める", "止まらなかった", "Fail")
+    except c.Fail:
+        check("PNG でも JPEG でもなければ止める", "Fail", "Fail")
 
-    print("■ C の数字（みんなの結果）")
+    print("■ 集計の返事の確かめ（common.agg_get。collect.py が使う）")
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Mock)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = "http://127.0.0.1:%d" % srv.server_address[1]
@@ -377,71 +430,65 @@ def main():
         with env(PROMO_X_API=base + "/x", PROMO_CF_API=base + "/cf", PROMO_AGG_API=base + "/agg", PROMO_DATA=None,
                  PROMO_TYPE=None, **{k: None for k in KEYS}):
             reset()
+
+            def agg_fail():
+                try:
+                    c.agg_get(11)
+                    return "通った"
+                except c.Fail as e:
+                    return str(e)
             S["agg"]["11"] = (200, {"n": 11, "s": 63, "g": 37, "s0": 26, "b": [0, 0, 0, 0, 0]})
-            check("63 / 100 解いた・ヒントなし 26 / 63（41.3%）", post.c_line(12)[0],
-                  "Yesterday's puzzle: 63% solved, 41% with no hints.")
-            S["agg"]["11"] = (200, {"n": 11, "s": 1, "g": 39, "s0": 1, "b": [0, 0, 0, 0, 0]})
-            check("四捨五入はページの Math.round と同じ（1 / 40 = 2.5% → 3%。Python の round なら 2%）", post.c_line(12)[0],
-                  "Yesterday's puzzle: 3% solved, 100% with no hints.")
-            S["agg"]["11"] = (200, {"n": 11, "s": 20, "g": 9, "s0": 3, "b": [0, 0, 0, 0, 0]})
-            check("29 件（30 件未満）なら昨日の行を出さず、記録にそう残す", post.c_line(12), ("", "30 件未満（29 件）"))
-            S["agg"]["11"] = (200, {"n": 11, "s": 20, "g": 10, "s0": 3, "b": [0, 0, 0, 0, 0]})
-            check("30 件ちょうどなら出す", post.c_line(12)[0], "Yesterday's puzzle: 67% solved, 15% with no hints.")
-            S["agg"]["11"] = (200, {"n": 11, "s": 0, "g": 30, "s0": 0, "b": [0, 0, 0, 0, 0]})
-            check("解いた人が 0 なら「ヒントなし」は付けない", post.c_line(12)[0], "Yesterday's puzzle: 0% solved.")
+            check("返事の数をそのまま返す", [c.agg_get(11)[k] for k in ("n", "s", "g", "s0")], [11, 63, 37, 26])
             S["agg"]["11"] = (500, {"e": "x"})
-            check("集計が 500 なら出さない", post.c_line(12)[0], "")
+            check("集計が 500 なら止める", agg_fail(), "集計が HTTP 500（x）")
             S["agg"]["11"] = (200, {"n": 10, "s": 50, "g": 0, "s0": 0})
-            check("返事の番号が違えば出さない", post.c_line(12), ("", "取れない（集計の返事の形が違う）"))
+            check("返事の番号が違えば止める", agg_fail(), "集計の返事の形が違う")
             S["agg"]["11"] = (200, {"n": 11, "s": 1e308, "g": 0, "s0": 0})
-            check("数が大きすぎる（1e308）返事は出さない", post.c_line(12)[0], "")
+            check("数が大きすぎる（1e308）返事は止める", agg_fail(), "集計の返事の形が違う")
             S["agg"].clear()
-            check("range で断られたら出さない", post.c_line(12), ("", "取れない（集計が HTTP 400（range））"))
-            check("#1 には昨日が無い（集計へ問い合わせない）", [post.c_line(1), S["calls"][-1:]],
-                  [("", "昨日の問題が無い"), [("GET", "/agg/r")]])
+            check("range で断られたら止める", agg_fail(), "集計が HTTP 400（range）")
             with env(PROMO_AGG_API="http://127.0.0.1:9"):
-                check("通信できなければ出さない", post.c_line(12)[0], "")
+                check("通信できなければ止める", agg_fail().startswith("通信できない"), True)
+            check("四捨五入はページの Math.round と同じ（1 / 40 = 2.5% → 3%。Python の round なら 2%）",
+                  [c.pct(1, 40), c.pct(26, 63), c.pct(63, 100)], [3, 41, 63])
 
             print("■ 投稿（post.py。X は返事のまね）")
-            n = 3                                    # #3 は C
+            n = 3                                    # #3 は文 C・画像の型 4
             reset()
-            S["agg"][str(n - 1)] = (200, {"n": n - 1, "s": 40, "g": 10, "s0": 30, "b": [0, 0, 0, 0, 0]})
             code, out = run(post, "--dry-run", "--now", at(n), "--data", tmp)
             check("dry-run: 終了コード 0・送らない・CSV を作らない・鍵が無くても動く",
                   [code, S["posted"], os.path.exists(os.path.join(tmp, "posts.csv"))], [0, [], False])
-            check("dry-run: 送る文と型を出す", ["型 C" in out, post.compose(n, rows[n - 1]["digits"], "C",
-                                                 "Yesterday's puzzle: 80% solved, 75% with no hints.") in out], [True, True])
+            check("dry-run: 送る文と型を出す", ["文の型 C" in out, post.compose(rows[n - 1]["digits"], "C") in out], [True, True])
             code, out = run(post, "--now", at(n), "--data", tmp)
             check("鍵が無いと止め、足りない名前だけ出す（送らない）",
                   [code, "X_API_KEY" in out and "X_ACCESS_SECRET" in out, S["posted"]], [1, True, []])
             with env(**KEYS):
                 code, out = run(post, "--now", at(n), "--data", tmp)
                 check("送る: 終了コード 0・1 回だけ送る・署名が通る", [code, len(S["posted"]), S["bad_auth"]], [0, 1, []])
-                check("送った文はその日の C の文", S["posted"][0]["text"],
-                      post.compose(n, rows[n - 1]["digits"], "C", "Yesterday's puzzle: 80% solved, 75% with no hints."))
+                check("送った文はその日の C の文", S["posted"][0]["text"], post.compose(rows[n - 1]["digits"], "C"))
                 p = c.read_table(tmp, "posts.csv")
                 row = p.get(D(n).isoformat(), {})
-                check("posts.csv に 1 行（型・文の版・番号・数字・tweet の番号・フォロワー・C の記録）",
+                check("posts.csv に 1 行（型・文の版・番号・数字・tweet の番号・フォロワー・c_note は空・画像の型）",
                       [len(p), row.get("type"), row.get("tmpl"), row.get("n"), row.get("digits"), row.get("tweet_id"),
-                       row.get("followers"), row.get("c_note"), row.get("posted_at")],
-                      [1, "C", "3", str(n), rows[n - 1]["digits"], "1001", "100", "出した（s=40 g=10 s0=30）", at(n)])
+                       row.get("followers"), row.get("c_note"), row.get("posted_at"), row.get("style")],
+                      [1, "C", "4", str(n), rows[n - 1]["digits"], "1001", "100", "", at(n), "4"])
                 check("画像を上げて付ける: 上げるのは 1 回・本文は multipart・tweet_image・PNG がそのまま届く",
                       [len(S["uploads"]), S["uploads"][0].get("media_category", (0, 0, 0))[2],
                        S["uploads"][0].get("media"), S["bad_auth"]],
                       [1, b"tweet_image", ("make10.png", "image/png", PNG), []])
                 check("代わりの文を media/metadata で入れる", S["metas"], [{"id": "770077", "metadata": {"alt_text": {
-                    "text": post.alt_text(n, rows[n - 1]["digits"])}}}])
+                    "text": post.alt_text(n, rows[n - 1]["digits"], rows[n - 1]["rc"])}}}])
                 check("投稿に media_id が付く・posts.csv の image は 1",
                       [S["posted"][0].get("media"), row.get("image")], [{"media_ids": ["770077"]}, "1"])
                 order = [k[1] for k in S["calls"] if k[1].startswith("/x/2/") and k[0] == "POST"]
                 check("上げる → 代わりの文 → 投稿 の順", order, ["/x/2/media/upload", "/x/2/media/metadata", "/x/2/tweets"])
                 with open(os.path.join(tmp, "posts.csv"), encoding="utf-8") as fh:
-                    check("CSV のファイルにも tmpl=3 が書いてある", fh.readline().split(",")[3] == "tmpl" and ",C,3," in fh.read(),
+                    check("CSV のファイルにも tmpl=4 が書いてある", fh.readline().split(",")[3] == "tmpl" and ",C,4," in fh.read(),
                           True)
                 check("鍵の値を出さない", [v in out for v in KEYS.values() if "LEAK" in v], [False, False, False])
                 code, out = run(post, "--now", at(n, "09:30"), "--data", tmp)
                 check("同じ日に 2 回流しても、2 回目は送らない", [code, len(S["posted"])], [0, 1])
-                # 次の日（#4 は A）。X が断ったら失敗・行を足さない
+                # 次の日（#4 は D）。X が断ったら失敗・行を足さない
                 S["post_resp"] = (403, {"title": "Forbidden", "detail": "You are not allowed to create a Tweet with duplicate content."})
                 code, out = run(post, "--now", at(n + 1), "--data", tmp)
                 check("X が断ったら終了コード 1・行を足さない・理由を出す",
@@ -449,13 +496,13 @@ def main():
                 S["post_resp"] = None
                 S["followers"] = 104
                 S["agg"].clear()
-                code, out = run(post, "--now", at(n + 2), "--data", tmp)     # #5 は B
-                code6, out6 = run(post, "--now", at(n + 3), "--data", tmp)   # #6 は C。集計が取れない
+                code, out = run(post, "--now", at(n + 2), "--data", tmp)     # #5 は文 A・画像の型 2
+                code6, out6 = run(post, "--now", at(n + 3), "--data", tmp)   # #6 は文 B・画像の型 4
                 p = c.read_table(tmp, "posts.csv")
-                check("型が順に回る（#3 C・#5 B・#6 C）", [p[D(k).isoformat()]["type"] for k in (3, 5, 6)], ["C", "B", "C"])
-                check("C で集計が取れない日は昨日の行なしで送り、記録にそう残す",
-                      [code6, p[D(6).isoformat()]["text"], p[D(6).isoformat()]["c_note"]],
-                      [0, post.compose(6, rows[5]["digits"], "C", ""), "取れない（集計が HTTP 400（range））"])
+                check("文の型と画像の型が順に回る（#3 C 4・#5 A 2・#6 B 4）",
+                      [(p[D(k).isoformat()]["type"], p[D(k).isoformat()]["style"]) for k in (3, 5, 6)],
+                      [("C", "4"), ("A", "2"), ("B", "4")])
+                check("#6 の文は B の文", [code6, p[D(6).isoformat()]["text"]], [0, post.compose(rows[5]["digits"], "B")])
                 code, out = run(post, "--now", "%sT08:30:00Z" % (start - datetime.timedelta(days=1)), "--data", tmp)
                 # 送ったのは #3・#4（断られた画像付き）・#4（文字だけの送り直し。これも断られた）・#5・#6
                 check("起点日より前の日は送らずに 0 で終わる", [code, len(S["posted"])], [0, 5])
@@ -471,9 +518,9 @@ def main():
                     S.update(image=PNG, upload_resp=None, meta_resp=None, media_resp=None, post_resp=None)
                     return code, out, S["posted"]
                 code, out, sent = one(7, image=None)
-                check("画像を作れない日: 文字だけで送る・終了コード 0・理由を出す・image は 0・上げない",
-                      [code, len(sent), "media" in sent[0], "Chrome が無い" in out, img(7)["image"], S["uploads"]],
-                      [0, 1, False, True, "0", []])
+                check("画像を作れない日: 文字だけで送る・終了コード 0・理由を出す・image は 0・style は空・上げない",
+                      [code, len(sent), "media" in sent[0], "Chrome が無い" in out, img(7)["image"], img(7)["style"], S["uploads"]],
+                      [0, 1, False, True, "0", "", []])
                 code, out, sent = one(8, upload_resp=(403, {"title": "Forbidden", "detail": "not permitted to upload"}))
                 check("上げるのを断られた日: 文字だけで送る・終了コード 0・理由を出す・image は 0・代わりの文を送らない",
                       [code, len(sent), "media" in sent[0], "not permitted to upload" in out, img(8)["image"], S["metas"]],
@@ -494,6 +541,13 @@ def main():
                 code, out, sent = one(13, media_resp=(403, {"title": "Forbidden"}), post_resp=(403, {"title": "Forbidden"}))
                 check("文字だけの送り直しも断られたら終了コード 1・行を足さない・3 回目は送らない",
                       [code, len(sent), D(13).isoformat() in c.read_table(tmp2, "posts.csv")], [1, 2, False])
+                code, out, sent = one(16, image=JPG)
+                check("JPEG の日: image/jpeg・make10.jpg で上げて付ける・style はその日の画像の型",
+                      [code, S["uploads"][0].get("media"), sent[0].get("media"), img(16)["image"], img(16)["style"]],
+                      [0, ("make10.jpg", "image/jpeg", JPG), {"media_ids": ["770077"]}, "1", str(image.style_of(16))])
+                code, out, sent = one(17, image=b"GIF89a" + bytes(10))
+                check("形式が分からない画像は上げずに文字だけで送る",
+                      [code, S["uploads"], "media" in sent[0], "形式が分からない" in out, img(17)["image"]], [0, [], False, True, "0"])
 
                 print("■ media_test（post.py --media-test）")
                 before = len(c.read_table(tmp2, "posts.csv"))
@@ -579,10 +633,10 @@ def main():
             code, out = run(report, "--data", tmp)
             lines = out.splitlines()
             row = lambda t: next((ln for ln in lines if ln.startswith("| %s | " % t)), "")  # noqa: E731
-            check("型ごとの行がある（B・C）", [bool(row("B")), bool(row("C")), bool(row("A"))], [True, True, False])
-            # C: #3 と #6。24 時間の値は #6 だけ（表示 300・反応 3）→ 1,000 回あたり 10.0
-            check("C: 投稿 2・24 時間の値がある日 1・表示 300・反応 10.0 / 1,000",
-                  row("C").split(" | ")[1:5], ["2", "1", "300", "10.0"])
+            check("型ごとの行がある（A・B・C。D は無い）", [bool(row(t)) for t in "ABCD"], [True, True, True, False])
+            # B: #6 だけ。24 時間の値は #6（表示 300・反応 3）→ 1,000 回あたり 10.0
+            check("B: 投稿 1・24 時間の値がある日 1・表示 300・反応 10.0 / 1,000",
+                  row("B").split(" | ")[1:5], ["1", "1", "300", "10.0"])
             check("勝ち負けを決める言葉が無い（「勝ち負けは決めない」の断り書きのほか）",
                   [w in out.replace("勝ち負けは決めない", "") for w in ("勝", "負け", "おすすめ", "最良")], [False] * 4)
             check("曜日の内訳と日ごとの表がある", ["## 曜日の内訳" in out, "## 日ごと" in out], [True, True])

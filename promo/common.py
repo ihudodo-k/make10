@@ -192,14 +192,26 @@ def x_call(method, path, keys, query=None, body=None, raw=None, ctype=None):
     return request(method, full, headers=headers, body=body, raw=raw)
 
 
-def x_upload_image(keys, png):
-    """画像（PNG）を POST /2/media/upload で上げる（multipart/form-data）。(状態, JSON, 本文)"""
+IMAGE_MAGIC = ((b"\x89PNG\r\n\x1a\n", "image/png", ".png"), (b"\xff\xd8\xff", "image/jpeg", ".jpg"))
+
+
+def image_format(data):
+    """画像の (Content-Type, 拡張子)。頭の印から決める（PNG か JPEG）。どちらでもなければ Fail"""
+    for magic, mime, ext in IMAGE_MAGIC:
+        if data[:len(magic)] == magic:
+            return mime, ext
+    raise Fail("画像の形式が分からない（PNG でも JPEG でもない）")
+
+
+def x_upload_image(keys, data, mime="image/png", filename="make10.png"):
+    """画像を POST /2/media/upload で上げる（multipart/form-data）。(状態, JSON, 本文)。
+    mime と filename は中身に合わせる（image_format。紙の型の画像は JPEG）"""
     b = "make10" + secrets.token_hex(16)
     raw = b"".join([
         ('--%s\r\nContent-Disposition: form-data; name="media_category"\r\n\r\ntweet_image\r\n' % b).encode(),
-        ('--%s\r\nContent-Disposition: form-data; name="media"; filename="make10.png"\r\n'
-         'Content-Type: image/png\r\n\r\n' % b).encode(),
-        png, ('\r\n--%s--\r\n' % b).encode()])
+        ('--%s\r\nContent-Disposition: form-data; name="media"; filename="%s"\r\n'
+         'Content-Type: %s\r\n\r\n' % (b, filename, mime)).encode(),
+        data, ('\r\n--%s--\r\n' % b).encode()])
     return x_call("POST", "/2/media/upload", keys, raw=raw, ctype="multipart/form-data; boundary=" + b)
 
 
@@ -215,7 +227,7 @@ def x_error(st, j, text):
 
 # ── CSV（キーで 1 行。同じキーは上書きするので、2 回集めても重複しない） ──
 
-POSTS = ("date", "n", "type", "tmpl", "digits", "text", "c_note", "image", "tweet_id", "posted_at", "followers",
+POSTS = ("date", "n", "type", "tmpl", "digits", "text", "c_note", "image", "style", "tweet_id", "posted_at", "followers",
          "m24_at", "m24_impressions", "m24_likes", "m24_replies", "m24_reposts", "m24_quotes", "m24_profile_clicks",
          "last_at", "last_impressions", "last_likes", "last_replies", "last_reposts", "last_quotes", "last_profile_clicks")
 VISITS = ("date", "visits", "pageviews", "from_tco", "from_x", "collected_at")
