@@ -33,6 +33,16 @@ FITS = ("(()=>{const a=$('app'),lim=a.getBoundingClientRect().top+a.clientHeight
         "return n<=lim+.5&&document.documentElement.scrollHeight<=innerHeight+1&&$('home').scrollHeight<=$('home').clientHeight+1})()")
 
 
+# 英語の画面（9.3）: [見えている文字に日本語があるか, 画面の幅からはみ出す要素の数]。%s は画面の id
+EN_OK = ("(()=>{const r=$('%s');const ja=/[\\u3040-\\u30ff\\u3400-\\u9fff\\uff01-\\uff60]/.test(r.innerText);"
+         "const over=[...r.querySelectorAll('*')].filter(e=>{const b=e.getBoundingClientRect();"
+         "return b.width>0&&getComputedStyle(e).visibility!=='hidden'&&(b.left<-0.5||b.right>innerWidth+0.5)}).length;"
+         "return [ja,over]})()")
+# 遊び方のデイリーの節（9.3）: [見出し, 3 行]
+HELP_DAILY = ("(()=>{const h=[...document.querySelectorAll('#help h3')].pop();"
+              "return [h.textContent,...[...h.nextElementSibling.querySelectorAll('li')].map(e=>e.textContent)]})()")
+
+
 def value(ui):
     return ui.text("m-daily-v")
 
@@ -239,8 +249,24 @@ def run(ui):
     ui.check("英語: 3 列の名前と単位",
              [ui.ev("[...document.querySelectorAll('.rcol .rn')].map(e=>e.textContent).join('|')"),
               ui.text("r-hints-u"), ui.text("r-streak-u")], ["Time|Hints|Streak", "", "day"])
+    # 英語の確かめ（9.3）: デイリーの画面に日本語の文字が出ない・画面の幅からはみ出す要素が無い
+    ui.check("英語: 解いた後の画面に日本語が出ない・はみ出さない", ui.ev(EN_OK % "play"), [False, 0])
+    ui.click("dstats")
+    ui.check("英語: 統計の画面", [ui.ev("document.querySelector('#dailystats h2').textContent"),
+                               ui.ev("$('dcal-line').textContent")],
+             ["Daily stats", "#31 · Wed, Nov 25 · %s · 0 hints" % ui.ev("fmtTime(%d)" % t_en)])
+    ui.check("英語: 統計の画面に日本語が出ない・はみ出さない", ui.ev(EN_OK % "dailystats"), [False, 0])
+    ui.click("navback")
     ui.click("back")
     ui.check("英語: 解いた後の値", value(ui), "Solved %s · 1-day streak" % ui.ev("fmtTime(%d)" % t_en))
+    ui.ev("go('help')")
+    ui.check("英語: 遊び方のデイリーの節", ui.ev(HELP_DAILY),
+             ["Daily", "One try a day. Give up to see the answers.",
+              "Share the puzzle to get a hint (up to 2 a day). Your Classic hints are not used.",
+              "A new puzzle every day at midnight (your device's time). Daily results are counted separately from Classic."])
+    ui.check("英語: 遊び方のモードに 4 行目", ui.ev("document.querySelector('#help [data-i18n-html$=m4_html]').textContent"),
+             "Daily … one puzzle a day, the same for everyone")
+    ui.check("英語: 遊び方に日本語が出ない・はみ出さない", ui.ev(EN_OK % "help"), [False, 0])
 
     # ── ヒントと共有（9.1）。本編のヒントの残数（G）は減らさない ──────
     ui.open(PROG, now=NOW)
@@ -312,6 +338,16 @@ def run(ui):
     ui.check("送れたら送った印", rec.get("sent"), 1)
     ui.check("みんなの結果が出る（正解率・ヒントなし）", [ui.visible("aggbox"),
              ui.ev("[...document.querySelectorAll('#aggbox .ac b')].map(e=>e.textContent)")], [True, ["81%", "65%"]])
+    ui.check("棒に本編の進捗の棒（.bar）の様式が掛からない: 面なし・はみ出しを隠さない・帯の名前が 1 列にそろい箱の中（9.3）",
+             ui.ev("(()=>{const box=$('aggbox').getBoundingClientRect(),bs=[...document.querySelectorAll('#aggbox .bar')],"
+                   "sp=bs.map(b=>b.querySelector('span').getBoundingClientRect());"
+                   "return [bs.every(b=>{const c=getComputedStyle(b);return c.backgroundColor==='rgba(0, 0, 0, 0)'&&c.overflow==='visible'}),"
+                   "new Set(sp.map(r=>Math.round(r.bottom))).size,sp.every(r=>r.bottom<=box.bottom+.5&&r.height>0),"
+                   "bs.map(b=>b.querySelector('span').textContent).join(' ')]})()"),
+             [True, 1, True, "<0:30 <1:00 <2:00 <5:00 5:00+"])
+    ui.check("いちばん多い帯（<2:00）の棒が、いちばん高い",
+             ui.ev("(()=>{const h=[...document.querySelectorAll('#aggbox .bar i')].map(i=>i.getBoundingClientRect().height);"
+                   "return h.indexOf(Math.max(...h))})()"), 2)
     ui.check("自分のいる帯は 1 つ（30 秒未満）", ui.ev("[...document.querySelectorAll('#aggbox .bar')].findIndex(e=>e.classList.contains('me'))"), 0)
     ui.check("結果の並びは、広告の枠の上に収まるか、列の中だけが縦に動く",
              ui.ev("(()=>{const a=$('app'),lim=a.getBoundingClientRect().top+a.clientHeight-parseFloat(getComputedStyle(a).paddingBottom);"
@@ -375,4 +411,12 @@ def run(ui):
              [False, False, False, True, False])
     ui.check("本編に戻ると、共有とヒントの丸ボタンが見える", [ui.visible("share"), ui.visible("hint")], [True, True])
     ui.check("本編の問題番号", ui.text("pmode"), "本編 138/1000")
+    # 遊び方（9.3）
+    ui.ev("go('help')")
+    ui.check("遊び方のデイリーの節", ui.ev(HELP_DAILY),
+             ["デイリー", "1 日 1 回だけ解けます。ギブアップすると答えが見られます",
+              "ヒントは、友達に出題すると 1 回もらえます（1 日 2 回まで）。本編のヒントは減りません",
+              "毎日 0 時（端末の時刻）に新しい問題になります。記録は本編とは別に数えます"])
+    ui.check("遊び方のモードに 4 行目", ui.ev("document.querySelector('#help [data-i18n-html$=m4_html]').textContent"),
+             "デイリー … 1 日 1 問。みんなが同じ問題を解きます")
     ui.check_no_errors("デイリーを回しても JS エラー 0")

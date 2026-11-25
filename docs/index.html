@@ -642,6 +642,10 @@ button.pressed,[role="button"].pressed{opacity:.5}
 #aggbox .bar span{display:block;font-size:10px;line-height:15px;color:var(--dim);white-space:nowrap}
 #aggbox .bar.me i{background:var(--paper);opacity:1}
 #aggbox .bar.me span{color:var(--paper)}
+/* 本編だけの規則（9.3 で直した）。本編にはホームと統計の進捗の棒 .bar（高さ 9px・灰色の面・角丸・overflow:hidden）があり、
+   Web から写した #aggbox .bar に掛かって、棒が潰れ、帯の名前が隠れていた（Web のデイリーには .bar が無い）。ここで外す */
+#result #aggbox .bar{height:auto;margin:0;border-radius:0;background:none;overflow:visible}
+#result #aggbox .bar i{border-radius:0;transition:none}
 #aggbox.tight{--aggH:20px}
 #aggbox.tight .at{display:none}
 #aggbox.tight.pend{display:flex;justify-content:center;align-items:baseline;gap:10px}
@@ -888,9 +892,17 @@ button.pressed,[role="button"].pressed{opacity:.5}
       <li data-i18n-html="help.m1_html"></li>
       <li data-i18n-html="help.m2_html"></li>
       <li data-i18n-html="help.m3_html"></li>
+      <li data-i18n-html="help.m4_html"></li>
     </ul>
     <h3 data-i18n="help.sec_hint"></h3>
     <p data-i18n="help.hint"></p>
+    <!-- デイリー（9.3。DAILY-SPEC 21-2）。Web のデイリーの遊び方の「ヒント」「ギブアップ」「毎日 0 時」の行にあたる -->
+    <h3 data-i18n="help.sec_daily"></h3>
+    <ul>
+      <li data-i18n="help.daily_once"></li>
+      <li data-i18n="help.daily_hint"></li>
+      <li data-i18n="help.daily_reset"></li>
+    </ul>
   </div>
 
   <div id="stats" class="hide sheet">
@@ -974,7 +986,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.2";
+const APP_VERSION="9.3";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1186,6 +1198,11 @@ const STR_APP={ja:{
   "help.m1_html":"<b>本編</b> … 1000問。だんだん難しくなります",
   "help.m2_html":"<b>フリープレイ</b> … ランダムに出題。何問でも遊べます",
   "help.m3_html":"<b>挑戦モード</b> … 100問クリアで解放。かなりの難問です",
+  "help.m4_html":"<b>デイリー</b> … 1 日 1 問。みんなが同じ問題を解きます",
+  "help.sec_daily":"デイリー",
+  "help.daily_once":"1 日 1 回だけ解けます。ギブアップすると答えが見られます",
+  "help.daily_hint":"ヒントは、友達に出題すると 1 回もらえます（1 日 2 回まで）。本編のヒントは減りません",
+  "help.daily_reset":"毎日 0 時（端末の時刻）に新しい問題になります。記録は本編とは別に数えます",
   "help.sec_hint":"ヒント",
   "help.hint":"3段階です。押すたびに少しずつ答えに近づきます。3段階目の式を押すと、ほかの解き方も見られます。"
 },
@@ -1332,6 +1349,11 @@ en:{
   "help.m1_html":"<b>Classic</b> … 1000 puzzles that get harder as you go",
   "help.m2_html":"<b>Free Play</b> … random puzzles, as many as you like",
   "help.m3_html":"<b>Challenge</b> … unlocks after 100 clears. Very tough puzzles",
+  "help.m4_html":"<b>Daily</b> … one puzzle a day, the same for everyone",
+  "help.sec_daily":"Daily",
+  "help.daily_once":"One try a day. Give up to see the answers.",
+  "help.daily_hint":"Share the puzzle to get a hint (up to 2 a day). Your Classic hints are not used.",
+  "help.daily_reset":"A new puzzle every day at midnight (your device's time). Daily results are counted separately from Classic.",
   "help.sec_hint":"Hints",
   "help.hint":"Hints come in 3 steps, each a little closer to the answer. In step 3, tap the expression to see other solutions."
 }};
