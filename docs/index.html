@@ -624,6 +624,42 @@ button.pressed,[role="button"].pressed{opacity:.5}
 .rcol .rn{font-size:11.5px;line-height:17px;color:var(--dim)}
 #solbox{margin:0 12px}
 #solbox .hintrow{min-height:var(--hintBtnH)}
+/* ── デイリーの統計（9.0）。カレンダーの規則は Web から 1 文字も変えずに写した ── */
+#dcal{margin:12px 15px 0;padding-top:6px;border-top:1px solid var(--edge);--calDot:color-mix(in srgb,var(--dim) 60%,var(--ink))}
+#dcal .chead{display:flex;align-items:center;justify-content:space-between}
+#dcal .chead b{font-size:14px;font-weight:700}
+#dcal .chead button:disabled{color:var(--slate);opacity:.5;cursor:default}
+#dcal-grid{display:grid;grid-template-columns:repeat(7,1fr);justify-items:center;row-gap:2px}
+#dcal-grid .dw{font-size:11.5px;line-height:20px;color:var(--dim)}
+#dcal-grid .dc{position:relative;width:var(--calCell);height:var(--calCell);padding:0;border:0;border-radius:8px;background:none;
+ display:flex;align-items:center;justify-content:center;color:var(--dim);font:inherit}
+#dcal-grid .dc:active{background:none}
+#dcal-grid .dc i{box-sizing:border-box;width:var(--calMark);height:var(--calMark);line-height:var(--calMark);border-radius:50%;
+ font-style:normal;font-size:12.5px;font-weight:500;text-align:center;font-variant-numeric:tabular-nums}
+#dcal-grid .dc.s i{background:var(--paper);color:var(--ink);font-weight:700}
+#dcal-grid .dc.g i{border:1.5px solid var(--dim);line-height:calc(var(--calMark) - 3px)}
+#dcal-grid .dc.n::after{content:"";position:absolute;left:50%;bottom:1px;width:5px;height:5px;margin-left:-2.5px;
+ border-radius:50%;background:var(--calDot)}
+#dcal-grid .dc.x{color:var(--slate)}
+#dcal-grid .dc.today{box-shadow:inset 0 0 0 1px var(--dim)}
+#dcal-grid .dc.sel{box-shadow:inset 0 -2px 0 var(--paper)}
+#dcal-grid .dc.today.sel{box-shadow:inset 0 0 0 1px var(--dim),inset 0 -2px 0 var(--paper)}
+#dcal-legend{display:flex;justify-content:center;gap:14px;margin-top:8px;font-size:11.5px;line-height:16px;color:var(--dim);white-space:nowrap}
+#dcal-legend span{display:flex;align-items:center;gap:5px}
+#dcal-legend i{box-sizing:border-box;width:10px;height:10px;border-radius:50%}
+#dcal-legend i.s{background:var(--paper)}
+#dcal-legend i.g{border:1.5px solid var(--dim)}
+#dcal-legend i.n{width:5px;height:5px;margin:0 2.5px;background:var(--calDot)}
+#dcal-line{min-height:20px;margin:8px 0 6px;text-align:center;font-size:12.5px;line-height:20px;color:var(--dim);white-space:nowrap}
+#dcal-line b{color:var(--paper);font-weight:700}
+/* 本編だけの規則: 統計の 3 つを横に並べる（Web の #dstatbody #statlist と同じ形）・統計の入口は三本線の左・
+   入口が増えたぶん、上のバーの中央の文字の箱を左右同じだけ狭めて、画面の軸に乗せたままにする */
+#dstatlist{display:grid;grid-template-columns:repeat(3,1fr);padding:6px 15px 0}
+#dstatlist .stat{text-align:center}
+#dstatlist .stat .sv{justify-content:center}
+#dstats{position:absolute;top:0;right:calc(var(--btnW) + 9px);z-index:1}
+#play.dplay .top .info{padding:0 calc(var(--btnW) + 9px)}
+@media (max-height:700px){#dstatlist .stat{height:66px}#dstatlist .stat .sv b{font-size:22px}}
 /* 本編だけの規則。8.9 では、デイリーの間は共有とヒントの丸ボタンを出さない（デイリーの決まりの共有とヒントは 9.1）*/
 #play.dplay #share,#play.dplay #hint{visibility:hidden}
 /* 解いた後の並びが画面に収まらない低い画面だけ、列の中を縦に動かせる（Web の 13-5 と同じ考え）*/
@@ -699,6 +735,10 @@ button.pressed,[role="button"].pressed{opacity:.5}
       <button id="share" class="plainbtn" data-i18n-label="play.share"></button>
       <!-- デイリーのギブアップの入口（8.9。旗。Web のデイリーと同じ絵柄・同じ id）。ホームのボタンの真下に重ねる。
            デイリーで解く前だけ出す -->
+      <!-- デイリーの統計（9.0。棒 3 本。Web と同じ絵柄・同じ id）。三本線の左に重ねる -->
+      <button id="dstats" class="plainbtn hide" data-i18n-label="daily.btn_stats">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19.5v-7"/><path d="M12 19.5v-15"/><path d="M17.5 19.5v-10"/></svg>
+      </button>
       <button id="dgiveup" class="plainbtn hide" data-i18n-label="daily.btn_giveup">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 20.5v-16"/><path d="M6.5 5h11l-2.6 3.75 2.6 3.75h-11"/></svg>
       </button>
@@ -753,6 +793,22 @@ button.pressed,[role="button"].pressed{opacity:.5}
         <div class="rcol"><div class="rv"><b id="r-streak"></b><span class="ru" id="r-streak-u"></span></div><div class="rn" data-i18n="daily.result_streak"></div></div>
       </div>
       <div class="hintbox" id="solbox"></div>
+    </div>
+  </div>
+
+<!-- デイリーの統計（9.0。DAILY-SPEC 21-5）。問題の画面の統計から開くシート。3 つの数字とカレンダー（Web と同じ id）-->
+<div id="dailystats" class="hide sheet">
+    <h2 data-i18n="dstats.title"></h2>
+    <div id="dstatlist"></div>
+    <div id="dcal">
+      <div class="chead">
+        <button id="dcal-prev" class="plainbtn" data-i18n-label="daily.cal_prev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <b id="dcal-title"></b>
+        <button id="dcal-next" class="plainbtn" data-i18n-label="daily.cal_next"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div id="dcal-grid"></div>
+      <div id="dcal-legend"><span><i class="s"></i><span data-i18n="daily.cal_legend_solved"></span></span><span><i class="g"></i><span data-i18n="daily.giveup_label"></span></span><span><i class="n"></i><span data-i18n="daily.cal_legend_none"></span></span></div>
+      <div id="dcal-line"></div>
     </div>
   </div>
 
@@ -890,7 +946,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="8.9";
+const APP_VERSION="9.0";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -979,6 +1035,7 @@ const STR_APP={ja:{
   "home.daily_gaveup":"#{no}　ギブアップ",
   "home.daily_none":"問題がありません",
   "play.daily_mode":"デイリー",
+  "dstats.title":"デイリーの統計",
   // デイリー（8.9。DAILY-SPEC 21 章）。キーと文は Web のデイリー（STR_DAILY）と同じ
   "daily.top_date_html":"<b>#{no}</b><span>　{md}（{wd}）</span>",
   "daily.btn_giveup":"ギブアップ",
@@ -992,6 +1049,17 @@ const STR_APP={ja:{
   "daily.sols_other":"ほかの解き方：",
   "daily.unit_day":{other:"日"},
   "daily.unit_times":{other:"回"},
+  "daily.btn_stats":"統計",
+  "daily.stats_solved":"解いた日数",
+  "daily.stats_streak":"連続日数",
+  "daily.stats_max":"最長",
+  "daily.hint_sep":"　",
+  "daily.cal_prev":"前の月",
+  "daily.cal_next":"次の月",
+  "daily.cal_legend_solved":"解いた",
+  "daily.cal_legend_none":"遊ばなかった",
+  "daily.cal_solved":{other:"{time}　ヒント {n} 回"},
+  "daily.cal_none":"遊んでいません",
   "play.home":"ホーム",
   "play.code_label":"コード",
   "play.copy_code":"コードをコピー",
@@ -1093,6 +1161,7 @@ en:{
   "home.daily_gaveup":"#{no} · Gave up",
   "home.daily_none":"No puzzle today",
   "play.daily_mode":"Daily",
+  "dstats.title":"Daily stats",
   "daily.top_date_html":"<b>#{no}</b><span> · {wd}, {md}</span>",
   "daily.btn_giveup":"Give up",
   "daily.giveup_confirm":"Give up?",
@@ -1105,6 +1174,17 @@ en:{
   "daily.sols_other":"Other solutions",
   "daily.unit_day":{one:"day",other:"days"},
   "daily.unit_times":{one:"",other:""},                 // 英語は単位を出さない（列の名前が Hints なので数字だけ）
+  "daily.btn_stats":"Stats",
+  "daily.stats_solved":"Solved",
+  "daily.stats_streak":"Streak",
+  "daily.stats_max":"Max streak",
+  "daily.hint_sep":" · ",
+  "daily.cal_prev":"Previous month",
+  "daily.cal_next":"Next month",
+  "daily.cal_legend_solved":"Solved",
+  "daily.cal_legend_none":"Missed",
+  "daily.cal_solved":{one:"{time} · {n} hint",other:"{time} · {n} hints"},
+  "daily.cal_none":"Not played",
   "play.home":"Home",
   "play.code_label":"Code",
   "play.copy_code":"Copy code",
@@ -41604,7 +41684,7 @@ function render(closing){
   else fit();                         // 枠に関係しない通常描画（初期表示・resize 等）
   closeSet=null;
   // デイリー（8.9）: ギブアップの後は、盤に解答例を出したまま、「10」の場所を「ギブアップ」にする（DAILY-SPEC 13-6）
-  if(MODE==="daily"&&dlyRec()&&dlyRec().r==="g"){eq.className="eq gaveup";eq.textContent=t("daily.giveup_label");
+  if(MODE==="daily"&&dayRecord()&&dayRecord().r==="g"){eq.className="eq gaveup";eq.textContent=t("daily.giveup_label");
     su.className="sub";su.textContent=""}
 }
 /* 直近に計算した隙間幅。ドラッグ中の判断に使う（画面が見えている前提） */
@@ -41901,7 +41981,7 @@ function loadPuzzle(p){
   const dd=MODE==="daily";
   $("play").classList.toggle("dplay",dd);$("play").classList.remove("done","locked");
   $("pcode").classList.toggle("hide",dd);$("pday").classList.toggle("hide",!dd);
-  $("dgiveup").classList.toggle("hide",!dd);$("result").classList.add("hide");$("app").classList.remove("dscroll");
+  $("dgiveup").classList.toggle("hide",!dd);$("dstats").classList.toggle("hide",!dd);$("result").classList.add("hide");$("app").classList.remove("dscroll");
   dlyGuHide();
   showHint();render()}
 /* 「全部消す」。次の問題を読む loadPuzzle() とは別物にする。
@@ -41956,7 +42036,7 @@ function chalEnd(){
   if(MODE!=="chal")return;
   toast(t("toast.chal_end",{done:G.chalDone.length,total:CHAL.length}));
 }
-const SCREENS=["home","play","settings","help","stats"];
+const SCREENS=["home","play","settings","help","stats","dailystats"];
 let SCR="home", retScr="home", exitArm=0;   // retScr = 設定に入る前の画面
 function go(s){
   if(s==="settings"&&(SCR==="home"||SCR==="play"))retScr=SCR;
@@ -41967,7 +42047,7 @@ function go(s){
      - ホーム    : 左なし（戻る先が無い）／右に三本線
      - 問題画面  : .top の中の #back と #menu が担うので、どちらも出さない
      - 設定/統計/遊び方 : 左に戻る／右は空（その画面自体が設定なので開く意味がない）*/
-  const isSheet=(s==="settings"||s==="help"||s==="stats");
+  const isSheet=(s==="settings"||s==="help"||s==="stats"||s==="dailystats");
   $("navback").classList.toggle("hide",!isSheet);
   $("gear").classList.toggle("hide",s!=="home");
   if(s==="home")renderHome();
@@ -41990,11 +42070,12 @@ function enterPlay(){
   else fit();                               // 非表示中は applyScale() を止めてある
   if(solved)showWinCard();                  // 正解カードを出し直す（GAME-SPEC 8）
   // デイリー（8.9）: 時間の見回りと、解いた後の並びの描き直し（設定から戻ったとき・言語を変えたとき）
-  if(MODE==="daily"&&dlyPz){dlyWatch();if(dlyRec())dlyShowResult(false)}
+  if(MODE==="daily"&&PUZZLE){dlyWatch();if(dayRecord())dlyShowResult(false)}
 }
 function goBack(){
   if(SCR==="play"){go("home");return}
   if(SCR==="settings"){go(retScr);return}
+  if(SCR==="dailystats"){go("play");return}       // デイリーの統計（9.0）は問題の画面から開く
   if(SCR==="help"||SCR==="stats"){go("settings");return}
   const n=performance.now();
   if(n-exitArm<2500){
@@ -42146,7 +42227,7 @@ function applyLang(redraw){
   renderSettings();renderHome();
   if(cur){                                  // 問題画面は隠れている。戻ったときに同じ問題を新しい言語で出す
     $("pmode").textContent=pmodeText(MODE);
-    if(MODE==="daily"&&dlyPz)dlyTop();
+    if(MODE==="daily"&&PUZZLE)dlyTop();
     if(MODE==="free")$("alt").textContent=t("play.skip");
     else if(MODE==="course"||MODE==="chal")$("alt").textContent=t("play.alt");
     showHint();renderHintStock();showWinCard();
@@ -42851,8 +42932,12 @@ function dlyToday(){
   const no=s?dayNumber(day.y,day.m,day.d)-dayNumber(s.y,s.m,s.d)+1:0;
   return{day,no,pz:no>=1&&no<=DAILY_DAYS.length?DAILY_DAYS[no-1]:null};
 }
-/* 遊んでいる日（デイリーに入った時に決め、問題の画面の間は変えない。Web の TODAY・DAILY_NO・PUZZLE）*/
-let dlyDay=null, dlyNo=0, dlyPz=null;
+/* 遊んでいる日（デイリーに入った時に決め、問題の画面の間は変えない）。名前は Web と同じにして、Web の関数（dayRecord・playing・
+   statsNow・カレンダーなど）を 1 文字も変えずに写せるようにした（9.0）。Web は const（開いた時に 1 度だけ決める）だが、本編は
+   dlyOpen() が当て直すので let。宣言の文が Web と違うので、照合の除外の一覧に載せてある（uiharness/daily_ui.py の JS_EXCLUDE）*/
+let TODAY=dlyToday().day;
+let DAILY_NO=dlyToday().no;
+let PUZZLE=null;
 /* 保存を読む。days と cur は Web の loadDaily() と同じ確かめに通す。set（Web のデイリーの設定）は読まない ――
    本編の盤は本編の設定で動き、書くときは保存にある set をそのまま書き戻す（21-3）*/
 function dlyLoad(){
@@ -42862,9 +42947,9 @@ function dlyLoad(){
     if(x&&typeof x==="object"&&x.days&&typeof x.days==="object"){DATA.days=keptDays(x.days);DATA.cur=keptCur(x.cur)}
   }catch(e){}
 }
-const dlyRec=()=>dlyPz?DATA.days[dlyPz.no]:undefined;    // 遊んでいる日の記録（まだなら undefined）
-const dlyPlaying=()=>!!dlyPz&&!dlyRec();
-const dlyOn=()=>MODE==="daily"&&!!dlyPz;                  // デイリーの問題を出している
+const dayRecord=()=>PUZZLE?DATA.days[PUZZLE.no]:undefined;
+const playing=()=>!!PUZZLE&&!dayRecord();
+const dlyOn=()=>MODE==="daily"&&!!PUZZLE;                  // デイリーの問題を出している
 /* 書く（21-3）。本編が書くのは days と cur だけ。書く直前に保存を読み直し、
    - このページが持っていない日を足す（Web の keepOthers() と同じ決まり。どちらにもある日はこのページの分を残し、sent は付いていれば付ける）
    - set は、保存にあるものをそのまま書き戻す（無ければ書かない）
@@ -42873,7 +42958,7 @@ function dlySave(){
   let x=null;
   try{x=JSON.parse(localStorage.getItem(DAILY_KEY)||"null")}catch(e){}
   const src=x&&typeof x==="object"&&x.days&&typeof x.days==="object"&&!Array.isArray(x.days)?x.days:null;
-  const before=dlyRec();
+  const before=dayRecord();
   if(src)for(const k of Object.keys(src)){
     if(!DAY_KEY_RE.test(k))continue;
     if(DATA.days[k]){if(src[k]&&src[k].sent===1)DATA.days[k].sent=1;continue}
@@ -42885,18 +42970,18 @@ function dlySave(){
   const out={v:1,days:DATA.days,cur:DATA.cur};
   if(x&&typeof x==="object"&&!Array.isArray(x)&&"set" in x)out.set=x.set;
   try{localStorage.setItem(DAILY_KEY,JSON.stringify(out))}catch(e){}
-  if(!before&&dlyRec()&&dlyOn())setTimeout(()=>dlyShowResult(true));
+  if(!before&&dayRecord()&&dlyOn())setTimeout(()=>dlyShowResult(true));
 }
 /* 時間（Web の 7 章と同じ決まり）。問題を最初に見た時刻からの実際の経過時間。ホームへ戻っても・アプリを閉じても数え続け、
    60 分を過ぎていたら、その時から数え直す。見回るのはデイリーの問題の画面が見えている間だけ */
 let dlyStart=null, dlyH=0, dlySh=0;
 function dlyKeepCur(){
-  if(!dlyPlaying()||dlyStart===null)return;
-  DATA.cur={no:dlyPz.no,start:dlyStart,h:dlyH,sh:dlySh};
+  if(!playing()||dlyStart===null)return;
+  DATA.cur={no:PUZZLE.no,start:dlyStart,h:dlyH,sh:dlySh};
   dlySave();
 }
 function dlyWatch(){
-  if(document.visibilityState!=="visible"||SCR!=="play"||!dlyOn()||!dlyPlaying())return;
+  if(document.visibilityState!=="visible"||SCR!=="play"||!dlyOn()||!playing())return;
   if(dlyStart===null){dlyStart=Date.now();dlyKeepCur();return}       // 初めて見た
   if(Date.now()-dlyStart>=CLOCK_MAX_MS){dlyStart=Date.now();dlyKeepCur()}   // 60 分で数え直す
 }
@@ -42927,34 +43012,34 @@ function dlyHome(){
     :t("home.daily_gaveup",{no:td.no});
 }
 /* 問題画面の上のバーの 2 行目「#31　11月25日（水）」*/
-function dlyTop(){const v=dlyDateVars(dlyDay);$("pday").innerHTML=t("daily.top_date_html",{no:dlyPz.no,md:v.md,wd:v.wd})}
+function dlyTop(){const v=dlyDateVars(TODAY);$("pday").innerHTML=t("daily.top_date_html",{no:PUZZLE.no,md:v.md,wd:v.wd})}
 /* デイリーに入る。その日を決め、解いた後・ギブアップの後なら結果の画面、まだなら問題の画面 */
 function dlyOpen(){
   const td=dlyToday();
   if(!td.pz)return;
-  dlyDay=td.day;dlyNo=td.no;dlyPz=td.pz;
+  TODAY=td.day;DAILY_NO=td.no;PUZZLE=td.pz;
   dlyLoad();
-  const c=DATA.cur&&DATA.cur.no===dlyPz.no?DATA.cur:null;   // 前の日の途中の分は引き継がない
+  const c=DATA.cur&&DATA.cur.no===PUZZLE.no?DATA.cur:null;   // 前の日の途中の分は引き継がない
   if(!c)DATA.cur=null;
   dlyStart=c?c.start:null;dlyH=c?c.h:0;dlySh=c?c.sh:0;
   MODE="daily";$("alt").classList.add("hide");
-  loadPuzzle({id:dlyPz.id,rc:dlyPz.rc,d:dlyPz.d,sol:dlyPz.sol});
+  loadPuzzle({id:PUZZLE.id,rc:PUZZLE.rc,d:PUZZLE.d,sol:PUZZLE.sol});
   dlyTop();
   go("play");
-  if(dlyRec())dlyShowResult(true);
+  if(dayRecord())dlyShowResult(true);
 }
 /* 解いた（render() が予約した win() から来る）。記録はここで 1 回だけ確定する */
 function dlySolved(){
-  if(!solved||!dlyOn()||!dlyPlaying())return;
+  if(!solved||!dlyOn()||!playing())return;
   if(dlyStart!==null&&Date.now()-dlyStart>=CLOCK_MAX_MS)dlyStart=Date.now();   // 見回りの合間に 60 分を過ぎていたら
-  DATA.days[dlyPz.no]={r:"s",t:dlySec(),h:dlyH,sh:dlySh,e:exprOf()};
+  DATA.days[PUZZLE.no]={r:"s",t:dlySec(),h:dlyH,sh:dlySh,e:exprOf()};
   DATA.cur=null;dlySave();
   if(G.vib)navigator.vibrate?.(16);
   setTimeout(dlyShowResult,260);
 }
 function dlyGiveUp(){
-  if(!dlyOn()||!dlyPlaying())return;
-  DATA.days[dlyPz.no]={r:"g",t:null,h:dlyH,sh:dlySh};
+  if(!dlyOn()||!playing())return;
+  DATA.days[PUZZLE.no]={r:"g",t:null,h:dlyH,sh:dlySh};
   DATA.cur=null;dlySave();
   dlyShowResult(true);
 }
@@ -42968,22 +43053,22 @@ function dlyGuShow(){
   $("gu-no").onclick=()=>dlyGuHide();
 }
 function dlyGuHide(){const b=$("gubox");b.classList.remove("show");b.innerHTML=""}
-$("dgiveup").onclick=()=>{if(!dlyPlaying())return;if($("gubox").classList.contains("show"))dlyGuHide();else dlyGuShow()};
+$("dgiveup").onclick=()=>{if(!playing())return;if($("gubox").classList.contains("show"))dlyGuHide();else dlyGuShow()};
 /* 結果の画面（Web の showResult()。共有とみんなの結果は 9.1・9.2）。redraw = 盤を組み直す */
 function dlyShowResult(redraw){
-  const rec=dlyRec();if(!rec||!dlyOn())return;
+  const rec=dayRecord();if(!rec||!dlyOn())return;
   dlyGuHide();
   $("play").classList.add("done");$("dgiveup").classList.add("hide");
   if(redraw){
     solved=true;                              // render() に正解の後の処理を予約させない
-    placeExpr(rec.r==="s"&&rec.e?rec.e:dlyPz.sol);
+    placeExpr(rec.r==="s"&&rec.e?rec.e:PUZZLE.sol);
     render();
   }
   const time=$("r-time");
   time.textContent=rec.r==="s"?fmtTime(rec.t):"—";
   time.classList.toggle("none",rec.r!=="s");
   $("r-hints").textContent=rec.h;$("r-hints-u").textContent=t("daily.unit_times",{n:rec.h});
-  const st=dlyStreak(dlyNo);
+  const st=streakNow();
   $("r-streak").textContent=st;$("r-streak-u").textContent=t("daily.unit_day",{n:st});
   $("result").classList.remove("hide");
   dlySolAt=0;dlyDrawSols();
@@ -42992,8 +43077,8 @@ function dlyShowResult(redraw){
 /* 全解答の箱（Web の drawSols()）。解いた後は「解答例：」で全部、ギブアップの後は「ほかの解き方：」で 2 本目から */
 let dlySolAt=0;
 function dlyDrawSols(){
-  const rec=dlyRec(), box=$("solbox");
-  const other=rec.r==="g", list=other?dlyPz.sols.slice(1):dlyPz.sols, n=list.length;
+  const rec=dayRecord(), box=$("solbox");
+  const other=rec.r==="g", list=other?PUZZLE.sols.slice(1):PUZZLE.sols, n=list.length;
   if(!n){box.classList.remove("show");box.innerHTML="";return}
   if(dlySolAt>=n)dlySolAt=0;
   box.classList.add("show");
@@ -43032,7 +43117,83 @@ function dlyLayout(){
   }
   app.classList.toggle("dscroll",!fits);
 }
-window.addEventListener("resize",()=>{if(SCR==="play"&&dlyOn()&&dlyRec())dlyLayout()});
+/* ── デイリー: 統計とカレンダー（9.0。DAILY-SPEC 21-5。ここから下の名前のある文は、Web から 1 文字も変えずに写した）── */
+function statsNow(){
+  const d=DATA.days, nos=Object.keys(d).map(Number).filter(n=>d[n].r==="s").sort((a,b)=>a-b);
+  let max=0,run=0,prev=null;
+  for(const n of nos){run=prev!==null&&n===prev+1?run+1:1;if(run>max)max=run;prev=n}
+  return{solved:nos.length,streak:streakNow(),max};
+}
+function streakNow(){
+  const d=DATA.days;let n=DAILY_NO;
+  if(d[n]){if(d[n].r!=="s")return 0}else n--;
+  let k=0;while(d[n]&&d[n].r==="s"){k++;n--}
+  return k;
+}
+const CAL_METRICS={normal:{cell:38,mark:28},compact:{cell:32,mark:26}};   // 1 日の箱と、丸の大きさ（px）
+const CAL_START=parseYmd(DAILY_START);
+let calY=TODAY.y, calM=TODAY.m, calSel=null;        // 出している月と、選んでいる日 {no,d}（この月に無ければ null）
+const calNo=(y,m,d)=>dayNumber(y,m,d)-dayNumber(CAL_START.y,CAL_START.m,CAL_START.d)+1;
+const calIdx=(y,m)=>y*12+m;
+function calState(no){
+  if(no<1||no>DAILY_NO||no>DAILY_DAYS.length)return null;
+  const r=DATA.days[no];
+  if(r&&r.r==="s")return "s";
+  if(r&&r.r==="g")return "g";
+  return no===DAILY_NO?"t":"n";
+}
+function calLine(no,y,m,d){
+  const day=new Date(y,m-1,d,12), st=calState(no), r=DATA.days[no];
+  const head=t("daily.top_date_html",{no,
+    md:new Intl.DateTimeFormat(LANG,DATE_FMT[LANG]).format(day),
+    wd:new Intl.DateTimeFormat(LANG,{weekday:"short"}).format(day)});
+  const what=st==="s"?t("daily.cal_solved",{time:fmtTime(r.t),n:r.h}):st==="g"?t("daily.giveup_label"):t("daily.cal_none");
+  return head+t("daily.hint_sep")+what;
+}
+function drawCal(){
+  const first=new Date(calY,calM-1,1,12), days=new Date(calY,calM,0).getDate(), lead=(first.getDay()+6)%7;
+  const m=CAL_METRICS[matchMedia(COMPACT_MQ).matches?"compact":"normal"];
+  $("dcal").style.setProperty("--calCell",m.cell+"px");$("dcal").style.setProperty("--calMark",m.mark+"px");
+  $("dcal-title").textContent=new Intl.DateTimeFormat(LANG,{year:"numeric",month:"long"}).format(first);
+  $("dcal-prev").disabled=calIdx(calY,calM)<=calIdx(CAL_START.y,CAL_START.m);
+  $("dcal-next").disabled=calIdx(calY,calM)>=calIdx(TODAY.y,TODAY.m);
+  const wf=new Intl.DateTimeFormat(LANG,{weekday:"short"});
+  let h="";
+  for(let i=0;i<7;i++)h+=`<span class="dw">${wf.format(new Date(2024,0,1+i,12))}</span>`;   // 2024-01-01 は月曜
+  h+=`<span></span>`.repeat(lead);
+  for(let d=1;d<=days;d++){
+    const no=calNo(calY,calM,d), st=calState(no);
+    if(st===null){h+=`<span class="dc x"><i>${d}</i></span>`;continue}
+    h+=`<button class="dc ${st}${no===DAILY_NO?" today":""}${calSel&&calSel.no===no?" sel":""}" data-no="${no}" data-d="${d}"`+
+      ` aria-label="${calLine(no,calY,calM,d).replace(/<[^>]+>/g,"")}"><i>${d}</i></button>`;
+  }
+  $("dcal-grid").innerHTML=h;
+  $("dcal-line").innerHTML=calSel?calLine(calSel.no,calY,calM,calSel.d):"";
+}
+function calMove(k){
+  const i=calIdx(calY,calM)+k;
+  if(i<calIdx(CAL_START.y,CAL_START.m)||i>calIdx(TODAY.y,TODAY.m))return;
+  calY=Math.floor((i-1)/12);calM=i-calY*12;calSel=null;drawCal();
+}
+function calOpen(){
+  calY=TODAY.y;calM=TODAY.m;
+  calSel=calState(DAILY_NO)===null?null:{no:DAILY_NO,d:TODAY.d};
+  drawCal();
+}
+$("dcal-prev").onclick=()=>calMove(-1);
+$("dcal-next").onclick=()=>calMove(1);
+$("dcal-grid").onclick=e=>{
+  const b=e.target.closest(".dc[data-no]");if(!b)return;
+  calSel={no:+b.dataset.no,d:+b.dataset.d};drawCal()};
+/* 統計の 3 つ（Web の drawStats()。本編は #statlist を本編の統計の画面で使っているので、#dstatlist に書く）*/
+function dlyDrawStats(){
+  const x=statsNow();
+  $("dstatlist").innerHTML=[[t("daily.stats_solved"),x.solved],[t("daily.stats_streak"),x.streak],[t("daily.stats_max"),x.max]]
+    .map(([k,v])=>`<div class="stat"><div class="sv"><b>${v}</b><span class="su">${t("daily.unit_day",{n:v})}</span></div><div class="sk">${k}</div></div>`).join("");
+}
+/* 上のバーの統計（棒 3 本）から、デイリーの統計の画面（シート）を開く。戻ると問題の画面 */
+$("dstats").onclick=()=>{dlyDrawStats();calOpen();go("dailystats")};
+window.addEventListener("resize",()=>{if(SCR==="play"&&dlyOn()&&dayRecord())dlyLayout()});
 
 load();applyLang();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
 // 絵柄は 1 定義から流し込む（4.5）。役割が固定になったので差し替えは起きない（5.1）

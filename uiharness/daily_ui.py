@@ -27,6 +27,11 @@ JS_EXCLUDE = {
     "hideWin": "clearAll() が呼ぶ。デイリーには正解カードが無いので、何もしない関数を置く",
     "G": "同じ名前の小さい G（2 章）。複製した関数が読む項目だけを持つ",
     "STR": "辞書を組む行。本編は STR_APP、デイリーは STR_DAILY を重ねる（16-2）",
+    # 本編の中のデイリー（9.0。DAILY-SPEC 21-5）。遊んでいる日。Web は開いた時に 1 度だけ決める const、
+    # 本編は dlyOpen() が当て直す let。名前を同じにして、これを読む Web の関数を 1 文字も変えずに写している
+    "TODAY": "本編では let（dlyOpen() が当て直す。アプリは開いたままになる）",
+    "DAILY_NO": "本編では let（dlyOpen() が当て直す）",
+    "PUZZLE": "本編では let（dlyOpen() が当て直す）",
 }
 # 本編と同じセレクタだが、手を入れてある CSS の規則（DAILY-SPEC 18-3）
 CSS_EXCLUDE = {}

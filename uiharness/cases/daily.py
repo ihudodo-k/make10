@@ -121,6 +121,35 @@ def run(ui):
     ui.check("Web で解いた日: トレイは出ない", ui.ev("getComputedStyle(document.querySelector('#play .bottom')).visibility"), "hidden")
     ui.check("Web で解いた日: 本編は何も書かない（保存は Web のまま）", ui.ev(STORE), web)
 
+    # ── 統計とカレンダー（9.0）──────────────────────────────
+    ui.check("統計の入口（棒 3 本）が見える", ui.visible("dstats"), True)
+    ui.check("上のバーの中央の文字は、統計の入口に重ならない",
+             ui.ev("$('pday').getBoundingClientRect().right<=$('dstats').getBoundingClientRect().left"), True)
+    g1 = ui.ev(G_SNAP)
+    ui.click("dstats")
+    ui.check("統計の画面（シート）が開く", ui.ev("SCR"), "dailystats")
+    ui.check("見出し", ui.ev("document.querySelector('#dailystats h2').textContent"), "デイリーの統計")
+    ui.check("3 つの数字（解いた日数・連続日数・最長）",
+             ui.ev("[...document.querySelectorAll('#dstatlist .stat')].map(e=>e.querySelector('.sv').textContent+'|'+e.querySelector('.sk').textContent)"),
+             ["2日|解いた日数", "2日|連続日数", "2日|最長"])
+    ui.check("カレンダーは今月", ui.text("dcal-title"), "2026年11月")
+    ui.check("今日（25 日）は解いた印・今日の枠・選んでいる",
+             ui.ev("document.querySelector('#dcal-grid .dc[data-no=\"31\"]').className"), "dc s today sel")
+    ui.check("24 日も解いた印・23 日は遊ばなかった印・26 日は押せない",
+             ui.ev("['30','29'].map(n=>document.querySelector('#dcal-grid .dc[data-no=\"'+n+'\"]').className)"
+                   ".concat([document.querySelectorAll('#dcal-grid .dc.x').length])"), ["dc s", "dc n", 5])
+    ui.check("下の 1 行は今日の結果", ui.ev("$('dcal-line').textContent"), "#31　11月25日（水）　1:42　ヒント 1 回")
+    ui.check("次の月へは行けない・前の月へは行ける", ui.ev("[$('dcal-next').disabled,$('dcal-prev').disabled]"), [True, False])
+    ui.click("dcal-prev")
+    ui.check("前の月（起点日の月）", [ui.text("dcal-title"), ui.ev("$('dcal-prev').disabled"),
+                                 ui.ev("document.querySelectorAll('#dcal-grid .dc.x').length")], ["2026年10月", True, 25])
+    ui.ev("document.querySelector('#dcal-grid .dc[data-no=\"1\"]').click()")
+    ui.check("日を押すと、その日の 1 行", ui.ev("$('dcal-line').textContent"), "#1　10月26日（月）　遊んでいません")
+    ui.check("統計の画面ははみ出さない", ui.ev("(()=>{const h=$('dailystats');return h.scrollWidth<=h.clientWidth})()"), True)
+    ui.click("navback")
+    ui.check("戻ると問題の画面（解いた後のまま）", ui.ev("SCR+'|'+$('play').classList.contains('done')"), "play|true")
+    ui.check("統計を開いても本編の記録は変わらない", ui.ev(G_SNAP), g1)
+
     # ── 書くとき: set はそのまま・保存にある日を足す（keepOthers と同じ）──
     ui.open(PROG, now=NOW, daily={"v": 1, "days": {"29": {"r": "g", "t": None, "h": 0, "sh": 0}}, "cur": None,
                                   "set": web_set})

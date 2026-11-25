@@ -44,7 +44,13 @@ APP_DAILY_CSS = ["#dgiveup", "#play.dplay", "#play.done .bottom", "#play.done .r
                  "#play.done #expr,#play.locked #expr,#play.locked #tray", "#play.done #dgiveup",
                  ".eq.goal", ".eq.gaveup", "#result", ".rcols", ".rcol .rv", ".rcol .rv b", ".rcol .rv b.none",
                  ".rcol .rv .ru", ".rcol .rv .ru:empty", ".rcol .rn", "#solbox", "#solbox .hintrow",
-                 MEDIA + ".rcol .rv", MEDIA + ".rcol .rv b"]
+                 MEDIA + ".rcol .rv", MEDIA + ".rcol .rv b",
+                 # 9.0（カレンダー）
+                 "#dcal", "#dcal .chead", "#dcal .chead b", "#dcal .chead button:disabled", "#dcal-grid", "#dcal-grid .dw",
+                 "#dcal-grid .dc", "#dcal-grid .dc:active", "#dcal-grid .dc i", "#dcal-grid .dc.s i", "#dcal-grid .dc.g i",
+                 "#dcal-grid .dc.n::after", "#dcal-grid .dc.x", "#dcal-grid .dc.today", "#dcal-grid .dc.sel",
+                 "#dcal-grid .dc.today.sel", "#dcal-legend", "#dcal-legend span", "#dcal-legend i", "#dcal-legend i.s",
+                 "#dcal-legend i.g", "#dcal-legend i.n", "#dcal-line", "#dcal-line b"]
 REQUIRED_CSS = [
     ":root", 'body[data-theme="ai"]', "*", "html,body", "body", "#bg", "@keyframes sweep", "#bg.flash",
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",

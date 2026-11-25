@@ -114,7 +114,7 @@ def scan_source(path=HTML):
     stripped = _strip_js_comments([L[i] for i in idx])
     ctx = ""
     nonlit = []
-    for i, s in zip(idx, stripped):
+    for j, (i, s) in enumerate(zip(idx, stripped)):
         m = re.match(r'^(?:async )?function (\w+)|^\$\("([\w-]+)"\)\.(on\w+|addEventListener)|^(?:const|let) (\w+)\s*=', L[i])
         if m:
             ctx = m.group(1) or (m.group(2) and "#" + m.group(2) + "." + m.group(3)) or m.group(4)
@@ -126,7 +126,8 @@ def scan_source(path=HTML):
                 used.update(keys)
                 # 渡している名前（{名前:値} の左側）を拾う。t("key") だけなら空
                 names = set()
-                rest = s[cm.end():]
+                # 渡す名前が次の行へ続く書き方（Web のデイリーから写した calLine() など。9.0）も読めるよう、後ろの数行をつなぐ
+                rest = s[cm.end():] + "".join(stripped[j + 1:j + 4])
                 if rest.startswith("{"):
                     depth = 0
                     part = ""
