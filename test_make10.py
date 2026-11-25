@@ -2120,6 +2120,60 @@ class DailyColumn(unittest.TestCase):
         with open(os.path.join(here, "worker", "wrangler.toml"), encoding="utf-8", newline="") as f:
             self.assertEqual(m.daily_worker_read(f.read()), m.DAILY_START)
 
+    # ── 本編にも同じ列を書く (8.8。DAILY-SPEC 21 章) ──
+    def test_app_check_accepts_empty_or_same_and_refuses_a_different_column(self):
+        rows = ["1,8752,N,6,( 8 - 7 ) * 5 * 2", "2,9730,N,7,9 + 7 - 3! + 0"]
+        m.daily_app_check("2026-10-26", rows, "", [])               # 本編がまだ空なら通す
+        m.daily_app_check("2026-10-26", rows, "2026-10-26", list(rows))   # 同じなら通す
+        for start, app in (("2026-11-02", rows),                     # 起点日が違う
+                           ("2026-10-26", rows[:1]),                 # 行が足りない
+                           ("2026-10-26", [rows[0], "2,1111,N,7,1 + 1 + 1 * 8"])):   # 行の中身が違う
+            with self.assertRaises(ValueError):
+                m.daily_app_check("2026-10-26", rows, start, app)
+
+    def test_run_daily_stops_before_writing_when_the_app_column_differs(self):
+        """本編の列がページと食い違っていたら、DB を開く前に止まり、どのファイルも書き換えない。"""
+        here = os.path.dirname(os.path.abspath(__file__))
+        files = []
+        try:
+            rows = "\n".join("%d,%04d,N,7,1 + 2 + 3 + 4" % (i + 1, 1000 + i) for i in range(7))
+            for body in (self.PAGE % rows, self.PAGE % rows.replace("1003", "1999")):
+                fd, path = tempfile.mkstemp(suffix=".html")
+                os.close(fd)
+                with open(path, "w", encoding="utf-8", newline="") as f:
+                    f.write(body)
+                files.append((path, body))
+            (page, page_body), (app, app_body) = files
+            with self.assertRaises(ValueError):
+                m.run_daily("nothing.db", os.path.join(here, "docs", "index.html"), page,
+                            write=True, app_path=app)
+            for path, body in files:
+                with open(path, encoding="utf-8", newline="") as f:
+                    self.assertEqual(f.read(), body)
+            # 印の無い本編にも書かない
+            with open(app, "w", encoding="utf-8", newline="") as f:
+                f.write("<script>const REST=1;</script>")
+            with self.assertRaises(ValueError):
+                m.run_daily("nothing.db", os.path.join(here, "docs", "index.html"), page,
+                            write=True, app_path=app)
+        finally:
+            for path, _ in files:
+                os.unlink(path)
+
+    def test_app_and_daily_page_in_the_repo_have_the_same_column(self):
+        """リポジトリの本編 (docs/index.html) とデイリーのページは、起点日も列も 1 文字も違わない。"""
+        here = os.path.dirname(os.path.abspath(__file__))
+        got = []
+        for rel in (("docs", "index.html"), ("docs", "daily", "index.html")):
+            with open(os.path.join(here, *rel), encoding="utf-8", newline="") as f:
+                got.append(m.daily_page_read(f.read()))
+        self.assertEqual(got[0], got[1])
+        self.assertEqual(got[0][0], m.DAILY_START)
+        self.assertEqual(len(got[0][1]) % 7, 0)
+        # run_daily() は、渡されたときだけ本編に書く (テストが本物のファイルを書き換えない)
+        import inspect
+        self.assertIsNone(inspect.signature(m.run_daily).parameters["app_path"].default)
+
     def test_run_daily_leaves_the_worker_config_alone_when_it_stops(self):
         """run_daily() が途中で止まったときは、サーバーの設定を書き換えない。"""
         here = os.path.dirname(os.path.abspath(__file__))

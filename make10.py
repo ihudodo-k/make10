@@ -3933,9 +3933,23 @@ def daily_worker_write(text, start):
     return text[:i] + start + text[text.index('"', i):]
 
 
+def daily_app_check(page_start, page_rows, app_start, app_rows):
+    """本編 (docs/index.html) にすでにある列が、デイリーのページと同じかを確かめる (8.8。DAILY-SPEC 21 章)。
+    本編の列が空 (まだ書いていない) なら通す。食い違っていたら ValueError (どちらが正か分からないので書かない)。"""
+    if not app_rows and not app_start:
+        return
+    if app_start != page_start or app_rows != page_rows:
+        diff = [i + 1 for i in range(max(len(app_rows), len(page_rows)))
+                if (app_rows[i:i + 1] or [None]) != (page_rows[i:i + 1] or [None])]
+        raise ValueError("本編の列がデイリーのページと食い違う (起点日 %s / %s・行 %d / %d・違う行 %s%s)。"
+                         "どちらが正かを確かめてから直す"
+                         % (app_start, page_start, len(app_rows), len(page_rows),
+                            ", ".join("#%d" % n for n in diff[:8]), " …" if len(diff) > 8 else ""))
+
+
 def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
               write=False, rebuild=False, today=None, progress=None,
-              worker_path=None):
+              worker_path=None, app_path=None):
     """デイリーの問題の列を作って確かめ、ページ (docs/daily/index.html) に埋め込む。
 
     DB は読み取り専用で開く。本編の index.html (html_path) は BLOB を読むだけ。
@@ -3946,7 +3960,10 @@ def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
     - weeks を省くと、DAILY_WEEKS とページの長さの長いほう
     - 確かめが 1 つでも落ちたら書き込まない。write=False (--dry-run) は確かめるだけ
     - worker_path を渡すと、集計のサーバーの設定 (worker/wrangler.toml) の起点日も、
-      ページと同じ値に書く (DAILY-SPEC 5 章・17-3。ファイルが無ければ何もしない)"""
+      ページと同じ値に書く (DAILY-SPEC 5 章・17-3。ファイルが無ければ何もしない)
+    - app_path を渡すと、本編 (docs/index.html) の 2 つの印の間にも、ページと同じ起点日と列を書く
+      (8.8。DAILY-SPEC 21 章)。本編にすでに列があって、ページの行と食い違っていたら止める
+      (--rebuild のときは見ない。両方を作り直す)。印が無い・2 か所ある本編には書かない"""
     with open(html_path, encoding="utf-8", newline="") as f:
         html = f.read()
     i = html.index(_BLOB_MARK_BEGIN) + len(_BLOB_MARK_BEGIN)
@@ -3967,6 +3984,16 @@ def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
             raise ValueError("デイリー: 起点日 %s は今日以前 (公開済み)。ページの行は作り直せない"
                              % DAILY_START)
         keep = []
+    app, app_start, app_rows = None, None, []
+    if app_path:
+        if pathlib.Path(app_path).resolve() == pathlib.Path(html_path).resolve():
+            app = html                           # 本編は BLOB を読んだのと同じファイル
+        else:
+            with open(app_path, encoding="utf-8", newline="") as f:
+                app = f.read()
+        app_start, app_rows = daily_page_read(app)
+        if not rebuild:
+            daily_app_check(page_start, page_rows, app_start, app_rows)
     if weeks is None:
         weeks = max(DAILY_WEEKS, len(keep) // 7)
     conn = _connect_ro(db_path)
@@ -3984,12 +4011,18 @@ def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
             worker_start = daily_worker_read(worker)
         except FileNotFoundError:
             pass
-    wrote = False
+    wrote, app_changed = False, False
     if write and not failed:
         new = daily_page_write(page, built["start"], built["text"])
         if new != page:
             with open(page_path, "w", encoding="utf-8", newline="") as f:
                 f.write(new)
+        if app is not None:
+            new_app = daily_page_write(app, built["start"], built["text"])
+            if new_app != app:
+                with open(app_path, "w", encoding="utf-8", newline="") as f:
+                    f.write(new_app)
+                app_changed = True
         if worker is not None and worker_start != built["start"]:
             with open(worker_path, "w", encoding="utf-8", newline="") as f:
                 f.write(daily_worker_write(worker, built["start"]))
@@ -4015,6 +4048,8 @@ def run_daily(db_path, html_path, page_path=DAILY_PAGE_DEFAULT, weeks=None,
         "page_start": page_start, "page_rows": len(page_rows), "kept": len(keep),
         "frozen": built["frozen"], "diff": built["diff"], "rebuild": rebuild,
         "worker": worker_path if worker is not None else None, "worker_start": worker_start,
+        "app": app_path if app is not None else None, "app_start": app_start,
+        "app_rows": len(app_rows), "app_changed": app_changed,
     }
     if progress:
         progress(stats)
@@ -4122,7 +4157,7 @@ def _cmd_daily(args):
     try:
         s = run_daily(args.db, args.html, args.page, weeks=args.weeks,
                       write=not args.dry_run, rebuild=args.rebuild,
-                      worker_path=args.worker)
+                      worker_path=args.worker, app_path=args.app or None)
     except (ValueError, RuntimeError, FileNotFoundError) as e:
         raise SystemExit("daily: %s" % e)
     wd = "月火水木金土日"
@@ -4173,6 +4208,11 @@ def _cmd_daily(args):
               % (s["worker"], s["worker_start"],
                  "" if same else (" -> %s に書き換えた" % s["start"] if s["wrote"]
                                   else " ** ページと違う (書き込むと %s になる)" % s["start"])))
+    if s["app"]:
+        print("  本編 %s: 今ある行 %d (起点日 %s)%s"
+              % (s["app"], s["app_rows"], s["app_start"] or "なし",
+                 " -> ページと同じ起点日と列を書いた" if s["app_changed"]
+                 else " (ページと同じ。変えていない)" if s["wrote"] else ""))
     if s["failed"]:
         raise SystemExit("daily: 確かめ %d 項目が落ちた (何も書き込んでいない)"
                          % s["failed"])
@@ -4231,6 +4271,9 @@ def main(argv=None):
                    help="デイリーのページ (起点日と列を、印の間に埋め込む)")
     d.add_argument("--worker", default=DAILY_WORKER_DEFAULT,
                    help="集計のサーバーの設定 (起点日を、ページと同じ値に書く。無ければ何もしない)")
+    d.add_argument("--app", default=BLOB_HTML_DEFAULT,
+                   help="本編の index.html (ページと同じ起点日と列を、印の間に書く。8.8。"
+                        "空の文字列で書かない)")
     d.add_argument("--weeks", type=int, default=None,
                    help="作る長さ (週)。既定は %d 週 (3 年ぶん) とページの長さの長いほう"
                         % DAILY_WEEKS)
