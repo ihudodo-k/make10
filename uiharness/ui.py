@@ -28,6 +28,22 @@ try{
 }catch(e){}
 %(daily)s
 %(now)s
+// 集計のサーバー（api.make10.app）へは送らない（9.2）。要求は window.__AGG に溜め、返事は window.__AGG_REPLY
+// （{status, body}）があればそれを返し、無ければ通信できないときと同じに失敗させる。本物のサーバーに試しの数を残さない
+window.__AGG=[];
+window.__AGG_REPLY=%(agg)s;
+(function(){
+  const of=window.fetch;
+  window.fetch=function(u,o){
+    if(String(u).startsWith("https://api.make10.app/")){
+      __AGG.push({url:String(u),method:(o&&o.method)||"GET",body:(o&&o.body)||null});
+      const r=window.__AGG_REPLY;
+      if(!r)return Promise.reject(new TypeError("offline (harness)"));
+      return Promise.resolve({ok:r.status===200,status:r.status,json:async()=>JSON.parse(JSON.stringify(r.body))});
+    }
+    return of.apply(this,arguments);
+  };
+})();
 """
 
 # デイリーの保存のキー（8.9。Web のデイリーと同じ。DAILY-SPEC 21-3）。ui.open() は既定で消してから開く
@@ -82,7 +98,7 @@ class UI:
         self.case = ""
 
     # ── 開く ───────────────────────────────────────────────
-    def open(self, save=None, lang="ja", nav=None, daily=None, keep_daily=False, now=None):
+    def open(self, save=None, lang="ja", nav=None, daily=None, keep_daily=False, now=None, agg=None):
         """保存データを仕込んでから開き直す。save=None なら保存データ無し。
 
         lang … 表示する言語を ?lang= で固定する（7.6）。**既定は日本語に固定** ―― ケースの期待値は
@@ -91,7 +107,9 @@ class UI:
         nav  … navigator.language をこの値に差し替えてから読み込む（None なら触らない）
         daily … デイリーの保存（make10.daily.v1）に入れる中身（8.9。dict か、そのまま入れる文字列）。
                None なら消して開く。keep_daily=True なら消さずに、前に開いたときの保存のまま開く
-        now  … 端末の時計をこの時刻（1970 年からのミリ秒）から進める（8.9。None なら本物の時計）"""
+        now  … 端末の時計をこの時刻（1970 年からのミリ秒）から進める（8.9。None なら本物の時計）
+        agg  … 集計のサーバーの返事 {"status": 200, "body": {…}}（9.2）。None なら通信できないときと同じに失敗する。
+               要求は送らずに window.__AGG に溜まる"""
         seed = ""
         if save is not None:
             seed = "localStorage.setItem(%s,%s);" % (
@@ -112,6 +130,7 @@ class UI:
         self._seed_id = self.c._make10_seed = self.c.on_new_document(
             SEED % {"key": json.dumps(SAVE_KEY), "seed": seed,
                     "daily": dseed, "now": "" if now is None else NOW % {"ms": now},
+                    "agg": json.dumps(agg),
                     "nav": "" if nav is None else
                     "Object.defineProperty(navigator,'language',{get:()=>%s,configurable:true});"
                     % json.dumps(nav)})

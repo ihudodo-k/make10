@@ -628,6 +628,28 @@ button.pressed,[role="button"].pressed{opacity:.5}
  gap:8px;font-size:15px;font-weight:700;letter-spacing:.04em;background:none;border:0;border-radius:0;color:var(--paper)}
 .rshare:active{background:none;opacity:.6}
 .rshare .ic{width:20px;height:20px}
+#aggbox{margin:0 12px;text-align:center;--aggH:26px}
+#aggbox .at{font-size:12px;line-height:17px;color:var(--dim);letter-spacing:.08em}
+#aggbox .ap{font-size:12.5px;line-height:20px;color:var(--dim);margin-top:2px}
+#aggbox .ar{display:flex;align-items:flex-end;justify-content:center;margin-top:4px}
+#aggbox .ac{flex:0 0 auto;width:68px}
+#aggbox .ac b{display:block;font-size:26px;font-weight:700;line-height:var(--aggH);font-variant-numeric:tabular-nums}
+#aggbox .ac span{display:block;font-size:11.5px;line-height:15px;color:var(--dim);white-space:nowrap}
+#aggbox .ab{flex:0 0 auto;display:flex;align-items:flex-end;gap:2px;margin-left:8px}
+#aggbox .bar{width:32px}
+#aggbox .bar i{display:block;margin:0 auto;width:14px;height:calc(var(--aggH)*var(--k));min-height:2px;
+ background:var(--dim);opacity:.4}
+#aggbox .bar span{display:block;font-size:10px;line-height:15px;color:var(--dim);white-space:nowrap}
+#aggbox .bar.me i{background:var(--paper);opacity:1}
+#aggbox .bar.me span{color:var(--paper)}
+#aggbox.tight{--aggH:20px}
+#aggbox.tight .at{display:none}
+#aggbox.tight.pend{display:flex;justify-content:center;align-items:baseline;gap:10px}
+#aggbox.tight.pend .at{display:block;line-height:20px}
+#aggbox.tight.pend .ap{margin-top:0}
+#aggbox.tight .ar{margin-top:0}
+#aggbox.tight .ac b{font-size:22px}
+#aggbox.tight .ac span,#aggbox.tight .bar span{line-height:14px}
 /* ── デイリーの統計（9.0）。カレンダーの規則は Web から 1 文字も変えずに写した ── */
 #dcal{margin:12px 15px 0;padding-top:6px;border-top:1px solid var(--edge);--calDot:color-mix(in srgb,var(--dim) 60%,var(--ink))}
 #dcal .chead{display:flex;align-items:center;justify-content:space-between}
@@ -797,6 +819,8 @@ button.pressed,[role="button"].pressed{opacity:.5}
       <!-- 結果を共有（9.1。Web と同じ）-->
       <button id="rshare" class="rshare"><span id="rshare-ic"></span><span data-i18n="daily.share_result"></span></button>
       <div class="hintbox" id="solbox"></div>
+      <!-- みんなの結果（9.2。集計が読めたときだけ出す。Web と同じ）-->
+      <div id="aggbox" class="hide"></div>
     </div>
   </div>
 
@@ -950,7 +974,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.1";
+const APP_VERSION="9.2";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1080,6 +1104,11 @@ const STR_APP={ja:{
   "daily.share_giveup_rate":"Make10 DAILY #{no}\n{digits} → 10\nギブアップ…（正解率 {pct}%）\nあなたは解ける？",
   "daily.toast_copied":"コピーしました",
   "daily.toast_copy_failed":"コピーできません",
+  "daily.agg_title":"みんなの結果",
+  "daily.agg_pending":"集計中",
+  "daily.agg_rate":"正解率",
+  "daily.agg_nohint":"ヒントなし",
+  "daily.agg_you":"あなた",
   "play.home":"ホーム",
   "play.code_label":"コード",
   "play.copy_code":"コードをコピー",
@@ -1221,6 +1250,11 @@ en:{
   "daily.share_giveup_rate":"Make10 DAILY #{no}\n{digits} → 10\nI gave up… ({pct}% solved it)\nCan you?",
   "daily.toast_copied":"Copied!",
   "daily.toast_copy_failed":"Couldn't copy",
+  "daily.agg_title":"Everyone's results",
+  "daily.agg_pending":"Collecting results",
+  "daily.agg_rate":"Solve rate",
+  "daily.agg_nohint":"No hints",
+  "daily.agg_you":"You",
   "play.home":"Home",
   "play.code_label":"Code",
   "play.copy_code":"Copy code",
@@ -43067,10 +43101,12 @@ function dlyOpen(){
   if(!c)DATA.cur=null;
   startAt=c?c.start:null;hintUsed=c?c.h:0;shareCount=c?c.sh:0;
   MODE="daily";$("alt").classList.add("hide");
+  aggData=null;
   loadPuzzle({id:PUZZLE.id,rc:PUZZLE.rc,d:PUZZLE.d,sol:PUZZLE.sol});
   dlyTop();
   go("play");
   if(dayRecord())dlyShowResult(true);
+  dlyAggResend();
 }
 /* 解いた（render() が予約した win() から来る）。記録はここで 1 回だけ確定する */
 function dlySolved(){
@@ -43078,6 +43114,7 @@ function dlySolved(){
   if(startAt!==null&&Date.now()-startAt>=CLOCK_MAX_MS)startAt=Date.now();   // 見回りの合間に 60 分を過ぎていたら
   DATA.days[PUZZLE.no]={r:"s",t:elapsedSec(),h:hintUsed,sh:shareCount,e:exprOf()};
   DATA.cur=null;saveDaily();
+  dlyAggSend(PUZZLE.no);
   if(G.vib)navigator.vibrate?.(16);
   setTimeout(dlyShowResult,260);
 }
@@ -43085,6 +43122,7 @@ function dlyGiveUp(){
   if(!dlyOn()||!playing())return;
   DATA.days[PUZZLE.no]={r:"g",t:null,h:hintUsed,sh:shareCount};
   DATA.cur=null;saveDaily();
+  dlyAggSend(PUZZLE.no);
   dlyShowResult(true);
 }
 /* ギブアップの確認。ヒントの箱の場所に「ギブアップしますか？」と はい・いいえ（21-2）*/
@@ -43117,6 +43155,7 @@ function dlyShowResult(redraw){
   $("r-streak").textContent=st;$("r-streak-u").textContent=t("daily.unit_day",{n:st});
   $("result").classList.remove("hide");
   dlySolAt=0;dlyDrawSols();
+  drawAgg();
   dlyLayout();
 }
 /* 全解答の箱（Web の drawSols()）。解いた後は「解答例：」で全部、ギブアップの後は「ほかの解き方：」で 2 本目から */
@@ -43139,7 +43178,7 @@ function dlyDrawSols(){
     $("sol-next").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();next(true)}};
   }
 }
-/* 結果の並びを式の下に置く（Web の layoutResult()。みんなの結果の詰めた形は 9.2）。
+/* 結果の並びを式の下に置く（Web の layoutResult()。9.2 でみんなの結果の詰めた形も）。
    上限は、広告の枠の上の余白（#app の下の padding）の上端。間隔は normal 24px・compact 16px から 12 → 8px と詰め、
    それでも収まらない低い画面だけ、列の中を縦に動かせるようにする */
 function dlyLayout(){
@@ -43153,9 +43192,12 @@ function dlyLayout(){
   const top=$("exprwrap").getBoundingClientRect().bottom-play.getBoundingClientRect().top;
   const app=$("app"), limit=app.getBoundingClientRect().top+app.clientHeight-parseFloat(getComputedStyle(app).paddingBottom);
   const first=matchMedia(COMPACT_MQ).matches?16:24;
+  const agg=$("aggbox"), canTight=!agg.classList.contains("hide");  // 出ていれば、詰めた形がある（数字／「集計中」）
+  agg.classList.toggle("pend",!!agg.querySelector(".ap"));
   let fits=false;
-  for(const g of [24,16,12,8]){
-    if(g>first)continue;
+  for(const [tight,g] of [[0,24],[0,16],[0,12],[0,8],[1,12],[1,8]]){
+    if(g>first||(tight&&!canTight))continue;
+    agg.classList.toggle("tight",!!tight);
     res.style.setProperty("--resGap",g+"px");
     res.style.setProperty("--resTop",(top+g+8)+"px");
     if(res.getBoundingClientRect().bottom<=limit+.5){fits=true;break}
@@ -43334,6 +43376,86 @@ async function doShare(fromLock){
 $("hint").addEventListener("click",()=>{if(dlyOn())pressHint()});
 $("rshare-ic").innerHTML=ICON_SHARE;
 $("rshare").onclick=()=>doShare(false);
+/* ── デイリー: みんなの結果（9.2。DAILY-SPEC 17 章・21-5。名前のある文は Web から 1 文字も変えずに写した）──
+   送り先は Web と同じ https://api.make10.app/r。サーバーは Origin が https://make10.app のときだけ受け付けるので、
+   本編の Web 版（make10.app）からは送れる。アプリ（Capacitor）は Origin が違うので断られ、通信できないときと同じに
+   何も出さない（サーバーを直すのはアプリ化のとき。21-8）*/
+const AGG_URL="https://api.make10.app/r";
+const AGG_TIMEOUT=4000;                    // 打ち切るまでの時間（ミリ秒）
+const AGG_MIN=30;                          // 件数がこれより少ない間は「集計中」
+const AGG_BANDS=[30,60,120,300];           // 時間の帯の区切り（秒）。サーバー（worker/src/index.js の BANDS）と同じ値
+const AGG_LABELS=["<0:30","<1:00","<2:00","<5:00","5:00+"];
+const AGG_T_MAX=86400;                     // 送る時間の上限（秒）。サーバーの T_MAX と同じ値
+const aggBusy=new Set();                   // 送っている途中の問題番号（二重に送らない）
+const aggBand=t=>{let i=0;while(i<AGG_BANDS.length&&t>=AGG_BANDS[i])i++;return i};
+const AGG_N_MAX=1e9;
+const aggNum=x=>Number.isInteger(x)&&x>=0&&x<=AGG_N_MAX;
+const aggOk=(j,no)=>!!j&&j.n===no&&[j.s,j.g,j.s0].every(aggNum)
+  &&Array.isArray(j.b)&&j.b.length===AGG_LABELS.length&&j.b.every(aggNum);
+function aggFetch(url,opt){
+  const c=new AbortController(), tm=setTimeout(()=>c.abort(),AGG_TIMEOUT);
+  return fetch(url,{...opt,signal:c.signal}).finally(()=>clearTimeout(tm));
+}
+function drawAgg(){
+  const box=$("aggbox"), rec=dayRecord(), a=aggData;
+  if(!a||!rec){box.classList.add("hide");box.innerHTML="";return}
+  const total=a.s+a.g;
+  let h=`<div class="at">${t("daily.agg_title")}</div>`;
+  if(total<AGG_MIN)h+=`<div class="ap">${t("daily.agg_pending")}</div>`;
+  else{
+    const pct=(x,y)=>y?Math.round(x*100/y)+"%":"—";
+    const mine=rec.r==="s"?aggBand(rec.t):-1, max=Math.max(1,...a.b);
+    h+=`<div class="ar"><div class="ac"><b>${pct(a.s,total)}</b><span>${t("daily.agg_rate")}</span></div>`+
+      `<div class="ac"><b>${pct(a.s0,a.s)}</b><span>${t("daily.agg_nohint")}</span></div><div class="ab">`+
+      a.b.map((c,i)=>`<div class="bar${i===mine?" me":""}"${i===mine?` aria-label="${t("daily.agg_you")}"`:""}>`+
+        `<i style="--k:${Math.round(c*1000/max)/1000}"></i><span>${AGG_LABELS[i]}</span></div>`).join("")+
+      `</div></div>`;
+  }
+  box.innerHTML=h;box.classList.remove("hide");
+  box.setAttribute("aria-label",t("daily.agg_title"));     // 詰めた形では見出しを出さないので、名前としても持つ
+}
+/* 返事を見せる（Web の aggShow()。結果の並びの置き直しは本編の dlyLayout()）*/
+function dlyAggShow(no,j){
+  if(!PUZZLE||no!==PUZZLE.no||!dlyOn())return;
+  aggData=aggOk(j,no)?j:null;
+  drawAgg();dlyLayout();
+}
+/* 送る（Web の aggSend()。本編には ?date= の確かめの入口と見本の数字が無い）。送れたら（か、サーバーが「もう受け取らない日」と
+   断ったら）印を付けて、送り直さない。ほかの失敗（403 など・通信できない・打ち切り）では付けない（次に入ったときに送り直す）*/
+async function dlyAggSend(no){
+  const rec=DATA.days[no];
+  if(!rec||rec.sent||aggBusy.has(no))return;
+  aggBusy.add(no);
+  let j=null, done=false;
+  try{
+    const r=await aggFetch(AGG_URL,{method:"POST",headers:{"Content-Type":"text/plain"},
+      body:JSON.stringify({n:no,r:rec.r,t:rec.r==="s"?Math.min(AGG_T_MAX,Math.max(1,rec.t)):null,h:rec.h})});
+    if(r.ok){j=await r.json();done=true}
+    else if(r.status===400){const e=await r.json().catch(()=>null);done=!!e&&e.e==="range"}
+  }catch(e){}
+  aggBusy.delete(no);
+  if(done&&DATA.days[no]){DATA.days[no].sent=1;saveDaily()}
+  dlyAggShow(no,j);
+}
+/* 読む（入り直したとき。今日の記録に送った印があるとき）*/
+async function dlyAggRead(no){
+  let j=null;
+  try{const r=await aggFetch(AGG_URL+"?n="+no,{});if(r.ok)j=await r.json()}catch(e){}
+  dlyAggShow(no,j);
+}
+/* デイリーに入ったとき（Web はページを開いたとき）: 送れていない日を送り直し、今日の分は読み直す（17-2）。
+   3 日より前の分は、サーバーが必ず断る（受け付けるのはサーバーの今日の前後 1 日）ので、送らずに印を付ける */
+function dlyAggResend(){
+  let marked=false;
+  for(const k of Object.keys(DATA.days)){
+    const no=+k, rec=DATA.days[k];
+    if(!rec||rec.sent)continue;
+    if(no<DAILY_NO-2){rec.sent=1;marked=true}
+    else dlyAggSend(no);
+  }
+  if(marked)saveDaily();
+  if(PUZZLE&&dayRecord()&&dayRecord().sent)dlyAggRead(PUZZLE.no);
+}
 window.addEventListener("resize",()=>{if(SCR==="play"&&dlyOn()&&dayRecord())dlyLayout()});
 
 load();applyLang();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;

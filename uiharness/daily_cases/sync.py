@@ -52,7 +52,13 @@ APP_DAILY_CSS = ["#dgiveup", "#play.dplay", "#play.done .bottom", "#play.done .r
                  "#dcal-grid .dc.today.sel", "#dcal-legend", "#dcal-legend span", "#dcal-legend i", "#dcal-legend i.s",
                  "#dcal-legend i.g", "#dcal-legend i.n", "#dcal-line", "#dcal-line b",
                  # 9.1（結果を共有）
-                 ".rshare", ".rshare:active", ".rshare .ic"]
+                 ".rshare", ".rshare:active", ".rshare .ic",
+                 # 9.2（みんなの結果）
+                 "#aggbox", "#aggbox .at", "#aggbox .ap", "#aggbox .ar", "#aggbox .ac", "#aggbox .ac b", "#aggbox .ac span",
+                 "#aggbox .ab", "#aggbox .bar", "#aggbox .bar i", "#aggbox .bar span", "#aggbox .bar.me i",
+                 "#aggbox .bar.me span", "#aggbox.tight", "#aggbox.tight .at", "#aggbox.tight.pend",
+                 "#aggbox.tight.pend .at", "#aggbox.tight.pend .ap", "#aggbox.tight .ar", "#aggbox.tight .ac b",
+                 "#aggbox.tight .ac span,#aggbox.tight .bar span"]
 REQUIRED_CSS = [
     ":root", 'body[data-theme="ai"]', "*", "html,body", "body", "#bg", "@keyframes sweep", "#bg.flash",
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",

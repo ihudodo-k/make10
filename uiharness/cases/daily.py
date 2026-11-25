@@ -297,6 +297,76 @@ def run(ui):
     ui.check("本編の共有ボタンは本編の共有（デイリーの共有文ではない）", [ui.ev("__CP.includes('DAILY')"), ui.ev("__CP.length>0")],
              [False, True])
 
+    # ── みんなの結果（9.2）。送り先は本物でなく、ハーネスが受け取る（ui.open(agg=…)）──
+    demo = {"status": 200, "body": {"n": 31, "s": 412, "g": 96, "s0": 268, "b": [38, 121, 147, 82, 24]}}
+    ui.open(PROG, now=NOW, agg=demo)
+    ui.click("m-daily")
+    ui.check("解く前は何も送らない", ui.ev("__AGG"), [])
+    g3 = ui.ev(G_SNAP)
+    time.sleep(1.2)
+    ui.solve(wait=1.2)
+    rec = ui.ev(STORE)["days"]["31"]
+    ui.check("解いた瞬間に 1 回だけ送る（POST・4 つだけ）",
+             ui.ev("__AGG.map(x=>x.method+' '+x.url+' '+x.body)"),
+             ['POST https://api.make10.app/r {"n":31,"r":"s","t":%d,"h":0}' % rec["t"]])
+    ui.check("送れたら送った印", rec.get("sent"), 1)
+    ui.check("みんなの結果が出る（正解率・ヒントなし）", [ui.visible("aggbox"),
+             ui.ev("[...document.querySelectorAll('#aggbox .ac b')].map(e=>e.textContent)")], [True, ["81%", "65%"]])
+    ui.check("自分のいる帯は 1 つ（30 秒未満）", ui.ev("[...document.querySelectorAll('#aggbox .bar')].findIndex(e=>e.classList.contains('me'))"), 0)
+    ui.check("結果の並びは、広告の枠の上に収まるか、列の中だけが縦に動く",
+             ui.ev("(()=>{const a=$('app'),lim=a.getBoundingClientRect().top+a.clientHeight-parseFloat(getComputedStyle(a).paddingBottom);"
+                   "return $('result').getBoundingClientRect().bottom<=lim+.5||a.classList.contains('dscroll')})()"), True)
+    ui.check("集計を送っても本編の記録は変わらない", ui.ev(G_SNAP), g3)
+    ui.ev("Object.defineProperty(navigator,'share',{value:undefined,configurable:true});"
+          "Object.defineProperty(navigator,'clipboard',{value:{writeText:async s=>{window.__CP=s}},configurable:true})")
+    ui.click("rshare")
+    time.sleep(0.3)
+    ui.check("共有文に、みんなの中の位置（自分より遅い帯の人 ÷ 解いた人）", ui.ev("__CP.split('\\n')[2]"), "解いた人の 90% より速い")
+    # 入り直す・開き直す: 送った日は読み直す（GET。送り直さない）
+    ui.open(PROG, now=NOW, agg=demo, keep_daily=True)
+    ui.click("m-daily")
+    time.sleep(0.5)
+    ui.check("開き直すと読み直す（GET だけ）", ui.ev("__AGG.map(x=>x.method+' '+x.url)"), ["GET https://api.make10.app/r?n=31"])
+    ui.check("開き直してもみんなの結果が出る", ui.visible("aggbox"), True)
+    # 30 件未満は「集計中」
+    ui.open(PROG, now=NOW, agg={"status": 200, "body": {"n": 31, "s": 20, "g": 9, "s0": 3, "b": [1, 5, 9, 4, 1]}}, keep_daily=True)
+    ui.click("m-daily")
+    time.sleep(0.5)
+    ui.check("30 件未満は「集計中」", ui.ev("$('aggbox').querySelector('.ap')&&$('aggbox').querySelector('.ap').textContent"), "集計中")
+    # 形の違う返事は出さない
+    ui.open(PROG, now=NOW, agg={"status": 200, "body": {"n": 31, "s": -1, "g": 0, "s0": 0, "b": [0, 0, 0, 0, 0]}}, keep_daily=True)
+    ui.click("m-daily")
+    time.sleep(0.5)
+    ui.check("形の違う返事は出さない", ui.visible("aggbox"), False)
+    # 通信できない: 印を付けない → 次に入ったときに送り直す
+    ui.open(PROG, now=NOW)
+    ui.click("m-daily")
+    time.sleep(1.2)
+    ui.solve(wait=1.2)
+    ui.check("通信できないとき: みんなの結果は出さない・送った印を付けない",
+             [ui.visible("aggbox"), ui.ev(STORE)["days"]["31"].get("sent"), len(ui.ev("__AGG"))], [False, None, 1])
+    ui.open(PROG, now=NOW, agg=demo, keep_daily=True)
+    ui.click("m-daily")
+    time.sleep(0.5)
+    ui.check("次に入ったときに送り直す", [ui.ev("__AGG.map(x=>x.method)"), ui.ev(STORE)["days"]["31"].get("sent")], [["POST"], 1])
+    # 3 日より前の送れていない日は、送らずに印を付ける。昨日の分は送り直す
+    ui.open(PROG, now=NOW, agg=demo, daily={"v": 1, "cur": None, "days": {
+        "27": {"r": "s", "t": 40, "h": 0, "sh": 0}, "30": {"r": "g", "t": None, "h": 1, "sh": 1}}})
+    ui.click("m-daily")
+    time.sleep(0.5)
+    st = ui.ev(STORE)["days"]
+    ui.check("3 日より前（#27）は送らずに印・昨日（#30）は送る（ギブアップは時間 null）",
+             [st["27"].get("sent"), st["30"].get("sent"), ui.ev("__AGG.map(x=>x.body)")],
+             [1, 1, ['{"n":30,"r":"g","t":null,"h":1}']])
+    # サーバーが「もう受け取らない日」（400 range）と断ったら、印を付けて送り直さない
+    ui.open(PROG, now=NOW, agg={"status": 400, "body": {"e": "range"}})
+    ui.click("m-daily")
+    ui.click("dgiveup")
+    ui.click("gu-yes")
+    time.sleep(0.5)
+    ui.check("400 range で断られたら印を付ける・みんなの結果は出さない",
+             [ui.ev(STORE)["days"]["31"].get("sent"), ui.visible("aggbox")], [1, False])
+
     # ── ほかのモードへ移ると、デイリーの部品は片付く ──────────────
     ui.ev("start('course')")
     ui.check("本編に戻ると、結果の並び・ギブアップの入口・日付の行は出ない",
