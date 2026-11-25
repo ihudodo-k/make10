@@ -120,15 +120,45 @@ def scan_source(path=HTML):
             ctx = m.group(1) or (m.group(2) and "#" + m.group(2) + "." + m.group(3)) or m.group(4)
         if ctx in ("STR_CORE", "STR_APP"):
             continue
-        for cm in re.finditer(r"(?<![\w.$])t\(([^(){}]*)", s):
-            keys = KEY.findall(cm.group(1))
+        for cm in re.finditer(r"(?<![\w.$])t\(", s):
+            # 1 つ目の引数（キー）を、括弧と文字列の入れ子を数えて切り出す（9.1）。Web のデイリーから写した
+            # t(p.sol.includes("(")?"…":"…") のように、キーの式の中に呼び出しがあっても読む。
+            # 渡す名前が次の行へ続く書き方（写した calLine() など。9.0）も読めるよう、後ろの数行をつなぐ
+            full = s[cm.end():] + "".join(stripped[j + 1:j + 4])
+            arg1, k, depth, inq = "", 0, 0, None
+            while k < len(full):
+                ch = full[k]
+                if inq:
+                    if ch == "\\":
+                        arg1 += full[k:k + 2]
+                        k += 2
+                        continue
+                    if ch == inq:
+                        inq = None
+                elif ch in "\"'`":
+                    inq = ch
+                elif ch in "([{":
+                    depth += 1
+                elif ch in ")]}":
+                    if depth == 0:
+                        break
+                    depth -= 1
+                elif ch == "," and depth == 0:
+                    break
+                arg1 += ch
+                k += 1
+            keys = KEY.findall(arg1)
             if keys:
                 used.update(keys)
-                # 渡している名前（{名前:値} の左側）を拾う。t("key") だけなら空
+                # 渡している名前（{名前:値} の左側）を拾う。t("key") だけなら空。
+                # 名前の入った変数で渡しているとき（写した shareTextOf() の v など）は、名前を数えない（None）
                 names = set()
-                # 渡す名前が次の行へ続く書き方（Web のデイリーから写した calLine() など。9.0）も読めるよう、後ろの数行をつなぐ
-                rest = s[cm.end():] + "".join(stripped[j + 1:j + 4])
-                if rest.startswith("{"):
+                rest = full[k:]
+                if rest.startswith(","):
+                    rest = rest[1:].lstrip()
+                    if not rest.startswith("{"):
+                        names = None
+                if names is not None and rest.startswith("{"):
                     depth = 0
                     part = ""
                     for ch in rest[1:]:
@@ -145,10 +175,10 @@ def scan_source(path=HTML):
                             part += ch
                     if part.strip():
                         names.add(part.split(":")[0].strip())
-                for k in keys:
-                    calls.append((k, sorted(names), i + 1))
+                for key in keys:
+                    calls.append((key, None if names is None else sorted(names), i + 1))
             elif not s.startswith("function t("):
-                nonlit.append(cm.group(1).strip())
+                nonlit.append(arg1.strip().split("(")[0])
         if JA.search(s) and ctx not in EXCLUDE_JS_CTX and EXCLUDE_JS_LINE not in s:
             left.append("JS %d (%s): %s" % (i + 1, ctx, s.strip()[:60]))
     return left, used, nonlit, calls
@@ -219,10 +249,16 @@ def run(ui):
         o[k]=[...new Set((s.match(/\{(\w+)\}/g)||[]).map(x=>x.slice(1,-1)))].sort()}return o})()""")
     plural = set(ui.ev("Object.keys(STR).filter(k=>typeof STR[k]==='object')"))
     ui.check("複数形の文を引く所は、必ず n を渡している",
-             ["%s（%d 行目）" % (k, ln) for k, names, ln in calls if k in plural and "n" not in names], [])
+             ["%s（%d 行目）" % (k, ln) for k, names, ln in calls
+              if names is not None and k in plural and "n" not in names], [])
+    # 名前の入った変数で渡している所（names が None）は、ソースからは名前が分からないので数えない
+    ui.check("置き換えの印の名前を数えない所は、Web のデイリーから写した shareTextOf() だけ",
+             sorted({k for k, names, ln in calls if names is None}),
+             ["daily.share_after", "daily.share_after_rank", "daily.share_before", "daily.share_giveup",
+              "daily.share_giveup_rate"])
     ui.check("置き換えの印の名前が、呼ぶ側の渡す名前と合っている",
              ["%s（%d 行目）: 辞書 %s / 呼ぶ側 %s" % (k, ln, marks.get(k), names)
-              for k, names, ln in calls
+              for k, names, ln in calls if names is not None
               # 複数形の文は、選ぶためだけに n を渡してよい（文に {n} が無くても）
               if k in marks and marks[k] != [x for x in names if not (x == "n" and k in plural and "n" not in marks[k])]], [])
 

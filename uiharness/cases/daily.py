@@ -59,7 +59,7 @@ def run(ui):
     ui.check("上のバーの 2 行目", ui.text("pday"), "#31　11月25日（水）")
     ui.check("問題のコードと難易度の言葉は出さない", ui.visible("pcode"), False)
     ui.check("ギブアップの入口が見える", ui.visible("dgiveup"), True)
-    ui.check("8.9 では共有とヒントの丸ボタンを出さない（9.1）", [ui.visible("share"), ui.visible("hint")], [False, False])
+    ui.check("共有とヒントの丸ボタンが見える（9.1）", [ui.visible("share"), ui.visible("hint")], [True, True])
     ui.check("「べつの問題」は出さない", ui.visible("alt"), False)
     ui.check("式が出来るまで、薄い目標の「10」", ui.ev("$('eq').className+'|'+$('eq').textContent"), "eq goal|10")
     st = ui.ev(STORE)
@@ -201,14 +201,14 @@ def run(ui):
     ui.click("back")
     ui.open(PROG, now=NOW + 5000, keep_daily=True)
     ui.click("m-daily")
-    ui.check("開き直しても、最初に見た時刻から数える", ui.ev("dlyStart"), s0)
+    ui.check("開き直しても、最初に見た時刻から数える", ui.ev("startAt"), s0)
     ui.open(PROG, now=NOW, daily={"v": 1, "days": {}, "cur": {"no": 31, "start": NOW - 2 * 3600 * 1000, "h": 0, "sh": 0}})
     ui.click("m-daily")
-    ui.check("60 分を過ぎた途中の分は、入った時から数え直す", ui.ev("dlyStart>=%d" % (NOW - 1000)), True)
+    ui.check("60 分を過ぎた途中の分は、入った時から数え直す", ui.ev("startAt>=%d" % (NOW - 1000)), True)
     ui.check("数え直した時刻を保存する", ui.ev(STORE)["cur"]["start"] >= NOW - 1000, True)
     ui.open(PROG, now=NOW, daily={"v": 1, "days": {}, "cur": {"no": 30, "start": NOW - 60000, "h": 1, "sh": 1}})
     ui.click("m-daily")
-    ui.check("前の日の途中の分は引き継がない", ui.ev("[dlyH,dlySh,dlyStart>=%d]" % (NOW - 1000)), [0, 0, True])
+    ui.check("前の日の途中の分は引き継がない", ui.ev("[hintUsed,shareCount,startAt>=%d]" % (NOW - 1000)), [0, 0, True])
 
     # ── 問題が無い日・日付が変わったとき ──────────────────────
     ui.open(PROG, now=ms(2026, 10, 20))
@@ -242,6 +242,61 @@ def run(ui):
     ui.click("back")
     ui.check("英語: 解いた後の値", value(ui), "Solved %s · 1-day streak" % ui.ev("fmtTime(%d)" % t_en))
 
+    # ── ヒントと共有（9.1）。本編のヒントの残数（G）は減らさない ──────
+    ui.open(PROG, now=NOW)
+    ui.click("m-daily")
+    # 共有は、共有画面を使わずクリップボードへ（ハーネスで差し替えて中身を取る）
+    ui.ev("Object.defineProperty(navigator,'share',{value:undefined,configurable:true});"
+          "Object.defineProperty(navigator,'clipboard',{value:{writeText:async s=>{window.__CP=s}},configurable:true})")
+    g2 = ui.ev(G_SNAP)
+    ui.check("ヒントの丸ボタンと共有ボタンが見える", [ui.visible("hint"), ui.visible("share")], [True, True])
+    ui.check("もらう前は残り回数を出さない", [ui.text("hintstock"), ui.text("hintlabel")], ["", "ヒント（残り 0 回）"])
+    ui.click("hint")
+    ui.check("もらう前に押すと知らせ", ui.ev("$('hintbox').textContent"), "友達に出題するとヒントがもらえます")
+    ui.click("hint-share")
+    time.sleep(0.3)
+    ui.check("知らせから共有すると、そのまま 1 回目のヒント",
+             ui.ev("$('hintbox').textContent.startsWith('使う演算：')"), True)
+    ui.check("共有文は 4 つの数字と URL（答えは入れない）",
+             ui.ev("__CP"), "Make10 DAILY #31\n%s\nこの 4 つの数字で 10 を作れる？\nhttps://make10.app/daily/" % " ".join(pz["id"]))
+    ui.check("コピーしたら知らせる", ui.toasts()[-1:], ["コピーしました"])
+    st = ui.ev(STORE)["cur"]
+    ui.check("途中の分にヒント 1 回・共有 1 回を保存", [st["h"], st["sh"]], [1, 1])
+    ui.click("share")
+    time.sleep(0.3)
+    ui.check("上のバーの共有でもう 1 回もらえる（残り 1）", ui.text("hintstock"), "1")
+    ui.click("hint")
+    ui.check("2 回目のヒント（括弧を使うか）", ui.ev("/括弧：/.test($('hintbox').textContent)"), True)
+    ui.check("2 回目を出している間は無効の見た目", ui.ev("$('hint').getAttribute('aria-disabled')"), "true")
+    ui.check("デイリーのヒントを使っても、本編のヒントの残数・段階は変わらない", ui.ev(G_SNAP), g2)
+    ui.check("本編のヒントの残数は 57 のまま", ui.ev("G.hintStock"), 57)
+    time.sleep(1.2)
+    ui.solve(wait=1.0)
+    rec = ui.ev(STORE)["days"]["31"]
+    ui.check("記録にヒント 2 回・共有 2 回", [rec["h"], rec["sh"]], [2, 2])
+    ui.check("3 列のヒントは 2 回", [ui.text("r-hints"), ui.text("r-hints-u")], ["2", "回"])
+    ui.check("解いた後はヒントの箱を閉じる", ui.visible("hintbox"), False)
+    ui.check("結果を共有のボタンが見える", ui.visible("rshare"), True)
+    ui.click("rshare")
+    time.sleep(0.3)
+    ui.check("解いた後の共有文（時間。ヒントの回数と連続日数は入れない）",
+             ui.ev("__CP"), "Make10 DAILY #31\n%s → 10  ⏱ %s\nあなたは何秒？\nhttps://make10.app/daily/"
+             % (" ".join(pz["id"]), ui.ev("fmtTime(%d)" % rec["t"])))
+    ui.check("解いた後の共有は記録の共有の回数に足す", ui.ev(STORE)["days"]["31"]["sh"], 3)
+    ui.check("解いても本編のヒントの残数は変わらない", ui.ev("G.hintStock"), 57)
+    # 本編へ戻ると、丸ボタンは本編の残数に描き直される・本編のヒントは本編の決まりで減る
+    ui.ev("start('course')")
+    ui.check("本編へ戻ると、丸ボタンの数字は本編の残数・無効の見た目ではない",
+             [ui.text("hintstock"), ui.ev("$('hint').getAttribute('aria-disabled')==='true'")], ["57", False])
+    ui.check("本編へ戻ると、デイリーのヒントの箱は出ていない", ui.ev("$('hintbox').textContent.includes('使う演算')"), False)
+    ui.click("hint")
+    ui.check("本編の丸ボタンは本編の決まり（1 つ使う）", ui.ev("G.hintStock"), 56)
+    ui.ev("window.__CP=''")
+    ui.click("share")
+    time.sleep(0.3)
+    ui.check("本編の共有ボタンは本編の共有（デイリーの共有文ではない）", [ui.ev("__CP.includes('DAILY')"), ui.ev("__CP.length>0")],
+             [False, True])
+
     # ── ほかのモードへ移ると、デイリーの部品は片付く ──────────────
     ui.ev("start('course')")
     ui.check("本編に戻ると、結果の並び・ギブアップの入口・日付の行は出ない",
@@ -249,5 +304,5 @@ def run(ui):
               ui.ev("$('play').classList.contains('done')||$('play').classList.contains('dplay')")],
              [False, False, False, True, False])
     ui.check("本編に戻ると、共有とヒントの丸ボタンが見える", [ui.visible("share"), ui.visible("hint")], [True, True])
-    ui.check("本編の問題番号（英語）", ui.text("pmode"), "Classic 138/1000")
+    ui.check("本編の問題番号", ui.text("pmode"), "本編 138/1000")
     ui.check_no_errors("デイリーを回しても JS エラー 0")

@@ -624,6 +624,10 @@ button.pressed,[role="button"].pressed{opacity:.5}
 .rcol .rn{font-size:11.5px;line-height:17px;color:var(--dim)}
 #solbox{margin:0 12px}
 #solbox .hintrow{min-height:var(--hintBtnH)}
+.rshare{align-self:center;width:168px;height:var(--btnW);padding:0;display:flex;align-items:center;justify-content:center;
+ gap:8px;font-size:15px;font-weight:700;letter-spacing:.04em;background:none;border:0;border-radius:0;color:var(--paper)}
+.rshare:active{background:none;opacity:.6}
+.rshare .ic{width:20px;height:20px}
 /* ── デイリーの統計（9.0）。カレンダーの規則は Web から 1 文字も変えずに写した ── */
 #dcal{margin:12px 15px 0;padding-top:6px;border-top:1px solid var(--edge);--calDot:color-mix(in srgb,var(--dim) 60%,var(--ink))}
 #dcal .chead{display:flex;align-items:center;justify-content:space-between}
@@ -660,8 +664,6 @@ button.pressed,[role="button"].pressed{opacity:.5}
 #dstats{position:absolute;top:0;right:calc(var(--btnW) + 9px);z-index:1}
 #play.dplay .top .info{padding:0 calc(var(--btnW) + 9px)}
 @media (max-height:700px){#dstatlist .stat{height:66px}#dstatlist .stat .sv b{font-size:22px}}
-/* 本編だけの規則。8.9 では、デイリーの間は共有とヒントの丸ボタンを出さない（デイリーの決まりの共有とヒントは 9.1）*/
-#play.dplay #share,#play.dplay #hint{visibility:hidden}
 /* 解いた後の並びが画面に収まらない低い画面だけ、列の中を縦に動かせる（Web の 13-5 と同じ考え）*/
 #app.dscroll{overflow-y:auto}
 /* ギブアップの確認（ヒントの箱の場所に出す。本編はポップアップを持たないので、箱の形にした。21-2）*/
@@ -792,6 +794,8 @@ button.pressed,[role="button"].pressed{opacity:.5}
         <div class="rcol"><div class="rv"><b id="r-hints"></b><span class="ru" id="r-hints-u"></span></div><div class="rn" data-i18n="daily.result_hints"></div></div>
         <div class="rcol"><div class="rv"><b id="r-streak"></b><span class="ru" id="r-streak-u"></span></div><div class="rn" data-i18n="daily.result_streak"></div></div>
       </div>
+      <!-- 結果を共有（9.1。Web と同じ）-->
+      <button id="rshare" class="rshare"><span id="rshare-ic"></span><span data-i18n="daily.share_result"></span></button>
       <div class="hintbox" id="solbox"></div>
     </div>
   </div>
@@ -946,7 +950,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.0";
+const APP_VERSION="9.1";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1060,6 +1064,22 @@ const STR_APP={ja:{
   "daily.cal_legend_none":"遊ばなかった",
   "daily.cal_solved":{other:"{time}　ヒント {n} 回"},
   "daily.cal_none":"遊んでいません",
+  "daily.share_result":"結果を共有",
+  "daily.hint_label_ops":"使う演算：",
+  "daily.hint_paren_yes_html":"括弧：<code>使う</code>",
+  "daily.hint_paren_no_html":"括弧：<code>使わない</code>",
+  "daily.hint_no_other":"ほかの演算は使わない",
+  "daily.hint_locked":"友達に出題するとヒントがもらえます",
+  "daily.hint_share":"共有する",
+  "daily.hint_sr_spent":"これ以上のヒントはありません",
+  "daily.hint_sr_left":{other:"ヒント（残り {n} 回）"},
+  "daily.share_before":"Make10 DAILY #{no}\n{digits}\nこの 4 つの数字で 10 を作れる？",
+  "daily.share_after":"Make10 DAILY #{no}\n{digits} → 10  ⏱ {time}\nあなたは何秒？",
+  "daily.share_after_rank":"Make10 DAILY #{no}\n{digits} → 10  ⏱ {time}\n解いた人の {pct}% より速い\nあなたは何秒？",
+  "daily.share_giveup":"Make10 DAILY #{no}\n{digits} → 10\nギブアップ…\nあなたは解ける？",
+  "daily.share_giveup_rate":"Make10 DAILY #{no}\n{digits} → 10\nギブアップ…（正解率 {pct}%）\nあなたは解ける？",
+  "daily.toast_copied":"コピーしました",
+  "daily.toast_copy_failed":"コピーできません",
   "play.home":"ホーム",
   "play.code_label":"コード",
   "play.copy_code":"コードをコピー",
@@ -1185,6 +1205,22 @@ en:{
   "daily.cal_legend_none":"Missed",
   "daily.cal_solved":{one:"{time} · {n} hint",other:"{time} · {n} hints"},
   "daily.cal_none":"Not played",
+  "daily.share_result":"Share result",
+  "daily.hint_label_ops":"Uses",
+  "daily.hint_paren_yes_html":"<b>with</b> ( )",
+  "daily.hint_paren_no_html":"<b>no</b> ( )",
+  "daily.hint_no_other":"No other operations",
+  "daily.hint_locked":"Share with a friend to unlock a hint",
+  "daily.hint_share":"Share",
+  "daily.hint_sr_spent":"No more hints",
+  "daily.hint_sr_left":{one:"Hint ({n} left)",other:"Hint ({n} left)"},
+  "daily.share_before":"Make10 DAILY #{no}\n{digits}\nCan you make 10 with these four digits?",
+  "daily.share_after":"Make10 DAILY #{no}\n{digits} → 10  ⏱ {time}\nHow fast are you?",
+  "daily.share_after_rank":"Make10 DAILY #{no}\n{digits} → 10  ⏱ {time}\nFaster than {pct}% of solvers\nHow fast are you?",
+  "daily.share_giveup":"Make10 DAILY #{no}\n{digits} → 10\nI gave up…\nCan you?",
+  "daily.share_giveup_rate":"Make10 DAILY #{no}\n{digits} → 10\nI gave up… ({pct}% solved it)\nCan you?",
+  "daily.toast_copied":"Copied!",
+  "daily.toast_copy_failed":"Couldn't copy",
   "play.home":"Home",
   "play.code_label":"Code",
   "play.copy_code":"Copy code",
@@ -41983,7 +42019,11 @@ function loadPuzzle(p){
   $("pcode").classList.toggle("hide",dd);$("pday").classList.toggle("hide",!dd);
   $("dgiveup").classList.toggle("hide",!dd);$("dstats").classList.toggle("hide",!dd);$("result").classList.add("hide");$("app").classList.remove("dscroll");
   dlyGuHide();
-  showHint();render()}
+  showHint();render();
+  // デイリーの箱と丸ボタン（残り回数）。本編の段階の箱は出さない。本編の問題では、上の showHint() が
+  // 本編の残数と無効の見た目を描き直す（9.1。デイリーから戻ったときも）
+  if(dd){hintShown=null;hintBox(null)}
+}
 /* 「全部消す」。次の問題を読む loadPuzzle() とは別物にする。
    時間 t0 は引き継ぐ（GAME-SPEC 4-3）。全部消しても解き始めからの時間は戻らない */
 function clearAll(){
@@ -42097,7 +42137,7 @@ function toast(msg,opts={}){
   let t=$("toast");
   if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t)}
   t.textContent=msg;
-  const foot=opts.at==="foot"&&SCR==="play";
+  const foot=(opts.at==="foot"||MODE==="daily"&&playing())&&SCR==="play";   // デイリーで解いている間も（9.1）
   if(foot){
     const c=$("clear").getBoundingClientRect(), h=$("hint").getBoundingClientRect();
     t.style.left=(c.right+h.left)/2+"px";
@@ -42485,6 +42525,7 @@ $("pcodev").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();co
    同じ文面（本文＋URL）をクリップボードへ。共有メニューを閉じただけ（AbortError）
    のときは何もしない */
 $("share").onclick=async()=>{
+  if(MODE==="daily"){doShare(false);return}   // デイリー（9.1）は Web と同じ共有文と URL
   if(!cur)return;
   const text=shareText(cur);
   if(navigator.share){
@@ -42787,6 +42828,7 @@ function showHint(){
    - 箱が開いている、または 1 つも見ていない → 未到達の段階へ進む（そこでだけ 1 消費）
    - 開いていて 3 まで到達済み → 表示中の段階によらず何も起きない（無効の色。renderHintStock）*/
 $("hint").onclick=()=>{
+  if(MODE==="daily")return;           // デイリー（9.1）は pressHint()（下の聞き手）
   if(hintLv===0&&hintReached()){hintSet(hintAgainLv());return}   // 消費しない
   if(hintSpent())return;               // 3 まで到達済みで開いている。1・2 を表示中でも何もしない
   const next=hintNextLv();             // 未到達へ進む（到達 2・表示 1 なら 3 へ）
@@ -42950,11 +42992,11 @@ function dlyLoad(){
 const dayRecord=()=>PUZZLE?DATA.days[PUZZLE.no]:undefined;
 const playing=()=>!!PUZZLE&&!dayRecord();
 const dlyOn=()=>MODE==="daily"&&!!PUZZLE;                  // デイリーの問題を出している
-/* 書く（21-3）。本編が書くのは days と cur だけ。書く直前に保存を読み直し、
+/* 書く（21-3）。Web の saveDaily() と同じ名前だが、中身は本編のもの（照合の除外の一覧）。本編が書くのは days と cur だけ。書く直前に保存を読み直し、
    - このページが持っていない日を足す（Web の keepOthers() と同じ決まり。どちらにもある日はこのページの分を残し、sent は付いていれば付ける）
    - set は、保存にあるものをそのまま書き戻す（無ければ書かない）
    遊んでいる日の記録が別のところ（Web のデイリー・別のタブ）から来たら、途中の分を消して結果の画面にする */
-function dlySave(){
+function saveDaily(){
   let x=null;
   try{x=JSON.parse(localStorage.getItem(DAILY_KEY)||"null")}catch(e){}
   const src=x&&typeof x==="object"&&x.days&&typeof x.days==="object"&&!Array.isArray(x.days)?x.days:null;
@@ -42974,21 +43016,23 @@ function dlySave(){
 }
 /* 時間（Web の 7 章と同じ決まり）。問題を最初に見た時刻からの実際の経過時間。ホームへ戻っても・アプリを閉じても数え続け、
    60 分を過ぎていたら、その時から数え直す。見回るのはデイリーの問題の画面が見えている間だけ */
-let dlyStart=null, dlyH=0, dlySh=0;
-function dlyKeepCur(){
-  if(!playing()||dlyStart===null)return;
-  DATA.cur={no:PUZZLE.no,start:dlyStart,h:dlyH,sh:dlySh};
-  dlySave();
+/* 名前は Web と同じ（9.1）。ヒントと共有の Web の関数（useHint・doShare など）を 1 文字も変えずに写すため */
+let startAt=null;                  // 数え始めた時刻（端末の時計のミリ秒）。まだ見ていなければ null
+let hintUsed=0, shareCount=0;
+function keepCur(){
+  if(!playing()||startAt===null)return;
+  DATA.cur={no:PUZZLE.no,start:startAt,h:hintUsed,sh:shareCount};
+  saveDaily();
 }
 function dlyWatch(){
   if(document.visibilityState!=="visible"||SCR!=="play"||!dlyOn()||!playing())return;
-  if(dlyStart===null){dlyStart=Date.now();dlyKeepCur();return}       // 初めて見た
-  if(Date.now()-dlyStart>=CLOCK_MAX_MS){dlyStart=Date.now();dlyKeepCur()}   // 60 分で数え直す
+  if(startAt===null){startAt=Date.now();keepCur();return}       // 初めて見た
+  if(Date.now()-startAt>=CLOCK_MAX_MS){startAt=Date.now();keepCur()}   // 60 分で数え直す
 }
 document.addEventListener("visibilitychange",()=>dlyWatch());
 setInterval(dlyWatch,CLOCK_WATCH_MS);
-const dlySec=()=>dlyStart===null?1:
-  Math.min(CLOCK_MAX_MS/1000-1,Math.max(1,Math.round((Date.now()-dlyStart)/1000)));
+const elapsedSec=()=>startAt===null?1:
+  Math.min(CLOCK_MAX_MS/1000-1,Math.max(1,Math.round((Date.now()-startAt)/1000)));
 /* 連続日数（Web の streakNow() と同じ数え方。今日 = no）*/
 function dlyStreak(no){
   const d=DATA.days;let n=no;
@@ -43021,7 +43065,7 @@ function dlyOpen(){
   dlyLoad();
   const c=DATA.cur&&DATA.cur.no===PUZZLE.no?DATA.cur:null;   // 前の日の途中の分は引き継がない
   if(!c)DATA.cur=null;
-  dlyStart=c?c.start:null;dlyH=c?c.h:0;dlySh=c?c.sh:0;
+  startAt=c?c.start:null;hintUsed=c?c.h:0;shareCount=c?c.sh:0;
   MODE="daily";$("alt").classList.add("hide");
   loadPuzzle({id:PUZZLE.id,rc:PUZZLE.rc,d:PUZZLE.d,sol:PUZZLE.sol});
   dlyTop();
@@ -43031,20 +43075,21 @@ function dlyOpen(){
 /* 解いた（render() が予約した win() から来る）。記録はここで 1 回だけ確定する */
 function dlySolved(){
   if(!solved||!dlyOn()||!playing())return;
-  if(dlyStart!==null&&Date.now()-dlyStart>=CLOCK_MAX_MS)dlyStart=Date.now();   // 見回りの合間に 60 分を過ぎていたら
-  DATA.days[PUZZLE.no]={r:"s",t:dlySec(),h:dlyH,sh:dlySh,e:exprOf()};
-  DATA.cur=null;dlySave();
+  if(startAt!==null&&Date.now()-startAt>=CLOCK_MAX_MS)startAt=Date.now();   // 見回りの合間に 60 分を過ぎていたら
+  DATA.days[PUZZLE.no]={r:"s",t:elapsedSec(),h:hintUsed,sh:shareCount,e:exprOf()};
+  DATA.cur=null;saveDaily();
   if(G.vib)navigator.vibrate?.(16);
   setTimeout(dlyShowResult,260);
 }
 function dlyGiveUp(){
   if(!dlyOn()||!playing())return;
-  DATA.days[PUZZLE.no]={r:"g",t:null,h:dlyH,sh:dlySh};
-  DATA.cur=null;dlySave();
+  DATA.days[PUZZLE.no]={r:"g",t:null,h:hintUsed,sh:shareCount};
+  DATA.cur=null;saveDaily();
   dlyShowResult(true);
 }
 /* ギブアップの確認。ヒントの箱の場所に「ギブアップしますか？」と はい・いいえ（21-2）*/
 function dlyGuShow(){
+  hintBox(null);
   const b=$("gubox");
   b.innerHTML=`<div class="hintrow"><span class="hbody"><span class="hbin">${t("daily.giveup_confirm")}</span></span>`+
     `<button class="gub" id="gu-yes">${t("daily.yes")}</button><button class="gub" id="gu-no">${t("daily.no")}</button></div>`;
@@ -43057,7 +43102,7 @@ $("dgiveup").onclick=()=>{if(!playing())return;if($("gubox").classList.contains(
 /* 結果の画面（Web の showResult()。共有とみんなの結果は 9.1・9.2）。redraw = 盤を組み直す */
 function dlyShowResult(redraw){
   const rec=dayRecord();if(!rec||!dlyOn())return;
-  dlyGuHide();
+  dlyGuHide();hintBox(null);
   $("play").classList.add("done");$("dgiveup").classList.add("hide");
   if(redraw){
     solved=true;                              // render() に正解の後の処理を予約させない
@@ -43193,6 +43238,102 @@ function dlyDrawStats(){
 }
 /* 上のバーの統計（棒 3 本）から、デイリーの統計の画面（シート）を開く。戻ると問題の画面 */
 $("dstats").onclick=()=>{dlyDrawStats();calOpen();go("dailystats")};
+/* ── デイリー: ヒントと共有（9.1。DAILY-SPEC 8 章・9 章・21-5。名前のある文は Web から 1 文字も変えずに写した）──
+   ヒントは共有でもらう（1 日 2 回まで）。本編のヒントの残数（G.hintStock）・段階（G.hints）には触らない。
+   aggData（みんなの結果）は 9.2 で読む。9.1 では null のまま（共有文に位置の行は入らない）*/
+function hintKinds(sol){
+  const out=[];
+  for(const c of sol)if("+-*/^!".includes(c)&&!out.includes(c))out.push(c);
+  return out;
+}
+function hintHtml(p,n){
+  const k=hintKinds(p.sol), label=t("daily.hint_label_ops");
+  if(n===1)return `${label}<code>${GLYPH[k[0]]}</code>`;
+  const paren=t(p.sol.includes("(")?"daily.hint_paren_yes_html":"daily.hint_paren_no_html");
+  return (k.length>1?`${label}<code>${GLYPH[k[0]]} ${GLYPH[k[1]]}</code>`:t("daily.hint_no_other"))
+    +t("daily.hint_sep")+paren;
+}
+const hintLeft=()=>Math.min(2,shareCount)-hintUsed;
+let hintShown=null;
+function hintBox(what){
+  hintShown=what;
+  const b=$("hintbox");
+  if(what===null){b.classList.remove("show");b.innerHTML=""}
+  else{
+    const close=`<button class="hbtn" id="hint-close" aria-label="${t("hint.close")}">${ICON_HCLOSE}</button>`;
+    b.innerHTML=`<div class="hintrow"><span class="hbody"><span class="hbin">`+
+      (what==="lock"?t("daily.hint_locked"):hintHtml(PUZZLE,what))+`</span></span>`+
+      (what==="lock"?`<button class="hbtn" id="hint-share" aria-label="${t("daily.hint_share")}">${ICON_SHARE}</button>`:"")+
+      close+`</div>`;
+    b.classList.add("show");
+    $("hint-close").onclick=()=>hintBox(null);
+    if(what==="lock")$("hint-share").onclick=()=>doShare(true);
+  }
+  drawHintBtn();
+}
+function drawHintBtn(){
+  const left=hintLeft(), spent=hintShown===2;
+  $("hintstock").textContent=left>0?left:"";
+  $("hintlabel").textContent=spent?t("daily.hint_sr_spent"):t("daily.hint_sr_left",{n:left});
+  if(spent)$("hint").setAttribute("aria-disabled","true");else $("hint").removeAttribute("aria-disabled");
+}
+function useHint(){
+  hintUsed++;keepCur();
+  hintBox(hintUsed);
+}
+function pressHint(){
+  if(!playing())return;
+  if(hintShown===null){
+    if(hintUsed>0)hintBox(hintUsed);
+    else if(hintLeft()>0)useHint();
+    else hintBox("lock");
+    return;
+  }
+  if(hintLeft()>0)useHint();
+  else if(hintShown==="lock")hintBox(null);
+  else if(hintUsed<2)hintBox("lock");
+}
+const DAILY_URL="https://make10.app/daily/";
+let aggData=null;                          // 今日の集計（読めたときだけ）
+function sharePct(rec,a){
+  if(!rec||!a||a.s+a.g<AGG_MIN)return null;
+  if(rec.r!=="s")return Math.round(a.s*100/(a.s+a.g));
+  if(!a.s)return null;
+  const mine=aggBand(rec.t), slower=a.b.reduce((n,c,i)=>i>mine?n+c:n,0);
+  return Math.floor(slower*100/a.s)||null;
+}
+function shareTextOf(p,rec,a){
+  const v={no:p.no,digits:[...p.id].join(" ")}, pct=sharePct(rec,a);
+  if(!rec)return t("daily.share_before",v);
+  if(pct!==null)v.pct=pct;
+  if(rec.r==="s"){v.time=fmtTime(rec.t);return t(pct===null?"daily.share_after":"daily.share_after_rank",v)}
+  return t(pct===null?"daily.share_giveup":"daily.share_giveup_rate",v);
+}
+const SHARE_PC_MQ="(hover: hover) and (pointer: fine)";
+const sharePc=()=>matchMedia(SHARE_PC_MQ).matches;
+async function doShare(fromLock){
+  if(!PUZZLE)return;
+  const text=shareTextOf(PUZZLE,dayRecord(),aggData)+"\n"+DAILY_URL;
+  let ok=false;
+  if(navigator.share&&!sharePc()){
+    try{await navigator.share({text});ok=true}
+    catch(e){ok=!!e&&e.name==="AbortError"}        // 共有画面を閉じただけ。開いたので数える
+  }
+  if(!ok){
+    try{await navigator.clipboard.writeText(text);ok=true;toast(t("daily.toast_copied"))}
+    catch(e){toast(t("daily.toast_copy_failed"))}
+  }
+  if(!ok)return;
+  const rec=dayRecord();
+  if(rec){rec.sh=(rec.sh||0)+1;saveDaily();return}   // 解いた後・ギブアップの後。回数だけ数える
+  shareCount++;keepCur();
+  if(fromLock&&hintLeft()>0)useHint();               // 知らせの箱から共有した。そのままヒントを出す
+  else{if(hintShown==="lock")hintBox(null);drawHintBtn()}
+}
+/* 丸ボタン: デイリーの間だけ Web の pressHint()。本編の問題では本編の押下（$("hint").onclick）が働く */
+$("hint").addEventListener("click",()=>{if(dlyOn())pressHint()});
+$("rshare-ic").innerHTML=ICON_SHARE;
+$("rshare").onclick=()=>doShare(false);
 window.addEventListener("resize",()=>{if(SCR==="play"&&dlyOn()&&dayRecord())dlyLayout()});
 
 load();applyLang();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;

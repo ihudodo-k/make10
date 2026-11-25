@@ -32,6 +32,8 @@ JS_EXCLUDE = {
     "TODAY": "本編では let（dlyOpen() が当て直す。アプリは開いたままになる）",
     "DAILY_NO": "本編では let（dlyOpen() が当て直す）",
     "PUZZLE": "本編では let（dlyOpen() が当て直す）",
+    # 9.1。名前を同じにして、これを呼ぶ Web の関数（keepCur・doShare）を写している。中身は本編のもの
+    "saveDaily": "本編は days と cur だけを書き、set は保存にあるものを書き戻す（DAILY-SPEC 21-3）",
 }
 # 本編と同じセレクタだが、手を入れてある CSS の規則（DAILY-SPEC 18-3）
 CSS_EXCLUDE = {}

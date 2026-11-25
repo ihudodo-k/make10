@@ -50,7 +50,9 @@ APP_DAILY_CSS = ["#dgiveup", "#play.dplay", "#play.done .bottom", "#play.done .r
                  "#dcal-grid .dc", "#dcal-grid .dc:active", "#dcal-grid .dc i", "#dcal-grid .dc.s i", "#dcal-grid .dc.g i",
                  "#dcal-grid .dc.n::after", "#dcal-grid .dc.x", "#dcal-grid .dc.today", "#dcal-grid .dc.sel",
                  "#dcal-grid .dc.today.sel", "#dcal-legend", "#dcal-legend span", "#dcal-legend i", "#dcal-legend i.s",
-                 "#dcal-legend i.g", "#dcal-legend i.n", "#dcal-line", "#dcal-line b"]
+                 "#dcal-legend i.g", "#dcal-legend i.n", "#dcal-line", "#dcal-line b",
+                 # 9.1（結果を共有）
+                 ".rshare", ".rshare:active", ".rshare .ic"]
 REQUIRED_CSS = [
     ":root", 'body[data-theme="ai"]', "*", "html,body", "body", "#bg", "@keyframes sweep", "#bg.flash",
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",
