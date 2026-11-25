@@ -39,6 +39,12 @@ REQUIRED_JS_ANON = [
 ]
 MEDIA = "@media (max-height:700px) || "
 WIDE = "@media (min-width:720px) and (min-height:768px) || "      # パソコンの見出し（D0.17。デイリーだけ）
+# 本編（アプリ）の中のデイリー（8.9）が、Web のデイリーから 1 文字も変えずに写した規則（DAILY-SPEC 21 章）
+APP_DAILY_CSS = ["#dgiveup", "#play.dplay", "#play.done .bottom", "#play.done .readout",
+                 "#play.done #expr,#play.locked #expr,#play.locked #tray", "#play.done #dgiveup",
+                 ".eq.goal", ".eq.gaveup", "#result", ".rcols", ".rcol .rv", ".rcol .rv b", ".rcol .rv b.none",
+                 ".rcol .rv .ru", ".rcol .rv .ru:empty", ".rcol .rn", "#solbox", "#solbox .hintrow",
+                 MEDIA + ".rcol .rv", MEDIA + ".rcol .rv b"]
 REQUIRED_CSS = [
     ":root", 'body[data-theme="ai"]', "*", "html,body", "body", "#bg", "@keyframes sweep", "#bg.flash",
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",
@@ -124,9 +130,13 @@ def run(ui):
     main_sel = {k for k, _ in mc}
     ui.check("CSS: 除外の一覧のセレクタは、本編にある",
              [k for k in dui.CSS_EXCLUDE if k not in main_sel], [])
+    # 本編（アプリ）の中のデイリーが、Web から 1 文字も変えずに写した規則（8.9。DAILY-SPEC 21 章）。
+    # 本編にもあるので、デイリーだけの規則ではなくなり、同じ中身かを照合される側に入る
+    ui.check("CSS: 本編の中のデイリーが写した規則は、本編と同じ（8.9）",
+             [k for k in APP_DAILY_CSS if k not in same], [])
     # デイリーだけの規則。ここが変わったら、複製した規則のセレクタを書き換えていないかを見る
     ui.check("CSS: デイリーだけの規則", sorted(own),
-             sorted(["body.daily", "#app.daily", "#banline", "#nopuzzle", "#dfoot",
+             sorted(x for x in ["body.daily", "#app.daily", "#banline", "#nopuzzle", "#dfoot",
                      # D0.3
                      "#dinfo span", "#dgiveup", "#play.dplay", "#play.done .bottom",
                      "#play.done #expr,#play.locked #expr,#play.locked #tray", "#play.done #dgiveup",
@@ -191,4 +201,5 @@ def run(ui):
                      "#t-move-g", "#t-move-g::before", "#t-move-g.hide", "#dmovebody", "#dmovebody p", "#dmovebody h3",
                      "#dmovebody .mvsec", ".mvbtn", ".mvbtn:active", ".mvbtn:disabled", "#mv-out.hide,#mv-issue.hide",
                      "#mv-code", "#mv-qr", "#mv-qr svg", "#mv-left", "#dmovebody .mvmsg", "#dmovebody .mvmsg:not(:empty)",
-                     "#dmovebody .mvmsg.err", "#mv-in", "#mv-in::placeholder", "#mv-in:focus"]))
+                     "#dmovebody .mvmsg.err", "#mv-in", "#mv-in::placeholder", "#mv-in:focus"]
+                    if x not in APP_DAILY_CSS))

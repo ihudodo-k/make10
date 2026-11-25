@@ -186,8 +186,8 @@ def stats_scores(ui):
 V = ("(n=>{const e=document.createElement('i');e.style.color='var('+n+')';"
      "document.body.appendChild(e);const c=getComputedStyle(e).color;e.remove();return c})")
 NONE = "rgba(0, 0, 0, 0)"
-# ホームのモード 3 行: [幅, 高さ, 画面の中央か, › が行の右端にあるか, 地, 下の線の色が --edge か, アイコンが無いか]
-MODE_ROWS = ("(()=>{const f=v=>Math.round(v*10)/10;return ['m-course','m-free','m-chal'].map(id=>{const e=$(id),"
+# ホームのモード 4 行（8.9 でデイリーを足した）: [幅, 高さ, 画面の中央か, › が行の右端にあるか, 地, 下の線の色が --edge か, アイコンが無いか]
+MODE_ROWS = ("(()=>{const f=v=>Math.round(v*10)/10;return ['m-course','m-free','m-chal','m-daily'].map(id=>{const e=$(id),"
              "r=e.getBoundingClientRect(),c=getComputedStyle(e),ch=e.querySelector('.chev').getBoundingClientRect();"
              "return [f(r.width),f(r.height),Math.abs((r.left+r.right)/2-innerWidth/2)<0.6,"
              "r.right-ch.right>=0&&r.right-ch.right<=6,c.backgroundColor,c.borderBottomColor===%s('--edge'),"
@@ -200,9 +200,10 @@ HOME_FIT = ("(()=>{const h=$('home');return [h.scrollWidth<=h.clientWidth,h.scro
 
 def home_layout(ui):
     """ホームの組み立て（7.4。GAME-SPEC 7 章。Figma「13 余白（改）」の 02b）。
-    囲まない・進んだ問題数が主役・モードは細い線で区切った 3 行。大きさは仕様の値を直に書く"""
+    囲まない・進んだ問題数が主役・モードは細い線で区切った 4 行（8.9 でデイリーを足し、低い画面の行を 52 → 48px）。
+    大きさは仕様の値を直に書く"""
     N = ui.viewport == "normal"
-    hero_px, line_w, row_w, row_h = (104, 180, 264, 64) if N else (80, 150, 228, 52)
+    hero_px, line_w, row_w, row_h = (104, 180, 264, 64) if N else (80, 150, 228, 48)
     ui.open({"ci": 137, "cleared": 162})
     ui.check("ホーム: 題名は小さく中央（15px）",
              ui.ev("(()=>{const t=document.querySelector('#home .title'),c=getComputedStyle(t),r=document.createRange();"
@@ -228,13 +229,13 @@ def home_layout(ui):
                    "typeof ICON_LOCK,typeof ICON_STAR,typeof ICON_TROPHY]"),
              [False, False, "undefined", "undefined", "undefined"])
     row = [row_w, row_h, True, True, NONE, True, True]
-    ui.check("ホーム: モード 3 行は同じ幅と高さ・中央・右端に ›・面なし・下に細い線・アイコンなし",
-             ui.ev(MODE_ROWS), [row, row, row])
-    ui.check("ホーム: 3 行の上にも線が 1 本（行の幅と同じ）・行は上から本編・フリープレイ・挑戦",
+    ui.check("ホーム: モード 4 行は同じ幅と高さ・中央・右端に ›・面なし・下に細い線・アイコンなし",
+             ui.ev(MODE_ROWS), [row, row, row, row])
+    ui.check("ホーム: 4 行の上にも線が 1 本（行の幅と同じ）・行は上から本編・フリープレイ・挑戦・デイリー",
              ui.ev("(()=>{const m=document.querySelector('.modes'),c=getComputedStyle(m);"
                    "return [c.borderTopWidth,c.borderTopColor===%s('--edge'),Math.round(m.getBoundingClientRect().width),"
                    "[...m.querySelectorAll('.mt')].map(e=>e.textContent)]})()" % V),
-             ["1px", True, row_w, ["本編", "フリープレイ", "挑戦"]])
+             ["1px", True, row_w, ["本編", "フリープレイ", "挑戦", "デイリー"]])
     ui.check("ホーム: 挑戦の値は名前の下の小さい字（副次色）・ほかの行には値を出さない",
              ui.ev("(()=>{const v=$('m-chal-v'),t=$('m-chal').querySelector('.mt'),c=getComputedStyle(v);"
                    "return [v.textContent,v.getBoundingClientRect().top>=t.getBoundingClientRect().bottom-1,c.fontSize,"
@@ -255,7 +256,7 @@ def home_layout(ui):
                    "v=getComputedStyle($('m-chal-v'));return [e.classList.contains('lock'),getComputedStyle(e).opacity,"
                    "t.color===%s('--slate'),c.color===%s('--slate'),$('m-chal-v').textContent,v.color===%s('--dim')]})()" % (V, V, V)),
              [True, "1", True, True, "あと 100 問", True])
-    ui.check("ホーム: ロック中でも行の大きさ・位置は同じ形", ui.ev(MODE_ROWS), [row, row, row])
+    ui.check("ホーム: ロック中でも行の大きさ・位置は同じ形", ui.ev(MODE_ROWS), [row, row, row, row])
     ui.click("m-chal")
     ui.check("ホーム: ロック中の挑戦は押しても始まらない", ui.ev("SCR"), "home")
     ui.check("ホーム（0 問）: はみ出さない", ui.ev(HOME_FIT), [True, True, 0])
@@ -272,7 +273,7 @@ def home_layout(ui):
              [ui.ev("(()=>{const r=document.createRange();r.selectNodeContents($('chero'));const b=r.getBoundingClientRect();"
                     "return b.left>=12&&b.right<=innerWidth-12&&b.height<%d})()" % (hero_px * 1.5)), ui.ev(HOME_FIT)],
              [True, [True, True, 0]])
-    ui.check("ホーム（全部解いた後）: 行の形は同じ", ui.ev(MODE_ROWS), [row, row, row])
+    ui.check("ホーム（全部解いた後）: 行の形は同じ", ui.ev(MODE_ROWS), [row, row, row, row])
     ui.click("m-course")
     ui.check("ホーム: 本編の行を押すと問題画面へ", ui.ev("SCR"), "play")
     ui.check_no_errors("ホームの組み立てで JS エラー 0")

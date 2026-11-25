@@ -26,6 +26,22 @@ try{
   localStorage.removeItem(%(key)s);
   %(seed)s
 }catch(e){}
+%(daily)s
+%(now)s
+"""
+
+# デイリーの保存のキー（8.9。Web のデイリーと同じ。DAILY-SPEC 21-3）。ui.open() は既定で消してから開く
+DAILY_KEY = "make10.daily.v1"
+
+# 端末の時計を固定の時刻から進める（8.9。デイリーの「今日」を決めるため）。Date.now() と引数なしの new Date() だけを
+# 差し替え、時刻の進み方は本物のまま（経過時間の計算が変わらない）
+NOW = """
+(function(){
+  const D=Date, off=%(ms)d-D.now();
+  class FD extends D{constructor(...a){if(a.length)super(...a);else super(D.now()+off)}
+    static now(){return D.now()+off}}
+  window.Date=FD;
+})();
 """
 
 # 解答例どおりに記号を置いて解く。数字は最初から並んでいるので読み飛ばす。
@@ -66,22 +82,36 @@ class UI:
         self.case = ""
 
     # ── 開く ───────────────────────────────────────────────
-    def open(self, save=None, lang="ja", nav=None):
+    def open(self, save=None, lang="ja", nav=None, daily=None, keep_daily=False, now=None):
         """保存データを仕込んでから開き直す。save=None なら保存データ無し。
 
         lang … 表示する言語を ?lang= で固定する（7.6）。**既定は日本語に固定** ―― ケースの期待値は
                日本語の文で書いてあり、headless Chrome の言語（en-US）に左右させないため。
                None なら ?lang= を付けない（言語の決め方そのものを見るケース用）
-        nav  … navigator.language をこの値に差し替えてから読み込む（None なら触らない）"""
+        nav  … navigator.language をこの値に差し替えてから読み込む（None なら触らない）
+        daily … デイリーの保存（make10.daily.v1）に入れる中身（8.9。dict か、そのまま入れる文字列）。
+               None なら消して開く。keep_daily=True なら消さずに、前に開いたときの保存のまま開く
+        now  … 端末の時計をこの時刻（1970 年からのミリ秒）から進める（8.9。None なら本物の時計）"""
         seed = ""
         if save is not None:
             seed = "localStorage.setItem(%s,%s);" % (
                 json.dumps(SAVE_KEY),
                 json.dumps(json.dumps(save, ensure_ascii=False)))
-        if self._seed_id:
-            self.c.remove_on_new_document(self._seed_id)
-        self._seed_id = self.c.on_new_document(
+        dseed = ""
+        if daily is not None:
+            body = daily if isinstance(daily, str) else json.dumps(daily, ensure_ascii=False)
+            dseed = "try{localStorage.setItem(%s,%s)}catch(e){}" % (json.dumps(DAILY_KEY), json.dumps(body))
+        elif not keep_daily:
+            dseed = "try{localStorage.removeItem(%s)}catch(e){}" % json.dumps(DAILY_KEY)
+        # 種まきは Chrome 1 つにつき 1 本だけにする（8.9）。前のケースや版の照合（check_version）の道具が残した種は、
+        # 読み込みのたびに先に走る。今までは後から足した種が保存を上書きするので困らなかったが、keep_daily の
+        # 「消さずに開く」は、残った種がデイリーの保存を消してしまい成り立たない
+        old = getattr(self.c, "_make10_seed", None)
+        if old:
+            self.c.remove_on_new_document(old)
+        self._seed_id = self.c._make10_seed = self.c.on_new_document(
             SEED % {"key": json.dumps(SAVE_KEY), "seed": seed,
+                    "daily": dseed, "now": "" if now is None else NOW % {"ms": now},
                     "nav": "" if nav is None else
                     "Object.defineProperty(navigator,'language',{get:()=>%s,configurable:true});"
                     % json.dumps(nav)})

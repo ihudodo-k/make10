@@ -1,0 +1,224 @@
+# -*- coding: utf-8 -*-
+"""本編の中のデイリー（8.9。DAILY-SPEC 21 章）。
+
+ホームの 4 行目・デイリーの 1 問・ギブアップ・解いた後の並び・保存（Web と同じキー make10.daily.v1）。
+- デイリーで解いても、本編の進み・累計・挑戦の解放・ヒントの残数・統計が変わらない（21-2）
+- Web のデイリー（/daily/）で解いた日は、本編から解き直せない（同じキーを読む）
+- 本編が書くのは days と cur だけ。set は保存にあるものをそのまま書き戻し、書く前に保存にある日を足す（21-3）
+- 「進捗をリセット」はデイリーの記録を消さない
+
+端末の時計は ui.open(now=…) で固定の時刻から進める（2026-11-25（水）12:00 は #31）。
+"""
+import json
+import time
+
+NAME = "デイリー（本編の中）"
+
+
+def ms(y, m, d, h=12, mi=0):
+    """端末のローカル時刻の y-m-d h:mi（ミリ秒）。ブラウザも同じ時間帯で動く"""
+    return int(time.mktime((y, m, d, h, mi, 0, 0, 0, -1)) * 1000)
+
+
+NOW = ms(2026, 11, 25)          # 水曜。起点日 2026-10-26（月）から 31 日目
+PROG = {"ci": 137, "cleared": 162, "hintStock": 57, "chalDone": [], "chalShown": [],
+        "stats": {"n": 5, "sec": 300, "best": 20, "band": {"3-8": 5}}, "hist": [], "seen": []}
+# 本編の記録のうち、デイリーで解いても動いてはいけないもの
+G_SNAP = ("JSON.stringify({ci:G.ci,cleared:G.cleared,seen:G.seen,stats:G.stats,hist:G.hist,"
+          "chalDone:G.chalDone,chalShown:G.chalShown,chalRem:G.chalRem,hintStock:G.hintStock,hints:G.hints})")
+STORE = "JSON.parse(localStorage.getItem('make10.daily.v1')||'null')"
+MODES = "[...document.querySelectorAll('.modes .mode')].map(b=>b.id)"
+FITS = ("(()=>{const a=$('app'),lim=a.getBoundingClientRect().top+a.clientHeight-parseFloat(getComputedStyle(a).paddingBottom);"
+        "const n=document.querySelector('.sharenote').getBoundingClientRect().bottom;"
+        "return n<=lim+.5&&document.documentElement.scrollHeight<=innerHeight+1&&$('home').scrollHeight<=$('home').clientHeight+1})()")
+
+
+def value(ui):
+    return ui.text("m-daily-v")
+
+
+def run(ui):
+    # ── ホームの 4 行目（解く前）──────────────────────────────
+    ui.open(PROG, now=NOW)
+    ui.check("今日は #31", ui.ev("dlyToday().no"), 31)
+    ui.check("本編とデイリーのページの起点日が同じ", ui.ev("DAILY_START"), "2026-10-26")
+    ui.check("モードの行は 4 つで、デイリーはいちばん下", ui.ev(MODES), ["m-course", "m-free", "m-chal", "m-daily"])
+    ui.check("行の名前", ui.ev("$('m-daily').querySelector('.mt').textContent"), "デイリー")
+    ui.check("解く前の値", value(ui), "#31　11月25日（水）")
+    ui.check("押せる（ロックの見た目ではない）", ui.ev("$('m-daily').classList.contains('lock')"), False)
+    ui.check("ホームは縦にも横にもはみ出さない（広告の枠の上に収まる）", ui.ev(FITS), True)
+    ui.check("デイリーの保存は、まだ無い", ui.ev(STORE), None)
+
+    # ── デイリーの 1 問 ─────────────────────────────────────
+    g0 = ui.ev(G_SNAP)
+    ui.click("m-daily")
+    ui.check("問題の画面に入る", ui.ev("SCR+'|'+MODE"), "play|daily")
+    pz = ui.ev("DAILY_DAYS[30]")
+    ui.check("問題は列の #31", ui.ev("cur.id+','+cur.rc"), pz["id"] + "," + pz["rc"])
+    ui.check("上のバーの 1 行目", ui.text("pmode"), "デイリー")
+    ui.check("上のバーの 2 行目", ui.text("pday"), "#31　11月25日（水）")
+    ui.check("問題のコードと難易度の言葉は出さない", ui.visible("pcode"), False)
+    ui.check("ギブアップの入口が見える", ui.visible("dgiveup"), True)
+    ui.check("8.9 では共有とヒントの丸ボタンを出さない（9.1）", [ui.visible("share"), ui.visible("hint")], [False, False])
+    ui.check("「べつの問題」は出さない", ui.visible("alt"), False)
+    ui.check("式が出来るまで、薄い目標の「10」", ui.ev("$('eq').className+'|'+$('eq').textContent"), "eq goal|10")
+    st = ui.ev(STORE)
+    ui.check("見た瞬間に、その日の途中の分（cur）を保存する",
+             [st["cur"]["no"], isinstance(st["cur"]["start"], int), st["days"]] if st else None, [31, True, {}])
+    ui.check("問題の画面はスクロールしない", ui.scrolls(), False)
+    time.sleep(1.2)
+    ui.check("解くと「10」と「正解」", ui.solve(wait=1.0), ui.solved_text())
+    rec = ui.ev(STORE)["days"].get("31")
+    ui.check("解いた日の記録（結果・式・ヒント 0 回・共有 0 回）",
+             rec and [rec["r"], rec["e"], rec["h"], rec["sh"]], ["s", pz["sol"], 0, 0])
+    ui.check("時間は 1 秒以上・60 分未満の整数", bool(rec) and isinstance(rec["t"], int) and 1 <= rec["t"] < 3600, True)
+    ui.check("途中の分は消える", ui.ev(STORE)["cur"], None)
+    ui.check("本編の記録は 1 つも変わらない（進み・累計・挑戦・ヒントの残数・統計・履歴）", ui.ev(G_SNAP), g0)
+    time.sleep(0.4)
+    ui.check("本編の保存も変わらない", ui.ev("(()=>{const s=JSON.parse(localStorage.getItem('make10.progress.v4')||'null');"
+                                         "return s?[s.ci,s.cleared,s.hintStock,s.stats.n,s.seen.length]:null})()"),
+             [137, 162, 57, 5, 0])
+    ui.check("「つぎへ」は出ない", ui.visible("wnext"), False)
+    ui.check("結果の並びが出る", ui.visible("result"), True)
+    ui.check("3 列（時間・ヒント・連続日数）",
+             [ui.text("r-time"), ui.text("r-hints"), ui.text("r-hints-u"), ui.text("r-streak"), ui.text("r-streak-u")],
+             [ui.ev("fmtTime(%d)" % rec["t"]), "0", "回", "1", "日"])
+    ui.check("全解答の箱（解答例：）", ui.ev("$('solbox').classList.contains('show')&&$('solbox').textContent.startsWith('解答例：')"), True)
+    ui.check("トレイと丸ボタンは消える（場所は残す）", ui.ev("getComputedStyle(document.querySelector('#play .bottom')).visibility"), "hidden")
+    ui.check("解いた後は式を動かせない", ui.ev("getComputedStyle($('expr')).pointerEvents"), "none")
+    ui.check("ギブアップの入口は消える", ui.visible("dgiveup"), False)
+    ui.check("結果の並びは、広告の枠の上に収まるか、列の中だけが縦に動く",
+             ui.ev("(()=>{const a=$('app'),lim=a.getBoundingClientRect().top+a.clientHeight-parseFloat(getComputedStyle(a).paddingBottom);"
+                   "return $('result').getBoundingClientRect().bottom<=lim+.5||a.classList.contains('dscroll')})()"), True)
+
+    # ── ホームの値（解いた後）・入り直し・開き直し ──────────────
+    ui.click("back")
+    ui.check("解いた後の値", value(ui), "解いた %s　連続 1 日" % ui.ev("fmtTime(%d)" % rec["t"]))
+    ui.click("m-daily")
+    ui.check("入り直すと結果の画面（解き直せない）",
+             ui.ev("$('play').classList.contains('done')&&!$('result').classList.contains('hide')"), True)
+    ui.check("盤は自分の式", ui.ev("exprOf()"), pz["sol"])
+    ui.open(PROG, now=NOW, keep_daily=True)
+    ui.check("開き直しても、解いた後の値", value(ui), "解いた %s　連続 1 日" % ui.ev("fmtTime(%d)" % rec["t"]))
+    # 「進捗をリセット」はデイリーの記録を消さない
+    ui.ev("go('settings')")
+    ui.click("reset")
+    ui.click("reset")
+    ui.check("本編の進捗をリセットしても、デイリーの記録は残る", ui.ev(STORE)["days"].get("31", {}).get("r"), "s")
+    ui.ev("go('home')")
+    ui.check("リセットの後も、ホームのデイリーは解いた後", (value(ui) or "").startswith("解いた "), True)
+
+    # ── Web のデイリー（/daily/）で解いた日は、本編から解き直せない（同じキー）──
+    web_set = {"easy": 1, "tap": 0, "dark": 1, "lang": "en"}
+    web = {"v": 1, "days": {"30": {"r": "s", "t": 50, "h": 0, "sh": 1, "sent": 1},
+                            "31": {"r": "s", "t": 102, "h": 1, "sh": 1, "e": pz["sol"], "sent": 1}},
+           "cur": None, "set": web_set}
+    ui.open(PROG, now=NOW, daily=web)
+    ui.check("Web で解いた日: ホームは解いた後", value(ui), "解いた 1:42　連続 2 日")
+    ui.click("m-daily")
+    ui.check("Web で解いた日: 入ると結果の画面", ui.ev("$('play').classList.contains('done')"), True)
+    ui.check("Web で解いた日: 3 列", [ui.text("r-time"), ui.text("r-hints"), ui.text("r-streak")], ["1:42", "1", "2"])
+    ui.check("Web で解いた日: トレイは出ない", ui.ev("getComputedStyle(document.querySelector('#play .bottom')).visibility"), "hidden")
+    ui.check("Web で解いた日: 本編は何も書かない（保存は Web のまま）", ui.ev(STORE), web)
+
+    # ── 書くとき: set はそのまま・保存にある日を足す（keepOthers と同じ）──
+    ui.open(PROG, now=NOW, daily={"v": 1, "days": {"29": {"r": "g", "t": None, "h": 0, "sh": 0}}, "cur": None,
+                                  "set": web_set})
+    ui.click("m-daily")
+    # 別のタブ（Web のデイリー）が、28 日の記録を書いた
+    ui.ev("(()=>{const x=%s;x.days['28']={r:'s',t:40,h:2,sh:2,sent:1};localStorage.setItem('make10.daily.v1',JSON.stringify(x))})()" % STORE)
+    ui.solve(wait=1.0)
+    st = ui.ev(STORE)
+    ui.check("書いた後も set は Web のデイリーのまま", st.get("set"), web_set)
+    ui.check("別のところで書かれた日も残る（28・29・31）", sorted(st["days"].keys()), ["28", "29", "31"])
+    ui.check("足した日の送った印 sent はそのまま", st["days"]["28"].get("sent"), 1)
+    ui.check("本編は Web の設定を使わない（途中の値・タップは本編の設定のまま）", ui.ev("[G.easy,tapMode]"), [False, False])
+    # set の無い保存には set を書かない
+    ui.open(PROG, now=NOW, daily={"v": 1, "days": {}, "cur": None})
+    ui.click("m-daily")
+    ui.check("set の無い保存には set を足さない", "set" in ui.ev(STORE), False)
+    # 壊れた保存（形の違う日・null）は捨てて遊べる
+    ui.open(PROG, now=NOW, daily={"v": 1, "days": {"31": None, "abc": {"r": "s"}, "30": {"r": "x", "h": 0}}, "cur": 5})
+    ui.check("壊れた保存でも、解く前の値", value(ui), "#31　11月25日（水）")
+    ui.click("m-daily")
+    ui.check("壊れた保存でも、問題の画面", ui.ev("SCR+'|'+$('play').classList.contains('done')"), "play|false")
+
+    # ── ギブアップ ─────────────────────────────────────────
+    ui.open(PROG, now=NOW)
+    ui.click("m-daily")
+    ui.click("dgiveup")
+    ui.check("確認が出る", [ui.visible("gubox"), ui.ev("$('gubox').textContent")], [True, "ギブアップしますか？はいいいえ"])
+    ui.click("gu-no")
+    ui.check("「いいえ」で閉じて、そのまま解ける", [ui.visible("gubox"), ui.ev(STORE)["days"]], [False, {}])
+    ui.click("dgiveup")
+    ui.click("gu-yes")
+    time.sleep(0.3)
+    st = ui.ev(STORE)
+    ui.check("「はい」でギブアップの記録", st["days"].get("31"), {"r": "g", "t": None, "h": 0, "sh": 0})
+    ui.check("「10」の場所に「ギブアップ」", ui.ev("$('eq').className+'|'+$('eq').textContent"), "eq gaveup|ギブアップ")
+    ui.check("盤は解答例", ui.ev("exprOf()"), pz["sol"])
+    ui.check("時間は「—」・連続日数は 0", [ui.text("r-time"), ui.text("r-streak")], ["—", "0"])
+    n_sols = len(pz["sols"])
+    ui.check("全解答の箱（ほかの解き方：）は 2 本目から（無ければ出さない）",
+             ui.ev("$('solbox').classList.contains('show')"), n_sols > 1)
+    ui.check("ギブアップでも本編の記録は変わらない", ui.ev(G_SNAP), g0)
+    ui.click("back")
+    ui.check("ギブアップの後の値", value(ui), "#31　ギブアップ")
+
+    # ── 時間: ホームへ戻っても・開き直しても数え続ける／60 分で数え直す ──
+    ui.open(PROG, now=NOW)
+    ui.click("m-daily")
+    s0 = ui.ev(STORE)["cur"]["start"]
+    ui.click("back")
+    ui.open(PROG, now=NOW + 5000, keep_daily=True)
+    ui.click("m-daily")
+    ui.check("開き直しても、最初に見た時刻から数える", ui.ev("dlyStart"), s0)
+    ui.open(PROG, now=NOW, daily={"v": 1, "days": {}, "cur": {"no": 31, "start": NOW - 2 * 3600 * 1000, "h": 0, "sh": 0}})
+    ui.click("m-daily")
+    ui.check("60 分を過ぎた途中の分は、入った時から数え直す", ui.ev("dlyStart>=%d" % (NOW - 1000)), True)
+    ui.check("数え直した時刻を保存する", ui.ev(STORE)["cur"]["start"] >= NOW - 1000, True)
+    ui.open(PROG, now=NOW, daily={"v": 1, "days": {}, "cur": {"no": 30, "start": NOW - 60000, "h": 1, "sh": 1}})
+    ui.click("m-daily")
+    ui.check("前の日の途中の分は引き継がない", ui.ev("[dlyH,dlySh,dlyStart>=%d]" % (NOW - 1000)), [0, 0, True])
+
+    # ── 問題が無い日・日付が変わったとき ──────────────────────
+    ui.open(PROG, now=ms(2026, 10, 20))
+    ui.check("起点日より前: 問題がありません", value(ui), "問題がありません")
+    ui.check("起点日より前: ロックの見た目", ui.ev("$('m-daily').classList.contains('lock')"), True)
+    ui.click("m-daily")
+    ui.check("起点日より前: 押しても入らない", ui.ev("SCR"), "home")
+    ui.open(PROG, now=ms(2029, 10, 29))
+    ui.check("列の終わりの後: 問題がありません", value(ui), "問題がありません")
+    ui.open(PROG, now=ms(2026, 11, 25, 23, 59))
+    ui.check("23:59 は #31", value(ui), "#31　11月25日（水）")
+    # 開いたまま日付が変わった（アプリは閉じずに置かれる）。ホームを描き直すと次の日
+    ui.ev("(()=>{const D=Date,off=%d-D.now();class FD extends D{constructor(...a){if(a.length)super(...a);else super(D.now()+off)}"
+          "static now(){return D.now()+off}};window.Date=FD})()" % ms(2026, 11, 26, 0, 1))
+    ui.ev("go('settings');go('home')")
+    ui.check("日付が変わってからホームを描くと #32", value(ui), "#32　11月26日（木）")
+
+    # ── 英語 ───────────────────────────────────────────────
+    ui.open(PROG, now=NOW, lang="en")
+    ui.check("英語: 行の名前と解く前の値",
+             [ui.ev("$('m-daily').querySelector('.mt').textContent"), value(ui)], ["Daily", "#31 · Wed, Nov 25"])
+    ui.check("英語: ホームははみ出さない", ui.ev(FITS), True)
+    ui.click("m-daily")
+    ui.check("英語: 上のバー", [ui.text("pmode"), ui.text("pday")], ["Daily", "#31 · Wed, Nov 25"])
+    time.sleep(1.2)
+    ui.solve(wait=1.0)
+    t_en = ui.ev(STORE)["days"]["31"]["t"]
+    ui.check("英語: 3 列の名前と単位",
+             [ui.ev("[...document.querySelectorAll('.rcol .rn')].map(e=>e.textContent).join('|')"),
+              ui.text("r-hints-u"), ui.text("r-streak-u")], ["Time|Hints|Streak", "", "day"])
+    ui.click("back")
+    ui.check("英語: 解いた後の値", value(ui), "Solved %s · 1-day streak" % ui.ev("fmtTime(%d)" % t_en))
+
+    # ── ほかのモードへ移ると、デイリーの部品は片付く ──────────────
+    ui.ev("start('course')")
+    ui.check("本編に戻ると、結果の並び・ギブアップの入口・日付の行は出ない",
+             [ui.visible("result"), ui.visible("dgiveup"), ui.visible("pday"), ui.visible("pcode"),
+              ui.ev("$('play').classList.contains('done')||$('play').classList.contains('dplay')")],
+             [False, False, False, True, False])
+    ui.check("本編に戻ると、共有とヒントの丸ボタンが見える", [ui.visible("share"), ui.visible("hint")], [True, True])
+    ui.check("本編の問題番号（英語）", ui.text("pmode"), "Classic 138/1000")
+    ui.check_no_errors("デイリーを回しても JS エラー 0")

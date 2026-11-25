@@ -11,6 +11,7 @@
 1 と 2 の「使われているキー」は **ソースを読んで**数える（アプリの t() を通さない）。
 辞書のキーの一覧だけはページから取る（辞書そのものが正なので）。
 """
+import json
 import os
 import re
 
@@ -30,6 +31,8 @@ EXCLUDE_JS_CTX = ["STR_CORE", "STR_APP",          # 辞書そのもの
                   "THEMES", "applyDevPos", "renderDevPanel", "fillDigitInk", "ago",
                   "renderDevMeasured", "devVarInput", "#dv-min.onclick", "#dv-copy.onclick"]
 EXCLUDE_JS_LINE = "console."                      # console の文
+# 英語の文を空にしてよいキー（8.9。本編の中のデイリー）。Web のデイリーと同じキー・同じ文で持つ（DAILY-SPEC 21-5）
+EN_EMPTY_OK = {"daily.unit_times": "英語は単位を出さない（列の名前が Hints なので数字だけ。Web のデイリーと同じ）"}
 # キーを文字列で書かずに t() を呼んでよい所（applyI18n が属性の値で引く 1 か所だけ）
 ALLOW_NONLITERAL = ["e.getAttribute"]
 ATTRS = ["data-i18n", "data-i18n-html", "data-i18n-label", "data-i18n-ph", "data-i18n-pre"]
@@ -179,13 +182,17 @@ def run(ui):
     ui.check("英語: 辞書のすべてのキーに英語がある（共通の塊・本編だけの塊。余分なキーも無い）", ui.ev(
         """[STR_CORE,STR_APP].map(d=>[Object.keys(d.ja).filter(k=>!(k in d.en)),
              Object.keys(d.en).filter(k=>!(k in d.ja))])"""), [[[], []], [[], []]])
-    ui.check("英語: 文が空のキーが無い・複数形のキーは日本語と同じで、one と other を持つ", ui.ev(
+    # 英語の文を空にしてよいキー（8.9）。Web のデイリーと同じキー・同じ文で持つもの
+    ui.check("英語: 空にしてよいキーは、one と other がどちらも空", ui.ev(
+        "[%s].map(k=>JSON.stringify(STR_APP.en[k]))" % ",".join(json.dumps(k) for k in EN_EMPTY_OK)),
+        ['{"one":"","other":""}'] * len(EN_EMPTY_OK))
+    ui.check("英語: 文が空のキーが無い・複数形のキーは日本語と同じで、one と other を持つ", [k for k in ui.ev(
         """(()=>{const bad=[];for(const d of [STR_CORE,STR_APP])for(const [k,v] of Object.entries(d.en)){
              const j=d.ja[k];
              if(typeof j==='object'){if(!v||typeof v!=='object'||typeof v.one!=='string'||!v.one
                  ||typeof v.other!=='string'||!v.other||Object.keys(v).sort().join()!=='one,other')bad.push(k)}
              else if(typeof v!=='string'||!v)bad.push(k)}
-           return bad})()"""), [])
+           return bad})()""") if k not in EN_EMPTY_OK], [])
     ui.check("英語: 置き換えの印が日本語と同じ（複数形は one と other のどちらも）", ui.ev(
         """(()=>{const m=s=>[...new Set((s.match(/\{(\w+)\}/g)||[]))].sort().join(),bad=[];
            for(const d of [STR_CORE,STR_APP])for(const [k,j] of Object.entries(d.ja)){const e=d.en[k];if(e===undefined)continue;
