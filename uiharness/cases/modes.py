@@ -20,7 +20,7 @@ def run(ui):
     nchal = ui.ev("CHAL.length")
     # ── 本編 ──────────────────────────────────────────────
     ui.ev("start('course')")
-    ui.check("本編の問題番号", ui.text("pmode"), "本編 1/1000")
+    ui.check("本編の問題番号", ui.text("pmode"), "クラシック 1/1000")
     ui.check("本編の 1 問目は COURSE[0]",
              ui.ev("codeOf(cur)===codeOf(COURSE[0])"), True)
     ui.check("コード欄が埋まっている", ui.ev("$('pcode').textContent.length>0"), True)

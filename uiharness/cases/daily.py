@@ -29,7 +29,7 @@ G_SNAP = ("JSON.stringify({ci:G.ci,cleared:G.cleared,seen:G.seen,stats:G.stats,h
 STORE = "JSON.parse(localStorage.getItem('make10.daily.v1')||'null')"
 MODES = "[...document.querySelectorAll('.modes .mode')].map(b=>b.id)"
 FITS = ("(()=>{const a=$('app'),lim=a.getBoundingClientRect().top+a.clientHeight-parseFloat(getComputedStyle(a).paddingBottom);"
-        "const n=document.querySelector('.sharenote').getBoundingClientRect().bottom;"
+        "const n=document.querySelector('.share').getBoundingClientRect().bottom;"
         "return n<=lim+.5&&document.documentElement.scrollHeight<=innerHeight+1&&$('home').scrollHeight<=$('home').clientHeight+1})()")
 
 
@@ -54,7 +54,12 @@ def run(ui):
     ui.check("本編とデイリーのページの起点日が同じ", ui.ev("DAILY_START"), "2026-10-26")
     ui.check("モードの行は 4 つで、デイリーはいちばん下", ui.ev(MODES), ["m-course", "m-free", "m-chal", "m-daily"])
     ui.check("行の名前", ui.ev("$('m-daily').querySelector('.mt').textContent"), "デイリー")
-    ui.check("解く前の値", value(ui), "#31　11月25日（水）")
+    # 9.4: 解く前は名前だけ（値を出さない。ほかの行と同じ見た目）
+    ui.check("解く前は値を出さない（名前だけ・値の要素は見えない）", [value(ui), ui.visible("m-daily-v")], ["", False])
+    ui.check("解く前のデイリーの行は、フリープレイの行と同じ形（名前の位置が同じ）",
+             ui.ev("(()=>{const f=e=>{const b=$(e).getBoundingClientRect(),t=$(e).querySelector('.mt').getBoundingClientRect();"
+                   "return [Math.round(b.height),Math.round(t.top-b.top)]};return JSON.stringify(f('m-daily'))===JSON.stringify(f('m-free'))})()"),
+             True)
     ui.check("押せる（ロックの見た目ではない）", ui.ev("$('m-daily').classList.contains('lock')"), False)
     ui.check("ホームは縦にも横にもはみ出さない（広告の枠の上に収まる）", ui.ev(FITS), True)
     ui.check("デイリーの保存は、まだ無い", ui.ev(STORE), None)
@@ -178,7 +183,7 @@ def run(ui):
     ui.check("set の無い保存には set を足さない", "set" in ui.ev(STORE), False)
     # 壊れた保存（形の違う日・null）は捨てて遊べる
     ui.open(PROG, now=NOW, daily={"v": 1, "days": {"31": None, "abc": {"r": "s"}, "30": {"r": "x", "h": 0}}, "cur": 5})
-    ui.check("壊れた保存でも、解く前の値", value(ui), "#31　11月25日（水）")
+    ui.check("壊れた保存でも、解く前（値を出さない）", value(ui), "")
     ui.click("m-daily")
     ui.check("壊れた保存でも、問題の画面", ui.ev("SCR+'|'+$('play').classList.contains('done')"), "play|false")
 
@@ -202,7 +207,7 @@ def run(ui):
              ui.ev("$('solbox').classList.contains('show')"), n_sols > 1)
     ui.check("ギブアップでも本編の記録は変わらない", ui.ev(G_SNAP), g0)
     ui.click("back")
-    ui.check("ギブアップの後の値", value(ui), "#31　ギブアップ")
+    ui.check("ギブアップの後の値（9.4 で番号を外した）", value(ui), "ギブアップ")
 
     # ── 時間: ホームへ戻っても・開き直しても数え続ける／60 分で数え直す ──
     ui.open(PROG, now=NOW)
@@ -228,19 +233,23 @@ def run(ui):
     ui.check("起点日より前: 押しても入らない", ui.ev("SCR"), "home")
     ui.open(PROG, now=ms(2029, 10, 29))
     ui.check("列の終わりの後: 問題がありません", value(ui), "問題がありません")
-    ui.open(PROG, now=ms(2026, 11, 25, 23, 59))
-    ui.check("23:59 は #31", value(ui), "#31　11月25日（水）")
+    ui.open(PROG, now=ms(2026, 11, 25, 23, 59),
+            daily={"v": 1, "days": {"31": {"r": "s", "t": 102, "h": 0, "sh": 0, "e": pz["sol"]}}, "cur": None})
+    ui.check("23:59 は #31（解いた後）", [ui.ev("dlyToday().no"), value(ui)], [31, "解いた 1:42　連続 1 日"])
     # 開いたまま日付が変わった（アプリは閉じずに置かれる）。ホームを描き直すと次の日
     ui.ev("(()=>{const D=Date,off=%d-D.now();class FD extends D{constructor(...a){if(a.length)super(...a);else super(D.now()+off)}"
           "static now(){return D.now()+off}};window.Date=FD})()" % ms(2026, 11, 26, 0, 1))
     ui.ev("go('settings');go('home')")
-    ui.check("日付が変わってからホームを描くと #32", value(ui), "#32　11月26日（木）")
+    ui.check("日付が変わってからホームを描くと #32（解く前なので値を出さない）", [ui.ev("dlyToday().no"), value(ui)], [32, ""])
 
     # ── 英語 ───────────────────────────────────────────────
     ui.open(PROG, now=NOW, lang="en")
     ui.check("英語: 行の名前と解く前の値",
-             [ui.ev("$('m-daily').querySelector('.mt').textContent"), value(ui)], ["Daily", "#31 · Wed, Nov 25"])
+             [ui.ev("$('m-daily').querySelector('.mt').textContent"), value(ui)], ["Daily", ""])
     ui.check("英語: ホームははみ出さない", ui.ev(FITS), True)
+    ui.open(PROG, now=NOW, lang="en", daily={"v": 1, "days": {"31": {"r": "g", "t": None, "h": 0, "sh": 0}}, "cur": None})
+    ui.check("英語: ギブアップの後の値（9.4）", value(ui), "Gave up")
+    ui.open(PROG, now=NOW, lang="en")
     ui.click("m-daily")
     ui.check("英語: 上のバー", [ui.text("pmode"), ui.text("pday")], ["Daily", "#31 · Wed, Nov 25"])
     time.sleep(1.2)
@@ -410,13 +419,13 @@ def run(ui):
               ui.ev("$('play').classList.contains('done')||$('play').classList.contains('dplay')")],
              [False, False, False, True, False])
     ui.check("本編に戻ると、共有とヒントの丸ボタンが見える", [ui.visible("share"), ui.visible("hint")], [True, True])
-    ui.check("本編の問題番号", ui.text("pmode"), "本編 138/1000")
+    ui.check("本編の問題番号（画面の呼び名はクラシック。9.4）", ui.text("pmode"), "クラシック 138/1000")
     # 遊び方（9.3）
     ui.ev("go('help')")
     ui.check("遊び方のデイリーの節", ui.ev(HELP_DAILY),
              ["デイリー", "1 日 1 回だけ解けます。ギブアップすると答えが見られます",
-              "ヒントは、友達に出題すると 1 回もらえます（1 日 2 回まで）。本編のヒントは減りません",
-              "毎日 0 時（端末の時刻）に新しい問題になります。記録は本編とは別に数えます"])
+              "ヒントは、友達に出題すると 1 回もらえます（1 日 2 回まで）。クラシックのヒントは減りません",
+              "毎日 0 時（端末の時刻）に新しい問題になります。記録はクラシックとは別に数えます"])
     ui.check("遊び方のモードに 4 行目", ui.ev("document.querySelector('#help [data-i18n-html$=m4_html]').textContent"),
              "デイリー … 1 日 1 問。みんなが同じ問題を解きます")
     ui.check_no_errors("デイリーを回しても JS エラー 0")

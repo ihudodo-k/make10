@@ -142,7 +142,7 @@ def run(ui):
     s0 = ui.ev(snap)
     ui.check("切り替える前: 問題番号とヒントは日本語",
              [ui.text("pmode"), ui.ev("$('hintbox').textContent.includes('使う記号：')")],
-             ["本編 1/1000", True])
+             ["クラシック 1/1000", True])
     ui.click("menu")
     ui.click("t-lang")
     ui.click("t-lang")
@@ -165,5 +165,5 @@ def run(ui):
     ui.click("navback")
     ui.check("日本語に戻すと、文も元に戻る",
              [ui.ev("LANG"), ui.text("pmode"), ui.ev("$('hintbox').textContent.includes('使う記号：')")],
-             ["ja", "本編 1/1000", True])
+             ["ja", "クラシック 1/1000", True])
     ui.check_no_errors()

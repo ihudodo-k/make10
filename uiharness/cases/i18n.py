@@ -203,6 +203,11 @@ def run(ui):
              if(typeof v==='string'){if(!v)bad.push(k)}
              else if(!v||typeof v.other!=='string'||!v.other)bad.push(k)}
            return bad})()"""), [])
+    # 9.4: 画面の呼び名は「クラシック」（英語は Classic）。仕様書とコードの中の呼び名（course・本編）は変えない
+    ui.check("日本語の辞書の文に「本編」が無い（画面の呼び名はクラシック。9.4）", ui.ev(
+        """(()=>{const bad=[];for(const d of [STR_CORE.ja,STR_APP.ja])for(const [k,v] of Object.entries(d)){
+             const s=typeof v==='string'?v:Object.values(v).join('');if(s.includes('本編'))bad.push(k)}
+           return bad})()"""), [])
     ui.check("_html で終わるキーだけがタグを含む", ui.ev(
         """(()=>{const bad=[];for(const d of [STR_CORE.ja,STR_APP.ja])for(const [k,v] of Object.entries(d)){
              const s=typeof v==='string'?v:Object.values(v).join('');

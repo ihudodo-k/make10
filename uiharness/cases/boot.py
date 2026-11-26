@@ -200,10 +200,11 @@ HOME_FIT = ("(()=>{const h=$('home');return [h.scrollWidth<=h.clientWidth,h.scro
 
 def home_layout(ui):
     """ホームの組み立て（7.4。GAME-SPEC 7 章。Figma「13 余白（改）」の 02b）。
-    囲まない・進んだ問題数が主役・モードは細い線で区切った 4 行（8.9 でデイリーを足し、低い画面の行を 52 → 48px）。
+    囲まない・進んだ問題数が主役・モードは細い線で区切った 4 行（8.9 でデイリーを足し、低い画面の行を 52 → 48px。
+    9.4 で共有コードの注記を消し、52px と上の余白 104 / 56px に戻した）。
     大きさは仕様の値を直に書く"""
     N = ui.viewport == "normal"
-    hero_px, line_w, row_w, row_h = (104, 180, 264, 64) if N else (80, 150, 228, 48)
+    hero_px, line_w, row_w, row_h = (104, 180, 264, 64) if N else (80, 150, 228, 52)
     ui.open({"ci": 137, "cleared": 162})
     ui.check("ホーム: 題名は小さく中央（15px）",
              ui.ev("(()=>{const t=document.querySelector('#home .title'),c=getComputedStyle(t),r=document.createRange();"
@@ -223,7 +224,7 @@ def home_layout(ui):
                    "return [Math.round(b.width),Math.round(b.height),Math.abs((b.left+b.right)/2-innerWidth/2)<0.6,"
                    "Math.round(i.width/b.width*1000)/10,getComputedStyle($('cbar')).backgroundColor===%s('--gold')]})()" % V),
              [line_w, 2, True, 13.7, True])
-    ui.check("ホーム: その下に「本編 N%　累計 N 問」", ui.ev("$('cpct').parentElement.textContent"), "本編 13.7%　累計 162 問")
+    ui.check("ホーム: その下に「クラシック N%　累計 N 問」（9.4）", ui.ev("$('cpct').parentElement.textContent"), "クラシック 13.7%　累計 162 問")
     ui.check("ホーム: カード・アイコンは無い（鍵・星・トロフィーの定義も消した）",
              ui.ev("[!!document.querySelector('#home .card'),!!document.querySelector('#home .mi,#home .ic'),"
                    "typeof ICON_LOCK,typeof ICON_STAR,typeof ICON_TROPHY]"),
@@ -231,11 +232,11 @@ def home_layout(ui):
     row = [row_w, row_h, True, True, NONE, True, True]
     ui.check("ホーム: モード 4 行は同じ幅と高さ・中央・右端に ›・面なし・下に細い線・アイコンなし",
              ui.ev(MODE_ROWS), [row, row, row, row])
-    ui.check("ホーム: 4 行の上にも線が 1 本（行の幅と同じ）・行は上から本編・フリープレイ・挑戦・デイリー",
+    ui.check("ホーム: 4 行の上にも線が 1 本（行の幅と同じ）・行は上からクラシック・フリープレイ・挑戦・デイリー",
              ui.ev("(()=>{const m=document.querySelector('.modes'),c=getComputedStyle(m);"
                    "return [c.borderTopWidth,c.borderTopColor===%s('--edge'),Math.round(m.getBoundingClientRect().width),"
                    "[...m.querySelectorAll('.mt')].map(e=>e.textContent)]})()" % V),
-             ["1px", True, row_w, ["本編", "フリープレイ", "挑戦", "デイリー"]])
+             ["1px", True, row_w, ["クラシック", "フリープレイ", "挑戦", "デイリー"]])
     ui.check("ホーム: 挑戦の値は名前の下の小さい字（副次色）・ほかの行には値を出さない",
              ui.ev("(()=>{const v=$('m-chal-v'),t=$('m-chal').querySelector('.mt'),c=getComputedStyle(v);"
                    "return [v.textContent,v.getBoundingClientRect().top>=t.getBoundingClientRect().bottom-1,c.fontSize,"
@@ -247,6 +248,10 @@ def home_layout(ui):
                    "s.borderBottomWidth,s.borderBottomColor===%s('--edge'),$('codego').textContent]})()" % V),
              [NONE, "0px", "0px", NONE, "0px", "1px", True, "ひらく"])
     ui.check("ホーム: はみ出さない（横・縦）・画面の幅を超える要素が無い", ui.ev(HOME_FIT), [True, True, 0])
+    ui.check("ホーム: 共有コードの欄の下に注記は無い（9.4。説明は遊び方へ移した）・モードの上の余白",
+             ui.ev("[!!document.querySelector('.sharenote'),'home.code_note' in STR,$('home').lastElementChild===document.querySelector('.share'),"
+                   "getComputedStyle(document.querySelector('.modes')).marginTop]"),
+             [False, False, True, "104px" if N else "56px"])
     # ロック中（クリア 100 問未満）: 薄くせず、無効の色
     ui.open({"ci": 0, "cleared": 0})
     ui.check("ホーム（0 問）: 主役は 0・金の線は出さない",
@@ -298,7 +303,7 @@ def stats_grid(ui):
     chal = "0 / %d" % ui.ev("CHAL.length")
     ui.check("統計: 上の 6 項目の名前・数字・単位",
              [x[:3] for x in it],
-             [["解いた問題（ユニーク）", "1", "問"], ["本編の進み", "137 / 1000", "問"],
+             [["解いた問題（ユニーク）", "1", "問"], ["クラシックの進み", "137 / 1000", "問"],
               ["平均でかかった時間", "40", "秒"], ["いちばん速かった", "9", "秒"],
               ["挑戦モードの進み", chal, "問"], ["ヒントの残り", "87", "回"]])
     ui.check("統計: 2 列 × 3 段（左の列・右の列の左端がそれぞれ揃い、段の間隔が一定）",
@@ -334,7 +339,7 @@ def stats_grid(ui):
     it0 = ui.ev(STAT_ITEMS)
     ui.check("統計（記録なし）: 時間の 2 項目は数字の場所に「—」・単位を出さない・ほかは 0 と初期値",
              [x[:3] for x in it0],
-             [["解いた問題（ユニーク）", "0", "問"], ["本編の進み", "0 / 1000", "問"],
+             [["解いた問題（ユニーク）", "0", "問"], ["クラシックの進み", "0 / 1000", "問"],
               ["平均でかかった時間", "—", ""], ["いちばん速かった", "—", ""],
               ["挑戦モードの進み", chal, "問"], ["ヒントの残り", str(ui.ev("HINT_START")), "回"]])
     ui.check("統計（記録なし）: 「—」は副次色・数字と同じ大きさ・位置は記録があるときと同じ",
@@ -344,6 +349,6 @@ def stats_grid(ui):
              [[2, True, "%dpx" % num_px], True])
     ui.check("統計（記録なし）: 文言は足していない（上の節の文字は名前・数字・単位・「—」だけ）",
              ui.ev(r"$('statlist').innerText.replace(/\s+/g,'')"),
-             "0問解いた問題（ユニーク）0/1000問本編の進み—平均でかかった時間—いちばん速かった%s問挑戦モードの進み%s回ヒントの残り"
+             "0問解いた問題（ユニーク）0/1000問クラシックの進み—平均でかかった時間—いちばん速かった%s問挑戦モードの進み%s回ヒントの残り"
              % (chal.replace(" ", ""), ui.ev("HINT_START")))
     ui.check_no_errors("統計の 2 列で JS エラー 0")

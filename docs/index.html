@@ -220,8 +220,9 @@ button:active{background:var(--edge)}
 .row b{font-size:21px;font-weight:700;color:var(--paper)}
 .small{font-size:11.5px;color:var(--dim)}
 /* モード 4 行（8.9 でデイリーを 4 行目に足した。DESIGN.md 6-4）。面もアイコンも持たず、細い線で区切る。右端に ›（押せる手がかり）。
-   線の幅 = 行の幅（264 / 228px）。挑戦の値（あと N 問・N / 1471・全問クリア）は名前の下の小さい字 */
-.modes{width:264px;margin:92px auto 0;border-top:1px solid var(--edge)}
+   線の幅 = 行の幅（264 / 228px）。挑戦の値（あと N 問・N / 1471・全問クリア）は名前の下の小さい字。
+   上の余白と低い画面の行の高さは、9.4 で共有コードの注記を消したので、8.9 で詰める前の値（104 / 56px・52px）に戻した */
+.modes{width:264px;margin:104px auto 0;border-top:1px solid var(--edge)}
 .mode{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
  width:100%;height:64px;padding:0;background:none;border:0;border-bottom:1px solid var(--edge);border-radius:0}
 .mode:active{background:none;opacity:.6}
@@ -242,7 +243,6 @@ button:active{background:var(--edge)}
 .share button{padding:0 0 0 14px;font-size:13.5px;font-weight:700;white-space:nowrap;
  background:none;border:0;border-radius:0}
 .share button:active{background:none;opacity:.6}
-.sharenote{margin:10px 48px 0;line-height:1.6;text-align:center}
 
 /* ── プレイ ── */
 /* アイコンは PNG を読み込まずインライン SVG。currentColor なので 4 テーマに追従する */
@@ -594,11 +594,10 @@ button.pressed,[role="button"].pressed{opacity:.5}
   .hero{margin-top:40px}
   #chero{font-size:80px}
   .hero .bar{width:150px}
-  .modes{width:228px;margin-top:40px}
-  .mode{height:48px}
+  .modes{width:228px;margin-top:56px}
+  .mode{height:52px}
   .mode .mt{font-size:17px}
   .share{margin:18px 32px 0}
-  .sharenote{margin:10px 32px 0}
   .stat{height:66px}
   .stat .sv b,.stat .sv .none{font-size:22px}
 }
@@ -727,7 +726,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
       <button class="mode" id="m-course"><span class="mt" data-i18n="home.course"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       <button class="mode" id="m-free"><span class="mt" data-i18n="home.free"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       <button class="mode" id="m-chal"><span class="mt" data-i18n="home.chal"></span><span class="mv" id="m-chal-v"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-      <!-- デイリー（8.9）。いちばん下。名前の下は、解く前「#31　11月25日（水）」・解いた後「解いた 1:42　連続 5 日」-->
+      <!-- デイリー（8.9）。いちばん下。名前の下は、解く前は出さない（9.4）・解いた後「解いた 1:42　連続 5 日」-->
       <button class="mode" id="m-daily"><span class="mt" data-i18n="home.daily"></span><span class="mv" id="m-daily-v"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
 
@@ -735,7 +734,6 @@ button.pressed,[role="button"].pressed{opacity:.5}
       <input id="codein" data-i18n-ph="home.code_placeholder" maxlength="7">
       <button id="codego" data-i18n="home.code_open"></button>
     </div>
-    <div class="small sharenote" data-i18n="home.code_note"></div>
 
   </div>
 
@@ -986,7 +984,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.3";
+const APP_VERSION="9.4";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1057,7 +1055,7 @@ en:{
 const STR_APP={ja:{
   "nav.back":"戻る",
   "nav.settings":"設定",
-  "home.course":"本編",
+  "home.course":"クラシック",
   "home.free":"フリープレイ",
   "home.chal":"挑戦",
   "home.total_den":"/ {total} 問",
@@ -1066,13 +1064,11 @@ const STR_APP={ja:{
   "home.chal_all_clear":"全問クリア",
   "home.code_placeholder":"共有コード（5文字）",
   "home.code_open":"ひらく",
-  "home.code_note":"問題ごとにコードがあります。友達に送ると同じ問題が開きます。",
   "home.code_bad":"コードが正しくありません",
   "home.dev_unlocked":"開発者モードで解放済み",
   "home.daily":"デイリー",
-  "home.daily_date":"#{no}　{md}（{wd}）",
   "home.daily_solved":{other:"解いた {time}　連続 {n} 日"},
-  "home.daily_gaveup":"#{no}　ギブアップ",
+  "home.daily_gaveup":"ギブアップ",
   "home.daily_none":"問題がありません",
   "play.daily_mode":"デイリー",
   "dstats.title":"デイリーの統計",
@@ -1126,7 +1122,7 @@ const STR_APP={ja:{
   "play.copy_code":"コードをコピー",
   "play.menu":"メニュー",
   "play.share":"この問題を共有",
-  "play.mode_course":"本編 {i}/{total}",
+  "play.mode_course":"クラシック {i}/{total}",
   "play.mode_chal":"挑戦 {i}/{total}",
   "play.next":"つぎへ",
   "play.skip":"スキップ",
@@ -1148,7 +1144,7 @@ const STR_APP={ja:{
   "stats.by_level":"難易度べつのクリア数",
   "stats.recent":"最近解いた問題",
   "stats.solved":"解いた問題（ユニーク）",
-  "stats.course":"本編の進み",
+  "stats.course":"クラシックの進み",
   "stats.avg":"平均でかかった時間",
   "stats.fastest":"いちばん速かった",
   "stats.chal":"挑戦モードの進み",
@@ -1195,14 +1191,14 @@ const STR_APP={ja:{
   "help.r3_html":"階乗は <b>12! まで</b>。<code>3!!</code> とは書けません。<code>( 3! )!</code> と書きます",
   "help.r4":"0 で割る式は正解になりません",
   "help.sec_modes":"モード",
-  "help.m1_html":"<b>本編</b> … 1000問。だんだん難しくなります",
+  "help.m1_html":"<b>クラシック</b> … 1000問。だんだん難しくなります",
   "help.m2_html":"<b>フリープレイ</b> … ランダムに出題。何問でも遊べます",
   "help.m3_html":"<b>挑戦モード</b> … 100問クリアで解放。かなりの難問です",
   "help.m4_html":"<b>デイリー</b> … 1 日 1 問。みんなが同じ問題を解きます",
   "help.sec_daily":"デイリー",
   "help.daily_once":"1 日 1 回だけ解けます。ギブアップすると答えが見られます",
-  "help.daily_hint":"ヒントは、友達に出題すると 1 回もらえます（1 日 2 回まで）。本編のヒントは減りません",
-  "help.daily_reset":"毎日 0 時（端末の時刻）に新しい問題になります。記録は本編とは別に数えます",
+  "help.daily_hint":"ヒントは、友達に出題すると 1 回もらえます（1 日 2 回まで）。クラシックのヒントは減りません",
+  "help.daily_reset":"毎日 0 時（端末の時刻）に新しい問題になります。記録はクラシックとは別に数えます",
   "help.sec_hint":"ヒント",
   "help.hint":"3段階です。押すたびに少しずつ答えに近づきます。3段階目の式を押すと、ほかの解き方も見られます。"
 },
@@ -1218,13 +1214,11 @@ en:{
   "home.chal_all_clear":"All cleared!",
   "home.code_placeholder":"Share code (5 characters)",
   "home.code_open":"Open",
-  "home.code_note":"Every puzzle has a code. Send it to a friend to open the same puzzle.",
   "home.code_bad":"Invalid code",
   "home.dev_unlocked":"Unlocked in developer mode",
   "home.daily":"Daily",
-  "home.daily_date":"#{no} · {wd}, {md}",
   "home.daily_solved":{one:"Solved {time} · {n}-day streak",other:"Solved {time} · {n}-day streak"},
-  "home.daily_gaveup":"#{no} · Gave up",
+  "home.daily_gaveup":"Gave up",
   "home.daily_none":"No puzzle today",
   "play.daily_mode":"Daily",
   "dstats.title":"Daily stats",
@@ -43099,17 +43093,17 @@ function dlyStreak(no){
 /* 月日と曜日（Web の drawTop() と同じ整え方）*/
 const dlyDateVars=day=>{const x=new Date(day.y,day.m-1,day.d,12);
   return{md:new Intl.DateTimeFormat(LANG,DATE_FMT[LANG]).format(x),wd:new Intl.DateTimeFormat(LANG,{weekday:"short"}).format(x)}};
-/* ホームの 4 行目（21-4）。解く前「#31　11月25日（水）」・解いた後「解いた 1:42　連続 5 日」・ギブアップ「#31　ギブアップ」・
-   問題が無い日「問題がありません」（押せない。ロック中の見た目）*/
+/* ホームの 4 行目（21-4）。解く前は名前だけ（値は空で、ほかの行と同じ見た目。9.4）・解いた後「解いた 1:42　連続 5 日」・
+   ギブアップ「ギブアップ」（9.4 で番号を外した）・問題が無い日「問題がありません」（押せない。ロック中の見た目）*/
 function dlyHome(){
   const td=dlyToday();
   dlyLoad();
-  const r=td.pz?DATA.days[td.pz.no]:null, dv=dlyDateVars(td.day);
+  const r=td.pz?DATA.days[td.pz.no]:null;
   $("m-daily").classList.toggle("lock",!td.pz);
   $("m-daily-v").textContent=!td.pz?t("home.daily_none")
-    :!r?t("home.daily_date",{no:td.no,md:dv.md,wd:dv.wd})
+    :!r?""
     :r.r==="s"?t("home.daily_solved",{time:fmtTime(r.t),n:dlyStreak(td.no)})
-    :t("home.daily_gaveup",{no:td.no});
+    :t("home.daily_gaveup");
 }
 /* 問題画面の上のバーの 2 行目「#31　11月25日（水）」*/
 function dlyTop(){const v=dlyDateVars(TODAY);$("pday").innerHTML=t("daily.top_date_html",{no:PUZZLE.no,md:v.md,wd:v.wd})}

@@ -88,7 +88,7 @@ def run(ui):
              ui.ev("codeOf(cur)===codeOf(COURSE[12])"), True)
     ui.check("出た問題は遊べる（プレースホルダではない）",
              ui.ev("!!cur.sol&&cur.sol.indexOf('この試作には入っていない')<0"), True)
-    ui.check("問題番号が出ている", ui.text("pmode"), "本編 13/1000")
+    ui.check("問題番号が出ている", ui.text("pmode"), "クラシック 13/1000")
     ui.check("正解の数が 0 でない", ui.ev("cur.n>0"), True)
     ui.ev("G.ci=13; loadPuzzle(nextOf('course'))")
     ui.check("生きている差し替えは効く", ui.ev("codeOf(cur)"), live["c20"])
