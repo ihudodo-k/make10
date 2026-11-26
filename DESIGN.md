@@ -907,7 +907,7 @@ BRAND.md 6 章「丸すぎる UI」を避ける。
 
 | 要素 | 値 |
 |---|---|
-| 画面見出し `.sheet h2` | 17px / 700 / `margin:2px 0 12px` |
+| 画面見出し `.sheet h2` | 17px / 700 / `margin:0 0 8px` / 左に `#navback` の幅を空け、高さ `--btnW` で中央寄せ（`‹` と並ぶ）。**シートを動かしても上に残る**（9.6。`position:sticky; top:0; z-index:3; background:var(--ink)`）―― 本文は下地の下をくぐり、`#navback`（z-index 50）は題の行より前に出る。9.5 までは題が流れて消え、`‹` だけが本文に重なっていた（GAME-SPEC 5-0） |
 | 節見出し `.sheet h3` | 14px / 700 / `color:var(--paper)` / `margin:18px 0 7px`。大きさと色は下の行が上書きするので、効いているのは余白だけ |
 | 設定・遊び方・統計の節見出し `#settings h3` `#help h3` `#stats h3`（7.3。統計は 7.4） | **12px / 500 / `color:var(--dim)` / 字間 8%**。見出しを沈めて、中身（行・本文）を前に出す。設定と統計では `padding-left:15px` で**行の文字と左端を揃える**（行の `padding` 14px ＋ 面の枠 1px）。遊び方は本文が左端から始まるので寄せない |
 | 設定のバージョン表記 `#appver`（7.3） | 11.5px / `color:var(--dim)` / `opacity:1` / `padding-left:15px`。`.small` だけでは `.sheet p`（13px・`--paper` の 85%）に負けるので、id で指定している |

@@ -82,9 +82,13 @@ body{background:var(--ink);
 .sheet{flex:1 1 auto;overflow-y:auto;padding-bottom:12px;min-height:0}
 /* 見出しは左上の #navback と同じ帯に並べる。ボタンは #app 直下に 1 つしか
    置かないので、重ならないように見出し側をボタンの幅ぶん右へ寄せる。
-   高さを --btnW に合わせて中央寄せにすると、‹ と文字の中心が揃う */
+   高さを --btnW に合わせて中央寄せにすると、‹ と文字の中心が揃う。
+   題の行はシートの上に残す（9.6）―― 9.5 までは題が本文と一緒に流れて消え、#app に固定の
+   #navback だけが残って本文に重なっていた。sticky で上に貼り、地の色の下地を付けて本文をその下に
+   くぐらせる。#navback（z-index 50）は題の行より前に出る */
 .sheet h2{font-size:17px;font-weight:700;margin:0 0 8px;
- padding-left:var(--btnW);min-height:var(--btnW);display:flex;align-items:center}
+ padding-left:var(--btnW);min-height:var(--btnW);display:flex;align-items:center;
+ position:sticky;top:0;z-index:3;background:var(--ink)}
 /* 節見出し。本文（--paper の 85%）より強くするため --paper・14px・700（3.0） */
 .sheet h3{font-size:14px;font-weight:700;color:var(--paper);margin:18px 0 7px}
 .sheet p,.sheet li{font-size:13px;line-height:1.75;color:var(--paper);opacity:.85}
@@ -1069,7 +1073,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.5";
+const APP_VERSION="9.6";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
