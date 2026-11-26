@@ -223,18 +223,23 @@ def run(ui):
         "const l=$('t-lang').firstElementChild.getBoundingClientRect(),r=$('t-lang-v').getBoundingClientRect();"
         "if(l.right>r.left-4||r.height>24)bad.push(v)}G.lang='auto';applyLang(true);return bad})()"), [])
 
-    # ── 遊び方の 3 行（7.7 で ^ と !、8.5 で 0! を足した。! の例も 8.5 で 4! にした。日本語にも出る）
-    for lang, want in [("ja", ["^ は累乗です（2 ^ 3 = 8）", "! は階乗です（4! = 4 × 3 × 2 × 1 = 24）", "0! は 1 です（0! = 1）"]),
-                       ("en", ["^ is power (2 ^ 3 = 8)", "! is factorial (4! = 4 × 3 × 2 × 1 = 24)", "0! is 1 (0! = 1)"])]:
+    # ── 遊び方の「計算のきまり」（7.7 で ^ と !、8.5 で 0! を足した。9.5 で Web のデイリーの 4 行を写し、
+    #    記号の意味の行のすぐ後にその記号の特別な場合を置く並びにした。日本語にも出る）
+    RULES = {"ja": ["^ は累乗です（2 ^ 3 = 8）", "0 ^ 0 は 1 です（0 ^ 0 = 1）", "^ は右から計算します。2 ^ 3 ^ 2 は 2 ^ ( 3 ^ 2 )",
+                    "! は階乗です（4! = 4 × 3 × 2 × 1 = 24）", "0! は 1 です（0! = 1）",
+                    "階乗は 12! まで。3!! とは書けません。( 3! )! と書きます", "0 で割る式は正解になりません"],
+             "en": ["^ is power (2 ^ 3 = 8)", "0 ^ 0 is 1 (0 ^ 0 = 1)",
+                    "^ is evaluated right to left. 2 ^ 3 ^ 2 means 2 ^ ( 3 ^ 2 )",
+                    "! is factorial (4! = 4 × 3 × 2 × 1 = 24)", "0! is 1 (0! = 1)",
+                    "Factorials go up to 12!. You can't write 3!!; write ( 3! )!", "Dividing by 0 never counts as correct"]}
+    for lang in ("ja", "en"):
+        want = RULES[lang]
         ui.open(lang=lang)
         ui.ev("go('help')")
-        ui.check("遊び方（%s）:「計算のきまり」の先頭 3 行が ^ と ! の意味と 0! は 1" % lang, ui.ev(
+        ui.check("遊び方（%s）:「計算のきまり」は 7 行（^・0 ^ 0・^ は右から・!・0!・12! まで・0 で割る）" % lang, ui.ev(
             "(()=>{const h=[...document.querySelectorAll('#help h3')].find(x=>x.textContent===t('help.sec_rules'));"
-            "return [...h.nextElementSibling.children].slice(0,3).map(x=>x.textContent)})()"), want)
-        ui.check("遊び方（%s）:「計算のきまり」は 7 行で、4 行目は 7.6 までの先頭（^ は右から）" % lang, ui.ev(
-            "(()=>{const h=[...document.querySelectorAll('#help h3')].find(x=>x.textContent===t('help.sec_rules'));"
-            "const li=[...h.nextElementSibling.children];return [li.length,li[3].innerHTML===t('help.r1_html')]})()"),
-            [7, True])
+            "const out=[];for(let e=h.nextElementSibling;e&&e.tagName!=='H3';e=e.nextElementSibling)out.push(e.textContent.trim());"
+            "return out})()"), want)
         # 式（<code>）は行の途中で折り返さない。折り返さなくしても、行からはみ出さない
         for size in ([None] if ui.viewport == "normal" else [None, (360, 640)]):
             tag = "" if size is None else "・360×640"

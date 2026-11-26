@@ -491,8 +491,76 @@ body.rings #hint::before{border-color:var(--ring)}
 .hintbox.show{display:block}
 /* ラベル（使う記号：/ 形：/ 解答例：）と中身の差は太さだけ。
    色は .hintbox から継承する ―― 同じ色を 2 箇所に書かない */
-/* 遊び方の式は行の途中で折り返さない（7.7。英語で 2 ^ ( 3 ^ 2 ) や ( 3! )! が 2 行に割れていた） */
-#help code{white-space:nowrap}
+/* 遊び方の式は行の途中で折り返さない（7.7。英語で 2 ^ ( 3 ^ 2 ) や ( 3! )! が 2 行に割れていた）。
+   9.5 から、Web のデイリーの遊び方と同じく、式は本文と同じ書体の太字（DAILY-SPEC 13-10）*/
+#help code{font-family:inherit;font-weight:700;white-space:nowrap}
+/* 遊び方（9.5。Web のデイリーの遊び方 DAILY-SPEC 13-10 を手本に作り直した）。文の段落は詰めて並べる（Web の #dhelpbody p と同じ 6px）*/
+#help p{margin:0 0 6px}
+/* ── 見本の盤（9.5）。ここから @keyframes hd-pick までは、Web のデイリーの遊び方から 1 文字も変えずに写した
+   （verify_daily.py の sync が照合する）。説明の文のセレクタ（#help .hfig .hcap）だけは入れ物の名前が違う ── */
+.hfig{position:relative;margin:2px 0 8px;text-align:center}
+.hstep{position:absolute;left:0;top:0;font-size:13px;line-height:1.75;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums}
+#help .hfig .hcap{margin:3px 0 0;font-size:12.5px;line-height:1.6;white-space:pre-line}
+.hdemo{position:relative;display:inline-flex;flex-direction:column;align-items:center;pointer-events:none;user-select:none;
+ --dk:.55;--dnW:calc(var(--numW)*var(--dk));--dnMx:calc(var(--numMx)*var(--dk));--dH:calc(var(--tokH)*var(--dk));
+ --dnF:calc(var(--numF)*var(--dk));--doW:calc(var(--opW)*var(--dk));--doF:calc(var(--opF)*var(--dk));
+ --dpW:calc(var(--parW)*var(--dk));--dpF:calc(var(--parF)*var(--dk));--dcF:calc(var(--chipF)*var(--dk));--dcW:34px;--dcH:24px;
+ /* ghost の動き: トレイの「−」の中心から、8 と 7 のあいだの枠の中心まで（見本の中心からの量。寸法から決まる）*/
+ --gx0:calc(var(--dcW)*-.5);--gx1:calc((var(--dnW) + var(--dnMx)*2 + var(--doW))*-1);
+ --gy0:calc(var(--dH)*.5 + 13px + var(--dcH)*.5)}
+.dexpr{display:flex;align-items:center;justify-content:center;height:var(--dH)}
+.dnum{width:var(--dnW);height:var(--dH);margin:0 var(--dnMx);flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+ font-size:var(--dnF);font-weight:700;color:var(--paper);font-variant-numeric:tabular-nums}
+.dtok{flex:0 0 auto;height:var(--dH);display:flex;align-items:center;justify-content:center;font-weight:600;
+ color:color-mix(in srgb,var(--paper) 76%,transparent)}
+.dtok.op{width:var(--doW);font-size:var(--doF)}
+.dtok.par{width:var(--dpW);font-size:var(--dpF);font-weight:500;color:color-mix(in srgb,var(--paper) 58%,transparent)}
+/* 置ける場所の枠（盤の .zone.live と同じ線と地）。吸着したときの明るさ（.zone.hot と同じ）は .dhot に重ねる */
+.dslot{position:relative;flex:0 0 auto;width:var(--doW);height:var(--dH)}
+.dslot>*{position:absolute;inset:0}
+.dzone{box-sizing:border-box;border-radius:3px;border:1.5px dashed color-mix(in srgb,var(--paper) 34%,transparent);
+ background:color-mix(in srgb,var(--paper) 8%,transparent);opacity:0}
+.dhot{box-sizing:border-box;border-radius:3px;border:1.5px solid color-mix(in srgb,var(--paper) 78%,transparent);
+ background:color-mix(in srgb,var(--paper) 26%,transparent);opacity:0}
+.dtray{display:grid;grid-template-columns:repeat(4,var(--dcW));margin-top:8px;padding-top:4px;border-top:1px solid var(--edge)}
+.dchip{height:var(--dcH);display:flex;align-items:center;justify-content:center;font-size:var(--dcF);font-weight:700;color:var(--paper)}
+.dghost{position:absolute;left:50%;top:calc(var(--dH)*.5);font-size:calc(34px*var(--dk));font-weight:700;color:var(--paper);opacity:0;
+ transform:translate(calc(-50% + var(--gx1)),-50%);text-shadow:0 2px 6px rgba(0,0,0,.5)}
+.deq{font-size:28px;font-weight:700;line-height:1.1;color:var(--gold);font-variant-numeric:tabular-nums}
+.dsub{margin:2px 0 2px;font-size:11px;line-height:15px;letter-spacing:.24em;text-indent:.24em;
+ color:color-mix(in srgb,var(--paper) 82%,transparent)}
+/* 置き方の見本。動かないとき（動きを減らす設定など）は、置いた後の形（8 − 7 5 2）で止まっている。
+   それがそのまま下の指定で、動きは @keyframes が上書きする。1 回は 5 秒（運んで置くのが約 2 秒、あとは見せて間を置く）。
+   シートが閉じている間は表示されない（display:none）ので、動きも止まる */
+.hd1 .dn0,.hd1 .dn1,.hd1 .ds1{transform:translateX(var(--doW))}
+.hd1 .dn3{transform:translateX(calc(var(--doW)*-1))}
+.hd1 .dn0{animation:hd-n0 5s infinite}
+.hd1 .dn1{animation:hd-n1 5s infinite}
+.hd1 .dn2{animation:hd-n2 5s infinite}
+.hd1 .dn3{animation:hd-n3 5s infinite}
+.hd1 .ds1{animation:hd-s1 5s infinite}
+.hd1 .dzone{animation:hd-zone 5s infinite}
+.hd1 .dhot{animation:hd-hot 5s infinite}
+.hd1 .ds1 .dtok{animation:hd-tok 5s infinite}
+.hd1 .dghost{animation:hd-ghost 5s infinite}
+.hd1 .dpick{animation:hd-pick 5s infinite}
+@keyframes hd-n0{0%,8%{transform:translateX(calc(var(--doW)*1.5))}16%,46%{transform:translateX(0)}52%,88%{transform:translateX(var(--doW))}96%,100%{transform:translateX(calc(var(--doW)*1.5))}}
+@keyframes hd-n1{0%,8%{transform:translateX(calc(var(--doW)*.5))}16%,46%{transform:translateX(0)}52%,88%{transform:translateX(var(--doW))}96%,100%{transform:translateX(calc(var(--doW)*.5))}}
+@keyframes hd-n2{0%,8%{transform:translateX(calc(var(--doW)*-.5))}16%,88%{transform:translateX(0)}96%,100%{transform:translateX(calc(var(--doW)*-.5))}}
+@keyframes hd-n3{0%,8%{transform:translateX(calc(var(--doW)*-1.5))}16%,46%{transform:translateX(0)}52%,88%{transform:translateX(calc(var(--doW)*-1))}96%,100%{transform:translateX(calc(var(--doW)*-1.5))}}
+@keyframes hd-s1{0%,46%{transform:translateX(0)}52%,90%{transform:translateX(var(--doW))}100%{transform:translateX(0)}}
+@keyframes hd-zone{0%,8%{opacity:0}16%,46%{opacity:1}52%,100%{opacity:0}}
+@keyframes hd-hot{0%,34%{opacity:0}40%,46%{opacity:1}52%,100%{opacity:0}}
+@keyframes hd-tok{0%,46%{opacity:0}50%,88%{opacity:1}94%,100%{opacity:0}}
+@keyframes hd-ghost{0%,8%{opacity:0;transform:translate(calc(-50% + var(--gx0)),calc(-50% + var(--gy0))) scale(1)}
+ 12%,16%{opacity:1;transform:translate(calc(-50% + var(--gx0)),calc(-50% + var(--gy0))) scale(1.22)}
+ 42%,46%{opacity:1;transform:translate(calc(-50% + var(--gx1)),-50%) scale(1.22)}
+ 50%,100%{opacity:0;transform:translate(calc(-50% + var(--gx1)),-50%) scale(1)}}
+@keyframes hd-pick{0%,8%{opacity:1}12%,48%{opacity:.22}54%,100%{opacity:1}}
+/* アイコン付きの行（9.5。Web の #dhelpbody p.hico と同じ形。入れ物の名前だけ違う）。アイコンは本物のボタンの絵柄の写し */
+#help p.hico{display:flex;align-items:flex-start;gap:8px}
+#help p.hico .hi{flex:0 0 auto;width:20px;height:22.75px;display:flex;align-items:center;justify-content:center}
+#help p.hico .hi .ic{width:20px;height:20px}
 .hintbox code{font-family:inherit;font-weight:700;line-height:1}
 /* ラベルと中身の間の空き（7.7）。日本語は全角の「：」が空きを持つので 0。英語はコロンを持たず、
    ここで空ける。値は JS の HINT_TEXT.labelGap（縮小の計算も同じ値を引く）を applyLang() が流す */
@@ -865,42 +933,59 @@ button.pressed,[role="button"].pressed{opacity:.5}
     <p class="small" style="margin-top:18px" id="appver"></p>
   </div>
 
+  <!-- 遊び方（9.5。Web のデイリーの遊び方 DAILY-SPEC 13-10 を手本に作り直した）。最初の 1 行・見本の盤 2 組・記号の 4 行・
+       デイリーのヒントとギブアップと毎日 0 時の行は、Web と同じ文・同じ部品（辞書のキーも同じ名前）。節の見出しは本編の様式（DESIGN.md 6-2）-->
   <div id="help" class="hide sheet">
     <h2 data-i18n="help.title"></h2>
-    <p data-i18n-html="help.intro_html"></p>
-    <h3 data-i18n="help.sec_controls"></h3>
-    <ul>
-      <li data-i18n-html="help.c1_html"></li>
-      <li data-i18n-html="help.c2_html"></li>
-      <li data-i18n-html="help.c3_html"></li>
-      <li data-i18n-html="help.c4_html"></li>
-    </ul>
+    <p data-i18n="daily.help_1"></p>
+      <div class="hfig"><span class="hstep">1</span>
+        <div class="hdemo hd1" role="img" data-i18n-label="daily.help_demo1_alt"><div class="dexpr" aria-hidden="true">
+          <span class="dnum dn0">8</span><span class="dslot ds1"><span class="dzone"></span><span class="dhot"></span><span class="dtok op">−</span></span><span class="dnum dn1">7</span><span class="dslot"><span class="dzone"></span></span><span class="dnum dn2">5</span><span class="dslot"><span class="dzone"></span></span><span class="dnum dn3">2</span></div>
+          <div class="dtray" aria-hidden="true"><span class="dchip">+</span><span class="dchip dpick">−</span><span class="dchip">×</span><span class="dchip">÷</span><span class="dchip">^</span><span class="dchip">!</span><span class="dchip">(</span><span class="dchip">)</span></div>
+          <span class="dghost" aria-hidden="true">−</span></div>
+        <p class="hcap" data-i18n="daily.help_place"></p>
+      </div>
+      <div class="hfig"><span class="hstep">2</span>
+        <div class="hdemo hd2" role="img" data-i18n-label="daily.help_demo2_alt"><div class="deq" aria-hidden="true">10</div><div class="dsub" aria-hidden="true" data-i18n="read.solved"></div><div class="dexpr" aria-hidden="true"><span class="dtok par">(</span><span class="dnum">8</span><span class="dtok op">−</span><span class="dnum">7</span><span class="dtok par">)</span><span class="dtok op">×</span><span class="dnum">5</span><span class="dtok op">×</span><span class="dnum">2</span></div></div>
+        <p class="hcap" data-i18n="daily.help_solve"></p>
+      </div>
     <h3 data-i18n="help.sec_rules"></h3>
-    <ul>
-      <li data-i18n-html="help.r_pow_html"></li>
-      <li data-i18n-html="help.r_fac_html"></li>
-      <li data-i18n-html="help.r_zero_fac_html"></li>
-      <li data-i18n-html="help.r1_html"></li>
-      <li data-i18n-html="help.r2_html"></li>
-      <li data-i18n-html="help.r3_html"></li>
-      <li data-i18n="help.r4"></li>
-    </ul>
-    <h3 data-i18n="help.sec_modes"></h3>
-    <ul>
-      <li data-i18n-html="help.m1_html"></li>
-      <li data-i18n-html="help.m2_html"></li>
-      <li data-i18n-html="help.m3_html"></li>
-      <li data-i18n-html="help.m4_html"></li>
-    </ul>
+    <p data-i18n-html="daily.help_pow_html"></p>
+    <p data-i18n-html="daily.help_zero_pow_html"></p>
+    <p data-i18n-html="help.r1_html"></p>
+    <p data-i18n-html="daily.help_fac_html"></p>
+    <p data-i18n-html="daily.help_zero_fac_html"></p>
+    <p data-i18n-html="help.r3_html"></p>
+    <p data-i18n="help.r4"></p>
+    <h3 data-i18n="help.sec_controls"></h3>
+    <p data-i18n-html="help.c2_html"></p>
+    <p data-i18n-html="help.c_move_html"></p>
+    <p data-i18n-html="help.c3_html"></p>
+    <p data-i18n-html="help.c4_html"></p>
+    <p data-i18n-html="help.c_tap_html"></p>
+    <p class="hico"><span class="hi" id="hi-clear" aria-hidden="true"></span><span data-i18n-html="help.c_clear_html"></span></p>
     <h3 data-i18n="help.sec_hint"></h3>
-    <p data-i18n="help.hint"></p>
-    <!-- デイリー（9.3。DAILY-SPEC 21-2）。Web のデイリーの遊び方の「ヒント」「ギブアップ」「毎日 0 時」の行にあたる -->
+    <p class="hico"><span class="hi" id="hi-hint" aria-hidden="true"></span><span data-i18n-html="help.hint_html"></span></p>
+    <p data-i18n="help.hint_sols"></p>
+    <p data-i18n="help.hint_stock"></p>
+    <h3 data-i18n="help.sec_modes"></h3>
+    <p data-i18n-html="help.m1_html"></p>
+    <p data-i18n-html="help.m2_html"></p>
+    <p data-i18n-html="help.m3_html"></p>
+    <p data-i18n-html="help.m4_html"></p>
     <h3 data-i18n="help.sec_daily"></h3>
-    <ul>
-      <li data-i18n="help.daily_once"></li>
-      <li data-i18n="help.daily_hint"></li>
-      <li data-i18n="help.daily_reset"></li>
-    </ul>
+    <p data-i18n="help.daily_once"></p>
+    <p class="hico"><span class="hi" id="hi-dhint" aria-hidden="true"></span><span data-i18n-html="daily.help_hint_html"></span></p>
+    <p class="hico"><span class="hi" id="hi-giveup" aria-hidden="true"></span><span data-i18n-html="daily.help_giveup_html"></span></p>
+    <p class="hico"><span class="hi" id="hi-dstats" aria-hidden="true"></span><span data-i18n-html="help.daily_stats_html"></span></p>
+    <p data-i18n="daily.help_4"></p>
+    <p data-i18n="help.daily_apart"></p>
+    <!-- 共有コード（9.5。9.4 までホームの欄の下にあった注記の文を、ここへ移した）-->
+    <h3 data-i18n="help.sec_code"></h3>
+    <p data-i18n="help.code"></p>
+    <p class="hico"><span class="hi" id="hi-share" aria-hidden="true"></span><span data-i18n-html="help.code_share_html"></span></p>
+    <p data-i18n-html="help.code_copy_html"></p>
+    <p data-i18n-html="help.code_open_html"></p>
   </div>
 
   <div id="stats" class="hide sheet">
@@ -984,7 +1069,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.4";
+const APP_VERSION="9.5";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1176,18 +1261,12 @@ const STR_APP={ja:{
   "settings.lang_en":"English",
   "settings.version":"バージョン {v}（試作）",
   "help.title":"遊び方",
-  "help.intro_html":"4つの数字は<b>並び順が決まっています</b>。間に演算子を置いて、答えを 10 にしてください。",
   "help.sec_controls":"操作",
-  "help.c1_html":"下の記号を<b>つまんで式の中へ</b>。置ける場所に隙間が開きます",
   "help.c2_html":"置いた記号を<b>式の外へ出すと外れます</b>",
   "help.c3_html":"演算子は、置いてある演算子の<b>上に重ねると差し替わります</b>",
   "help.c4_html":"括弧は <b>( と ) を別々に</b>置きます。相手がいない括弧は赤くなります",
   "help.sec_rules":"計算のきまり",
-  "help.r_pow_html":"<b>^ は累乗</b>です（<code>2 ^ 3 = 8</code>）",
-  "help.r_fac_html":"<b>! は階乗</b>です（<code>4! = 4 × 3 × 2 × 1 = 24</code>）",
-  "help.r_zero_fac_html":"<b>0! は 1</b> です（<code>0! = 1</code>）",
   "help.r1_html":"<b>^ は右から</b>計算します。<code>2 ^ 3 ^ 2</code> は <code>2 ^ ( 3 ^ 2 )</code>",
-  "help.r2_html":"<code>0 ^ 0</code> は <b>1</b> です",
   "help.r3_html":"階乗は <b>12! まで</b>。<code>3!!</code> とは書けません。<code>( 3! )!</code> と書きます",
   "help.r4":"0 で割る式は正解になりません",
   "help.sec_modes":"モード",
@@ -1196,11 +1275,34 @@ const STR_APP={ja:{
   "help.m3_html":"<b>挑戦モード</b> … 100問クリアで解放。かなりの難問です",
   "help.m4_html":"<b>デイリー</b> … 1 日 1 問。みんなが同じ問題を解きます",
   "help.sec_daily":"デイリー",
-  "help.daily_once":"1 日 1 回だけ解けます。ギブアップすると答えが見られます",
-  "help.daily_hint":"ヒントは、友達に出題すると 1 回もらえます（1 日 2 回まで）。クラシックのヒントは減りません",
-  "help.daily_reset":"毎日 0 時（端末の時刻）に新しい問題になります。記録はクラシックとは別に数えます",
   "help.sec_hint":"ヒント",
-  "help.hint":"3段階です。押すたびに少しずつ答えに近づきます。3段階目の式を押すと、ほかの解き方も見られます。"
+  // 遊び方（9.5）。daily.help_… は Web のデイリーの遊び方と同じキー・同じ文（Web の辞書の行をそのまま写す）
+  "daily.help_1":"4 つの数字を順番どおりに全部使って 10 を作ります。",
+  "daily.help_place":"記号を数字のあいだへドラッグして置きます\n（設定でタップ配置にもできます）",
+  "daily.help_solve":"括弧の中から先に計算します。10 になれば正解です",
+  "daily.help_demo1_alt":"見本: 8 7 5 2 の、8 と 7 のあいだに − を置く",
+  "daily.help_demo2_alt":"見本: ( 8 − 7 ) × 5 × 2 は、括弧の中から計算して 10。正解",
+  "daily.help_pow_html":"<b>^ は累乗</b>です（<code>2 ^ 3 = 8</code>）",
+  "daily.help_zero_pow_html":"<b>0 ^ 0 は 1</b> です（<code>0 ^ 0 = 1</code>）",
+  "daily.help_fac_html":"<b>! は階乗</b>です（<code>4! = 4 × 3 × 2 × 1 = 24</code>）",
+  "daily.help_zero_fac_html":"<b>0! は 1</b> です（<code>0! = 1</code>）",
+  "daily.help_hint_html":"<b>ヒント</b>：共有でもらえます（1 日 2 回まで）",
+  "daily.help_giveup_html":"<b>ギブアップ</b>：解答例を見て、その日を終えます",
+  "daily.help_4":"毎日 0 時（端末の時刻）に新しい問題になります。",
+  "help.c_move_html":"置いた記号は、<b>つまんで別の場所へ運べます</b>",
+  "help.c_tap_html":"<b>タップで置く</b>：設定でオンにすると、記号を押して選び、置き場所を押します。置いた記号は押すと外れます",
+  "help.c_clear_html":"<b>全部消す</b>：置いた記号をまとめて外します",
+  "help.hint_html":"<b>ヒント</b>：3 段階です。押すたびに少しずつ答えに近づきます",
+  "help.hint_sols":"3段階目の式を押すと、ほかの解き方も見られます。",
+  "help.hint_stock":"ヒントの数には限りがあります。挑戦モードで 2 問解くごとに 1 つ増えます",
+  "help.daily_once":"1 日 1 回だけ解けます",
+  "help.daily_stats_html":"<b>統計</b>：解いた日数・連続日数とカレンダー",
+  "help.daily_apart":"記録はクラシックとは別に数えます。クラシックのヒントは減りません",
+  "help.sec_code":"共有コード",
+  "help.code":"問題ごとにコードがあります。友達に送ると同じ問題が開きます。",
+  "help.code_share_html":"<b>共有</b>：問題の画面の右上から、コードを送れます",
+  "help.code_copy_html":"問題の画面の上の<b>コード</b>を押すと、コピーできます",
+  "help.code_open_html":"もらったコードは、ホームの欄に入れて<b>ひらく</b>を押します"
 },
 en:{
   "nav.back":"Back",
@@ -1325,18 +1427,12 @@ en:{
   "settings.lang_en":"English",
   "settings.version":"Version {v} (prototype)",
   "help.title":"How to play",
-  "help.intro_html":"The four numbers <b>stay in order</b>. Put operations between them to make 10.",
   "help.sec_controls":"Controls",
-  "help.c1_html":"<b>Drag</b> symbols from below <b>into the expression</b>. A gap opens where they fit.",
   "help.c2_html":"<b>Drag a placed symbol out</b> to remove it.",
   "help.c3_html":"Drop an operation <b>on top of another</b> to replace it.",
   "help.c4_html":"Place <b>( and ) separately</b>. Unmatched parentheses turn red.",
   "help.sec_rules":"Rules",
-  "help.r_pow_html":"<b>^ is power</b> (<code>2 ^ 3 = 8</code>)",
-  "help.r_fac_html":"<b>! is factorial</b> (<code>4! = 4 × 3 × 2 × 1 = 24</code>)",
-  "help.r_zero_fac_html":"<b>0! is 1</b> (<code>0! = 1</code>)",
   "help.r1_html":"<b>^ is evaluated right to left</b>. <code>2 ^ 3 ^ 2</code> means <code>2 ^ ( 3 ^ 2 )</code>",
-  "help.r2_html":"<code>0 ^ 0</code> is <b>1</b>",
   "help.r3_html":"Factorials go up to <b>12!</b>. You can't write <code>3!!</code>; write <code>( 3! )!</code>",
   "help.r4":"Dividing by 0 never counts as correct",
   "help.sec_modes":"Modes",
@@ -1345,11 +1441,33 @@ en:{
   "help.m3_html":"<b>Challenge</b> … unlocks after 100 clears. Very tough puzzles",
   "help.m4_html":"<b>Daily</b> … one puzzle a day, the same for everyone",
   "help.sec_daily":"Daily",
-  "help.daily_once":"One try a day. Give up to see the answers.",
-  "help.daily_hint":"Share the puzzle to get a hint (up to 2 a day). Your Classic hints are not used.",
-  "help.daily_reset":"A new puzzle every day at midnight (your device's time). Daily results are counted separately from Classic.",
   "help.sec_hint":"Hints",
-  "help.hint":"Hints come in 3 steps, each a little closer to the answer. In step 3, tap the expression to see other solutions."
+  "daily.help_1":"Make 10 using all four numbers in order.",
+  "daily.help_place":"Drag a symbol between the numbers\n(or turn on Tap to place in Settings)",
+  "daily.help_solve":"Parentheses are calculated first. Make 10 and it's solved",
+  "daily.help_demo1_alt":"Example: placing − between 8 and 7 in 8 7 5 2",
+  "daily.help_demo2_alt":"Example: ( 8 − 7 ) × 5 × 2 is calculated from the parentheses and makes 10. Solved!",
+  "daily.help_pow_html":"<b>^ is power</b> (<code>2 ^ 3 = 8</code>)",
+  "daily.help_zero_pow_html":"<b>0 ^ 0 is 1</b> (<code>0 ^ 0 = 1</code>)",
+  "daily.help_fac_html":"<b>! is factorial</b> (<code>4! = 4 × 3 × 2 × 1 = 24</code>)",
+  "daily.help_zero_fac_html":"<b>0! is 1</b> (<code>0! = 1</code>)",
+  "daily.help_hint_html":"<b>Hint</b> · Share to get one (up to 2 a day)",
+  "daily.help_giveup_html":"<b>Give up</b> · See a solution and end the day's puzzle",
+  "daily.help_4":"A new puzzle every day at midnight, your local time.",
+  "help.c_move_html":"<b>Drag a placed symbol</b> to move it to another spot.",
+  "help.c_tap_html":"<b>Tap to place</b> · Turn it on in Settings, tap a symbol, then tap a spot. Tap a placed symbol to remove it.",
+  "help.c_clear_html":"<b>Clear all</b> · Removes every placed symbol",
+  "help.hint_html":"<b>Hint</b> · 3 steps, each a little closer to the answer",
+  "help.hint_sols":"In step 3, tap the expression to see other solutions.",
+  "help.hint_stock":"Hints are limited. You get one for every 2 Challenge puzzles you solve.",
+  "help.daily_once":"One try a day.",
+  "help.daily_stats_html":"<b>Stats</b> · Days solved, streaks and a calendar",
+  "help.daily_apart":"Daily results are counted separately from Classic. Your Classic hints are not used.",
+  "help.sec_code":"Share codes",
+  "help.code":"Every puzzle has a code. Send it to a friend to open the same puzzle.",
+  "help.code_share_html":"<b>Share</b> · Send the code from the top right of the puzzle screen",
+  "help.code_copy_html":"Tap the <b>code</b> at the top of the puzzle screen to copy it",
+  "help.code_open_html":"To open a code you got, enter it on Home and tap <b>Open</b>"
 }};
 /* ═══ 言語（7.6。GAME-SPEC 13 章）═══
    LANG = いま表示している言語。決めるのは pickLang()、当てるのは applyLang()（起動時と設定の切り替え）。
@@ -43479,6 +43597,12 @@ load();applyLang();applyTheme();applyMetrics();applyDevVars();tapMode=G.tap;
 $("menu").innerHTML=ICON_MENU; $("gear").innerHTML=ICON_MENU;
 $("share").innerHTML=ICON_SHARE;
 $("navback").innerHTML=ICON_BACK;
+// 遊び方の行のアイコンは、本物のボタン（ヒントの丸ボタン・ギブアップの入口）の絵柄を写す（D0.16。絵柄を 2 か所に書かない）
+$("hi-hint").appendChild($("hint").querySelector("svg").cloneNode(true));
+$("hi-giveup").appendChild($("dgiveup").querySelector("svg").cloneNode(true));
+// 本編だけの行（9.5）: 全部消す・デイリーのヒント・デイリーの統計・共有。共有の絵柄は上の行で #share に流し込んだもの
+for(const [a,b] of [["hi-clear","clear"],["hi-dhint","hint"],["hi-dstats","dstats"],["hi-share","share"]])
+  $(a).appendChild($(b).querySelector("svg").cloneNode(true));
 // 階乗表ボタン (#factbtn) は .trayrow ごと非表示。開いた状態の保存値があっても
 // 復元すると閉じる手段が無くなるので、非表示中は開かない（保存値は保持）
 factShow(HIDDEN_UI.factTable?false:G.fact,false);

@@ -58,7 +58,14 @@ APP_DAILY_CSS = ["#dgiveup", "#play.dplay", "#play.done .bottom", "#play.done .r
                  "#aggbox .ab", "#aggbox .bar", "#aggbox .bar i", "#aggbox .bar span", "#aggbox .bar.me i",
                  "#aggbox .bar.me span", "#aggbox.tight", "#aggbox.tight .at", "#aggbox.tight.pend",
                  "#aggbox.tight.pend .at", "#aggbox.tight.pend .ap", "#aggbox.tight .ar", "#aggbox.tight .ac b",
-                 "#aggbox.tight .ac span,#aggbox.tight .bar span"]
+                 "#aggbox.tight .ac span,#aggbox.tight .bar span",
+                 # 9.5（遊び方の見本の盤。.hd1 .dn3 は、止まっている形と動きの 2 つ）
+                 ".hfig", ".hstep", ".hdemo", ".dexpr", ".dnum", ".dtok", ".dtok.op", ".dtok.par", ".dslot", ".dslot>*",
+                 ".dzone", ".dhot", ".dtray", ".dchip", ".dghost", ".deq", ".dsub",
+                 ".hd1 .dn0,.hd1 .dn1,.hd1 .ds1", ".hd1 .dn3", ".hd1 .dn0", ".hd1 .dn1", ".hd1 .dn2",
+                 ".hd1 .ds1", ".hd1 .dzone", ".hd1 .dhot", ".hd1 .ds1 .dtok", ".hd1 .dghost", ".hd1 .dpick",
+                 "@keyframes hd-n0", "@keyframes hd-n1", "@keyframes hd-n2", "@keyframes hd-n3", "@keyframes hd-s1",
+                 "@keyframes hd-zone", "@keyframes hd-hot", "@keyframes hd-tok", "@keyframes hd-ghost", "@keyframes hd-pick"]
 REQUIRED_CSS = [
     ":root", 'body[data-theme="ai"]', "*", "html,body", "body", "#bg", "@keyframes sweep", "#bg.flash",
     "#app", ".bottom", "button", "button:active", ".hide", ".ic", ".top", ".iconbtn", ".iconbtn:active",
@@ -90,6 +97,57 @@ REQUIRED_CSS = [
     MEDIA + ".foot", MEDIA + ".top", MEDIA + ".field",
     "@media (prefers-reduced-motion:reduce) || *",
 ]
+
+
+# 本編（アプリ）の中のデイリーが、Web の辞書から同じ名前・同じ文で写したキー（9.5 で照合に入れた）。
+# 本編の STR_APP の daily.… のキーは、Web の STR_DAILY に同じキーがあれば、日本語・英語とも同じ文であること（下の照合）。
+# ここに挙げるのは、遊び方（9.5）で写したもの ―― 名前を変えて照合から外れていないことを見る
+APP_DAILY_KEYS = ["daily.help_1", "daily.help_place", "daily.help_solve", "daily.help_demo1_alt", "daily.help_demo2_alt",
+                  "daily.help_pow_html", "daily.help_zero_pow_html", "daily.help_fac_html", "daily.help_zero_fac_html",
+                  "daily.help_hint_html", "daily.help_giveup_html", "daily.help_4"]
+# 本編（アプリ）の中のデイリーが写した、宣言でない文（9.5。遊び方の行のアイコン）
+APP_DAILY_JS_ANON = ['@$("hi-hint").appendChild($("hint").querySelector("svg").cloneNode(true));',
+                     '@$("hi-giveup").appendChild($("dgiveup").querySelector("svg").cloneNode(true));']
+
+
+def _js_value(s, i):
+    """s[i] から始まる値（文字列か { … }）の文字列。文字列の中の括弧と引用符は数えない"""
+    if s[i] == '"':
+        j = i + 1
+        while s[j] != '"':
+            j += 2 if s[j] == "\\" else 1
+        return s[i:j + 1]
+    assert s[i] == "{", s[i:i + 20]
+    depth, j, q = 0, i, None
+    while True:
+        c = s[j]
+        if q:
+            if c == "\\":
+                j += 1
+            elif c == q:
+                q = None
+        elif c in "\"'`":
+            q = c
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return s[i:j + 1]
+        j += 1
+
+
+def dict_of(stmt):
+    """const NAME={ja:{…},en:{…}}; の文から {"ja": {キー: 値の文字列}, "en": {…}}"""
+    import re
+    ja, en = stmt.index("{ja:{"), stmt.index("\nen:{")
+    out = {}
+    for lang, part in (("ja", stmt[ja:en]), ("en", stmt[en:])):
+        d = {}
+        for m in re.finditer(r'^\s*"([a-z]+\.[a-z0-9_]+)":', part, re.M):
+            d[m.group(1)] = _js_value(part, m.end())
+        out[lang] = d
+    return out
 
 
 def compare(daily, main, exclude):
@@ -133,6 +191,19 @@ def run(ui):
              [k for k in ("STR_CORE", "t", "pickLang", "applyI18n") if k not in same], [])
     ui.check("JS: 同じだった文の数が、そろえる数以上",
              len(same) >= len(REQUIRED_JS) + len(REQUIRED_JS_ANON), True)
+
+    ui.check("JS: 本編の中のデイリーが写した宣言でない文は、本編と同じ（9.5）",
+             [k for k in APP_DAILY_JS_ANON if k not in same], [])
+
+    # ── 辞書（9.5）。本編の STR_APP が Web と同じ名前で持つキーは、同じ文 ──
+    app = dict_of(main_text["STR_APP"])
+    web = dict_of(dict(dj)["STR_DAILY"])
+    shared = {lang: sorted(k for k in app[lang] if k in web[lang]) for lang in ("ja", "en")}
+    ui.check("辞書: 本編が Web のデイリーと同じ名前で持つキーは、日本語・英語とも同じ文",
+             [lang + " " + k for lang in ("ja", "en") for k in shared[lang] if app[lang][k] != web[lang][k]], [])
+    ui.check("辞書: 同じ名前のキーは、日本語と英語で同じ組（片方だけ写していない）", shared["ja"], shared["en"])
+    ui.check("辞書: 遊び方で写したキーがそろっている（9.5）",
+             [k for k in APP_DAILY_KEYS if k not in shared["ja"]], [])
 
     # ── CSS ──
     mc = dui.split_css(dui.style_of(main))

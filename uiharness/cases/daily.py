@@ -38,9 +38,10 @@ EN_OK = ("(()=>{const r=$('%s');const ja=/[\\u3040-\\u30ff\\u3400-\\u9fff\\uff01
          "const over=[...r.querySelectorAll('*')].filter(e=>{const b=e.getBoundingClientRect();"
          "return b.width>0&&getComputedStyle(e).visibility!=='hidden'&&(b.left<-0.5||b.right>innerWidth+0.5)}).length;"
          "return [ja,over]})()")
-# 遊び方のデイリーの節（9.3）: [見出し, 3 行]
-HELP_DAILY = ("(()=>{const h=[...document.querySelectorAll('#help h3')].pop();"
-              "return [h.textContent,...[...h.nextElementSibling.querySelectorAll('li')].map(e=>e.textContent)]})()")
+# 遊び方のデイリーの節（9.3。9.5 で行を p にした）: [見出し, 次の見出しまでの行]
+HELP_DAILY = ("(()=>{const h=[...document.querySelectorAll('#help h3')].find(x=>x.textContent===t('help.sec_daily'));"
+              "const out=[h.textContent];for(let e=h.nextElementSibling;e&&e.tagName!=='H3';e=e.nextElementSibling)"
+              "if(e.tagName==='P')out.push(e.textContent.trim());return out})()")
 
 
 def value(ui):
@@ -269,10 +270,11 @@ def run(ui):
     ui.click("back")
     ui.check("英語: 解いた後の値", value(ui), "Solved %s · 1-day streak" % ui.ev("fmtTime(%d)" % t_en))
     ui.ev("go('help')")
-    ui.check("英語: 遊び方のデイリーの節", ui.ev(HELP_DAILY),
-             ["Daily", "One try a day. Give up to see the answers.",
-              "Share the puzzle to get a hint (up to 2 a day). Your Classic hints are not used.",
-              "A new puzzle every day at midnight (your device's time). Daily results are counted separately from Classic."])
+    ui.check("英語: 遊び方のデイリーの節（9.5）", ui.ev(HELP_DAILY),
+             ["Daily", "One try a day.", "Hint · Share to get one (up to 2 a day)",
+              "Give up · See a solution and end the day's puzzle", "Stats · Days solved, streaks and a calendar",
+              "A new puzzle every day at midnight, your local time.",
+              "Daily results are counted separately from Classic. Your Classic hints are not used."])
     ui.check("英語: 遊び方のモードに 4 行目", ui.ev("document.querySelector('#help [data-i18n-html$=m4_html]').textContent"),
              "Daily … one puzzle a day, the same for everyone")
     ui.check("英語: 遊び方に日本語が出ない・はみ出さない", ui.ev(EN_OK % "help"), [False, 0])
@@ -422,10 +424,11 @@ def run(ui):
     ui.check("本編の問題番号（画面の呼び名はクラシック。9.4）", ui.text("pmode"), "クラシック 138/1000")
     # 遊び方（9.3）
     ui.ev("go('help')")
-    ui.check("遊び方のデイリーの節", ui.ev(HELP_DAILY),
-             ["デイリー", "1 日 1 回だけ解けます。ギブアップすると答えが見られます",
-              "ヒントは、友達に出題すると 1 回もらえます（1 日 2 回まで）。クラシックのヒントは減りません",
-              "毎日 0 時（端末の時刻）に新しい問題になります。記録はクラシックとは別に数えます"])
+    ui.check("遊び方のデイリーの節（9.5 で Web の行を写して作り直した）", ui.ev(HELP_DAILY),
+             ["デイリー", "1 日 1 回だけ解けます", "ヒント：共有でもらえます（1 日 2 回まで）",
+              "ギブアップ：解答例を見て、その日を終えます", "統計：解いた日数・連続日数とカレンダー",
+              "毎日 0 時（端末の時刻）に新しい問題になります。",
+              "記録はクラシックとは別に数えます。クラシックのヒントは減りません"])
     ui.check("遊び方のモードに 4 行目", ui.ev("document.querySelector('#help [data-i18n-html$=m4_html]').textContent"),
              "デイリー … 1 日 1 問。みんなが同じ問題を解きます")
     ui.check_no_errors("デイリーを回しても JS エラー 0")
