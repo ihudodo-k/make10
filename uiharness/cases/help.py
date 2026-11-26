@@ -4,7 +4,7 @@
 9.5 まではケース look の中にあった（9.6 で分けた。1 ファイル 1 主題）:
   - 並びと文・見本の盤 2 組（Web のデイリーと同じ部品。盤の実物と同じ見た目・同じ動き）・式・アイコン
   - 金は見本の「10」だけ・動きを減らす設定・はみ出し（日本語・英語・360×640 も）
-  - 節の見出しの様式
+  - 節の見出しの様式（9.7 で 13px・700・副次色）とモードの行の区切り（9.7。日本語「・・・」・英語「 — 」）
   - 題の行（9.6）: シートを下へ動かしても、題の行（＜ と 題）が上に残り、＜ が本文に重ならない。
     本文は題の行の下地の下をくぐる。同じ作りの統計のシートも見る（題の行の決まり .sheet h2 は 4 枚のシートで共通）
 Web と同じ文と部品がそろっていることは verify_daily.py のケース sync が照合する。
@@ -37,8 +37,8 @@ HELP_LINES = {
            ["P", "3段階目の式を押すと、ほかの解き方も見られます。"],
            ["P", "ヒントの数には限りがあります。挑戦モードで 2 問解くごとに 1 つ増えます"],
            ["H3", "モード"],
-           ["P", "クラシック … 1000問。だんだん難しくなります"], ["P", "フリープレイ … ランダムに出題。何問でも遊べます"],
-           ["P", "挑戦モード … 100問クリアで解放。かなりの難問です"], ["P", "デイリー … 1 日 1 問。みんなが同じ問題を解きます"],
+           ["P", "クラシック ・・・ 1000問。だんだん難しくなります"], ["P", "フリープレイ ・・・ ランダムに出題。何問でも遊べます"],
+           ["P", "挑戦モード ・・・ 100問クリアで解放。かなりの難問です"], ["P", "デイリー ・・・ 1 日 1 問。みんなが同じ問題を解きます"],
            ["H3", "デイリー"],
            ["P", "1 日 1 回だけ解けます"], ["P", "ヒント：共有でもらえます（1 日 2 回まで）"],
            ["P", "ギブアップ：解答例を見て、その日を終えます"], ["P", "統計：解いた日数・連続日数とカレンダー"],
@@ -66,9 +66,9 @@ HELP_LINES = {
            ["P", "In step 3, tap the expression to see other solutions."],
            ["P", "Hints are limited. You get one for every 2 Challenge puzzles you solve."],
            ["H3", "Modes"],
-           ["P", "Classic … 1000 puzzles that get harder as you go"], ["P", "Free Play … random puzzles, as many as you like"],
-           ["P", "Challenge … unlocks after 100 clears. Very tough puzzles"],
-           ["P", "Daily … one puzzle a day, the same for everyone"],
+           ["P", "Classic — 1000 puzzles that get harder as you go"], ["P", "Free Play — random puzzles, as many as you like"],
+           ["P", "Challenge — unlocks after 100 clears. Very tough puzzles"],
+           ["P", "Daily — one puzzle a day, the same for everyone"],
            ["H3", "Daily"],
            ["P", "One try a day."], ["P", "Hint · Share to get one (up to 2 a day)"],
            ["P", "Give up · See a solution and end the day's puzzle"], ["P", "Stats · Days solved, streaks and a calendar"],
@@ -279,9 +279,18 @@ def title_row(ui, size):
 def run(ui):
     ui.open()
     ui.ev("go('help')")
-    ui.check("遊び方: 節の見出しは 12px・副次色",
-             ui.ev("(()=>{const c=getComputedStyle(document.querySelector('#help h3'));return [c.fontSize,c.color===%s('--dim')]})()" % V),
-             ["12px", True])
+    # 9.7: 12px・500 では薄すぎて読みにくかった。副次色のまま 13px・700・字間 4%（本文より控えめなのは色。--slate は使わない）
+    ui.check("遊び方: 節の見出しは 13px・700・副次色（--slate ではない）・字間 4%（9.7）",
+             ui.ev("(()=>{const c=getComputedStyle(document.querySelector('#help h3'));return [c.fontSize,c.fontWeight,"
+                   "c.color===%s('--dim'),c.color===%s('--slate'),Math.round(parseFloat(c.letterSpacing)/13*100)]})()" % (V, V)),
+             ["13px", "700", True, False, 4])
+    ui.check("遊び方: 節の見出しはどれも同じ様式（6 つ）",
+             ui.ev("(()=>{const h=[...document.querySelectorAll('#help h3')];return [h.length,new Set(h.map(e=>{const c=getComputedStyle(e);"
+                   "return c.fontSize+c.fontWeight+c.color+c.letterSpacing})).size]})()"), [6, 1])
+    ui.ev("go('settings')")
+    ui.check("設定と統計の節見出しは 12px・500 のまま（9.7 で変えたのは遊び方だけ）",
+             ui.ev("['#settings h3','#stats h3'].map(s=>{const c=getComputedStyle(document.querySelector(s));return c.fontSize+'/'+c.fontWeight})"),
+             ["12px/500", "12px/500"])
     sheet(ui)
     title_row(ui, None)
     if ui.viewport == "compact":

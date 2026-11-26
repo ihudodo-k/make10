@@ -276,7 +276,7 @@ def run(ui):
               "A new puzzle every day at midnight, your local time.",
               "Daily results are counted separately from Classic. Your Classic hints are not used."])
     ui.check("英語: 遊び方のモードに 4 行目", ui.ev("document.querySelector('#help [data-i18n-html$=m4_html]').textContent"),
-             "Daily … one puzzle a day, the same for everyone")
+             "Daily — one puzzle a day, the same for everyone")
     ui.check("英語: 遊び方に日本語が出ない・はみ出さない", ui.ev(EN_OK % "help"), [False, 0])
 
     # ── ヒントと共有（9.1）。本編のヒントの残数（G）は減らさない ──────
@@ -430,5 +430,5 @@ def run(ui):
               "毎日 0 時（端末の時刻）に新しい問題になります。",
               "記録はクラシックとは別に数えます。クラシックのヒントは減りません"])
     ui.check("遊び方のモードに 4 行目", ui.ev("document.querySelector('#help [data-i18n-html$=m4_html]').textContent"),
-             "デイリー … 1 日 1 問。みんなが同じ問題を解きます")
+             "デイリー ・・・ 1 日 1 問。みんなが同じ問題を解きます")
     ui.check_no_errors("デイリーを回しても JS エラー 0")
