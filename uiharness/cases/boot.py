@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """起動と 5 画面の巡回。左上＝戻る／右上＝設定の出し分け（GAME-SPEC 5-0）も見る。"""
 
+import json
 import time
 
 NAME = "起動と画面の巡回"
@@ -142,8 +143,8 @@ def stats_scores(ui):
     old = ui.ev(STATS_ROWS)
     ui.check("統計: 一覧に「累計スコア」の行が無い",
              "累計スコア" in old[0] or "累計スコア" in ui.ev("$('stats').innerText"), False)
-    ui.check("統計: 上の項目は古い保存データの無いときと同じ 6 つ", [old[0], len(old[0])], [new[0], 6])
-    ui.check("統計: 上の 6 項目の高さが同じ", old[1], new[1])
+    ui.check("統計: 上の項目は古い保存データの無いときと同じ 5 つ（9.8 で「いちばん速かった」を消した）", [old[0], len(old[0])], [new[0], 5])
+    ui.check("統計: 上の 5 項目の高さが同じ", old[1], new[1])
     ui.check("統計: 画面のどこにも星（★☆）が無い", ui.ev("/[★☆]/.test($('stats').innerText)"), False)
     ui.check("統計: 履歴の右端に何も出さない（子は左の 1 つだけ）", old[3], ["", ""])
     ui.check("統計: 履歴のどこにも点数（「N 点」）が出ない",
@@ -159,9 +160,9 @@ def stats_scores(ui):
              ui.ev("$('stats').scrollWidth<=$('stats').clientWidth"), True)
     ui.check("読み込み: 履歴の p・st は読み捨て、c/d/s/m はそのまま（8.7）",
              ui.ev("G.hist"), hist)
-    ui.check("読み込み: ほかの記録は変わらない（進行・クリア数・統計・解いた問題・ヒント）",
+    ui.check("読み込み: ほかの記録は変わらない（進行・クリア数・統計（9.8 で best だけ読み捨て）・解いた問題・ヒント）",
              ui.ev("[G.ci,G.cleared,G.stats,G.seen,G.hints,G.hintStock]"),
-             [2, 2, stats, [code, code2], {code: 2}, 7])
+             [2, 2, {k: v for k, v in stats.items() if k != "best"}, [code, code2], {code: 2}, 7])
     ui.check("読み込み: best・scoreOn は G に無い", ui.ev("['best' in G,'scoreOn' in G]"), [False, False])
     ui.ev("start('course'); loadPuzzle(COURSE[2])")
     ui.solve()
@@ -284,33 +285,36 @@ def home_layout(ui):
     ui.check_no_errors("ホームの組み立てで JS エラー 0")
 
 
-# 統計の上の 6 項目: [名前, 数字, 単位] と位置 [左, 上]
+# 統計の上の 5 項目（9.8。7.4〜9.7 は 6 項目）: [名前, 数字, 単位] と位置 [左, 上]
 STAT_ITEMS = ("(()=>{const f=v=>Math.round(v*10)/10;return [...$('statlist').querySelectorAll('.stat')].map(e=>{"
               "const b=e.querySelector('.sv b'),n=e.querySelector('.sv .none'),u=e.querySelector('.sv .su'),r=e.getBoundingClientRect();"
               "return [e.querySelector('.sk').textContent,b?b.textContent:(n?n.textContent:null),u?u.textContent:'',f(r.left),f(r.top)]})})()")
 
 
 def stats_grid(ui):
-    """統計の上の 6 項目（7.4。GAME-SPEC 9-2）。2 列 × 3 段の「大きい数字＋小さい名前」。
+    """統計の上の 5 項目（7.4。9.8 で「いちばん速かった」を消した。GAME-SPEC 9-2）。2 列 × 3 段の「大きい数字＋小さい名前」（最後の段は左だけ）。
     記録が無いときは数字の場所に「—」を副次色で出す（文言は足さない）"""
     N = ui.viewport == "normal"
     num_px, pitch = (26, 76) if N else (22, 66)
     code = ui.ev("codeOf(COURSE[0])")
     ui.open({"ci": 137, "cleared": 162, "hintStock": 87, "seen": [code],
-             "stats": {"n": 162, "sec": 6480, "best": 9, "band": {"3-8": 61, "9-13": 78, "14-16": 15, "17+": 8}}})
+             "stats": {"n": 162, "sec": 6480, "best": 9, "band": {"3-8": 61, "9-13": 78, "14-16": 15, "17+": 8}},
+             # 新しい 30 件は 25〜54 秒（平均 39.5 → 40）、それより古い 5 件は 900 秒（数えない）
+             "hist": [{"c": code, "d": 3, "s": 25 + i, "m": "course"} for i in range(30)]
+             + [{"c": code, "d": 3, "s": 900, "m": "free"} for _ in range(5)]})
     ui.ev("go('stats')")
     it = ui.ev(STAT_ITEMS)
     chal = "0 / %d" % ui.ev("CHAL.length")
-    ui.check("統計: 上の 6 項目の名前・数字・単位",
+    ui.check("統計: 上の 5 項目の名前・数字・単位（平均時間は直近 30 問。9.8）",
              [x[:3] for x in it],
              [["解いた問題（ユニーク）", "1", "問"], ["クラシックの進み", "137 / 1000", "問"],
-              ["平均でかかった時間", "40", "秒"], ["いちばん速かった", "9", "秒"],
+              ["平均時間（直近 30 問）", "40", "秒"],
               ["挑戦モードの進み", chal, "問"], ["ヒントの残り", "87", "回"]])
-    ui.check("統計: 2 列 × 3 段（左の列・右の列の左端がそれぞれ揃い、段の間隔が一定）",
-             [it[0][3] == it[2][3] == it[4][3], it[1][3] == it[3][3] == it[5][3], it[1][3] > it[0][3],
-              it[0][4] == it[1][4], it[2][4] == it[3][4], it[4][4] == it[5][4],
+    ui.check("統計: 2 列 × 3 段（左の列・右の列の左端がそれぞれ揃い、段の間隔が一定。最後の段は左だけ）",
+             [len(it), it[0][3] == it[2][3] == it[4][3], it[1][3] == it[3][3], it[1][3] > it[0][3],
+              it[0][4] == it[1][4], it[2][4] == it[3][4],
               round(it[2][4] - it[0][4], 1), round(it[4][4] - it[2][4], 1)],
-             [True, True, True, True, True, True, pitch, pitch])
+             [5, True, True, True, True, True, pitch, pitch])
     ui.check("統計: 数字は大きく・単位は小さい副次色・名前は小さい副次色で数字の下",
              ui.ev("(()=>{const e=$('statlist').querySelector('.stat'),b=e.querySelector('.sv b'),u=e.querySelector('.su'),k=e.querySelector('.sk'),"
                    "cb=getComputedStyle(b),cu=getComputedStyle(u),ck=getComputedStyle(k);"
@@ -337,18 +341,87 @@ def stats_grid(ui):
     ui.open({"ci": 0, "cleared": 0})
     ui.ev("go('stats')")
     it0 = ui.ev(STAT_ITEMS)
-    ui.check("統計（記録なし）: 時間の 2 項目は数字の場所に「—」・単位を出さない・ほかは 0 と初期値",
+    ui.check("統計（記録なし）: 平均時間は数字の場所に「—」・単位を出さない・ほかは 0 と初期値",
              [x[:3] for x in it0],
              [["解いた問題（ユニーク）", "0", "問"], ["クラシックの進み", "0 / 1000", "問"],
-              ["平均でかかった時間", "—", ""], ["いちばん速かった", "—", ""],
+              ["平均時間（直近 30 問）", "—", ""],
               ["挑戦モードの進み", chal, "問"], ["ヒントの残り", str(ui.ev("HINT_START")), "回"]])
     ui.check("統計（記録なし）: 「—」は副次色・数字と同じ大きさ・位置は記録があるときと同じ",
              [ui.ev("(()=>{const n=[...$('statlist').querySelectorAll('.none')];return [n.length,"
                     "n.every(e=>getComputedStyle(e).color===%s('--dim')),getComputedStyle(n[0]).fontSize]})()" % V),
               [x[3:] for x in it0] == [x[3:] for x in it]],
-             [[2, True, "%dpx" % num_px], True])
+             [[1, True, "%dpx" % num_px], True])
     ui.check("統計（記録なし）: 文言は足していない（上の節の文字は名前・数字・単位・「—」だけ）",
              ui.ev(r"$('statlist').innerText.replace(/\s+/g,'')"),
-             "0問解いた問題（ユニーク）0/1000問クラシックの進み—平均でかかった時間—いちばん速かった%s問挑戦モードの進み%s回ヒントの残り"
+             "0問解いた問題（ユニーク）0/1000問クラシックの進み—平均時間（直近30問）%s問挑戦モードの進み%s回ヒントの残り"
              % (chal.replace(" ", ""), ui.ev("HINT_START")))
     ui.check_no_errors("統計の 2 列で JS エラー 0")
+    stats_recent(ui)
+
+
+# 統計の上の 5 項目の文字（名前と数字と単位）と、画面に NaN・undefined・Infinity・null が出ていないか
+STAT_TEXT = ("(()=>[[...$('statlist').querySelectorAll('.stat')].map(e=>e.querySelector('.sk').textContent+'='+"
+             "e.querySelector('.sv').textContent),/NaN|undefined|Infinity|null/.test($('stats').innerText),"
+             "/NaN|undefined|Infinity|null/.test($('statlist').innerText)])()")
+
+
+def stats_recent(ui):
+    """平均時間は直近 30 問（9.8。GAME-SPEC 9-2）。「いちばん速かった」を消し、記録 best も書かない・読み捨てる。
+    古い保存データ・履歴 0 件・1 件・30 件に満たない・壊れた行でも、NaN などが出ない"""
+    code = ui.ev("codeOf(COURSE[0])")
+    row = lambda s, m="course": {"c": code, "d": 3, "s": s, "m": m}
+    cases = [
+        ("履歴 0 件", [], "—"),
+        ("履歴 1 件", [row(42)], "42秒"),
+        ("履歴 3 件（30 件に満たなければ、ある分の平均。10・20・31 → 20.3）", [row(10), row(20), row(31)], "20秒"),
+        ("モードは分けない（クラシック・フリー・挑戦・共有の 4 件。10・20・30・40 → 25）",
+         [row(10), row(20, "free"), row(30, "chal"), row(40, "share")], "25秒"),
+        # 行そのものが null の履歴は、履歴の一覧（9.8 より前からのコード）が読めずに止まるので入れない（ゲームは書かない形）
+        ("秒の壊れた行（秒が無い・文字・負）は数えない（30 と 50 → 40）",
+         [{"c": code, "d": 3, "m": "course"}, row("abc"), row(-5), row(30), row(50)], "40秒"),
+        ("秒の壊れた行だけ", [{"c": code, "d": 3, "m": "course"}, row("abc")], "—"),
+    ]
+    for name, hist, want in cases:
+        # 秒の壊れた行は、下の履歴の一覧（9.8 より前からのコード）が秒をそのまま出すので、上の 5 項目だけを見る
+        part = "壊れた" in name
+        ui.open({"ci": 3, "cleared": 3, "hist": hist, "stats": {"n": 9, "sec": 999, "best": 1, "band": {}}})
+        ui.ev("go('stats')")
+        got = ui.ev(STAT_TEXT)
+        ui.check("統計（%s）: 平均時間（直近 30 問）の値・NaN などが出ない（%s）" % (name, "上の 5 項目" if part else "画面全体"),
+                 [[x for x in got[0] if x.startswith("平均時間")], got[2] if part else got[1], len(got[0])],
+                 [["平均時間（直近 30 問）=" + want], False, 5])
+    ui.check_no_errors("統計の平均時間で JS エラー 0")
+    # 英語の名前
+    ui.open({"ci": 3, "cleared": 3, "hist": [row(42)]}, lang="en")
+    ui.ev("go('stats')")
+    ui.check("統計（英語）: 平均時間の名前と値・「Fastest」が無い",
+             [[x for x in ui.ev(STAT_TEXT)[0] if x.startswith("Avg")], "Fastest" in ui.ev("$('stats').innerText")],
+             [["Avg. time (last 30)=42s"], False])
+    # 古い保存データ（best 入り）: 読み捨てて、次の保存で消える。ほかの記録は変わらない
+    old = {"n": 4, "sec": 100, "best": 7, "band": {"3-8": 4}}
+    ui.open({"ci": 3, "cleared": 3, "hist": [row(20), row(30)], "stats": old})
+    ui.check("読み込み: 統計の best は読み捨てる（9.8）・ほかの統計の記録はそのまま",
+             ui.ev("G.stats"), {"n": 4, "sec": 100, "band": {"3-8": 4}})
+    ui.ev("go('stats')")
+    ui.check("統計（古い保存データ）: 「いちばん速かった」が無く、平均時間は履歴の 2 件から（25 秒）",
+             [ui.ev("$('stats').innerText.includes('いちばん速かった')"),
+              [x for x in ui.ev(STAT_TEXT)[0] if x.startswith("平均時間")]],
+             [False, ["平均時間（直近 30 問）=25秒"]])
+    ui.ev("start('course')")
+    ui.solve()
+    time.sleep(0.3)                     # save() は 150ms 後に書く
+    saved = json.loads(ui.ev("localStorage.getItem(%s)" % json.dumps("make10.progress.v4")))
+    ui.check("保存: 解いたあとも、統計に best を書かない・n と sec は今までどおり数える（9.8）",
+             ["best" in saved["stats"], saved["stats"]["n"], saved["stats"]["sec"] > 100], [False, 5, True])
+    # 履歴 31 件以上: 新しい方から 30 件だけ。31 件目（いちばん古い 1 件）は数えない
+    hist = [row(10) for _ in range(30)] + [row(9999)]
+    ui.open({"ci": 3, "cleared": 3, "hist": hist})
+    ui.ev("go('stats')")
+    ui.check("統計（履歴 31 件）: 平均は新しい方から 30 件（31 件目の 9999 秒は数えない）",
+             [x for x in ui.ev(STAT_TEXT)[0] if x.startswith("平均時間")], ["平均時間（直近 30 問）=10秒"])
+    ui.ev("go('home');start('course')")
+    ui.solve()
+    ui.ev("go('home');go('stats')")
+    ui.check("統計: 解くと、平均時間はその場で新しい 30 件から数え直す（いちばん新しい行が先頭に入る）",
+             ui.ev("[G.hist.length,recentAvg()===Math.round(G.hist.slice(0,30).reduce((a,h)=>a+h.s,0)/30)]"), [32, True])
+    ui.check_no_errors("統計の平均時間（古い保存データ）で JS エラー 0")

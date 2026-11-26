@@ -87,7 +87,7 @@ def tour(ui, tag):
     ui.click("hint-close")
     ui.solve(); look("正解")
     ui.ev("go('home');go('stats')"); look("統計")
-    ui.ev("G.hist=[];G.stats={n:0,sec:0,best:0,band:{}};renderStats()"); look("統計（記録なし）")
+    ui.ev("G.hist=[];G.stats={n:0,sec:0,band:{}};renderStats()"); look("統計（記録なし）")
     ui.ev("go('home')"); ui.click("gear"); look("設定（自動）")
     ui.click("t-lang"); look("設定（日本語）")
     ui.click("t-lang"); look("設定（English）")

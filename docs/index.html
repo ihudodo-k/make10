@@ -1076,7 +1076,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.7";
+const APP_VERSION="9.8";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1237,8 +1237,7 @@ const STR_APP={ja:{
   "stats.recent":"最近解いた問題",
   "stats.solved":"解いた問題（ユニーク）",
   "stats.course":"クラシックの進み",
-  "stats.avg":"平均でかかった時間",
-  "stats.fastest":"いちばん速かった",
+  "stats.avg":"平均時間（直近 {n} 問）",
   "stats.chal":"挑戦モードの進み",
   "stats.hints":"ヒントの残り",
   "stats.band_easy":"やさしい",
@@ -1403,8 +1402,7 @@ en:{
   "stats.recent":"Recently solved",
   "stats.solved":"Unique puzzles solved",
   "stats.course":"Classic progress",
-  "stats.avg":"Average time",
-  "stats.fastest":"Fastest",
+  "stats.avg":"Avg. time (last {n})",
   "stats.chal":"Challenge progress",
   "stats.hints":"Hints left",
   "stats.band_easy":"Easy",
@@ -41435,7 +41433,7 @@ const shareText=p=>t("share.text",{code:codeOf(p)});
 /* ═══ 進捗（端末に保存） ═══ */
 const SAVE_KEY="make10.progress.v4";
 const G={ci:0,cleared:0,tap:false,fact:false,vib:true,easy:false,theme:'ai',
-  stats:{n:0,sec:0,best:0,band:{}},hist:[],seen:[],swap:{},chalDone:[],
+  stats:{n:0,sec:0,band:{}},hist:[],seen:[],swap:{},chalDone:[],
   // 挑戦モードで「出題した」問題のコード。クリアしたかは問わない。chalDone（クリア済み）
   // と同じ形の配列。抽選はこちらを除外するので、解かずに送った問題も二度は出ない
   // （GAME-SPEC 7）
@@ -41459,7 +41457,8 @@ function load(){
     if(s&&typeof s.ci==="number"){
       G.ci=s.ci|0; G.cleared=s.cleared|0; G.tap=!!s.tap; G.fact=!!s.fact;
       G.vib=s.vib!==false; G.easy=!!s.easy; G.dev=!!s.dev; if(s.theme)G.theme=s.theme;
-      if(s.stats)G.stats=Object.assign(G.stats,s.stats);
+      // 9.8 で「いちばん速かった」を消した。統計の best は読み捨てる（次の save() で JSON からも消える）
+      if(s.stats&&typeof s.stats==='object'){const {best,...r}=s.stats;Object.assign(G.stats,r)}
       // 8.7 で点数を消した。履歴の行の点数 p と星 st は読み捨てる。最高点 best と
       // 「スコアを表示する」scoreOn は読まない（load() はキーごとに明示代入するので、
       // 次の save() で JSON からも消える）
@@ -42232,8 +42231,7 @@ function record(){
   const code=codeOf(cur);
   G.hist.unshift({c:code,d:cur.d,s,m:MODE});
   if(G.hist.length>100)G.hist.length=100;
-  const st=G.stats; st.n++; st.sec+=s;
-  if(!st.best||s<st.best)st.best=s;
+  const st=G.stats; st.n++; st.sec+=s;   // いちばん速い時間 best は 9.8 で書かなくなった
   const b=cur.d<=8?"3-8":cur.d<=13?"9-13":cur.d<=16?"14-16":"17+";
   st.band[b]=(st.band[b]||0)+1;
 }
@@ -42383,7 +42381,7 @@ function renderHome(){
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
-    G.ci=0;G.cleared=0;G.stats={n:0,sec:0,best:0,band:{}};G.hist=[];G.chalDone=[];G.chalShown=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
+    G.ci=0;G.cleared=0;G.stats={n:0,sec:0,band:{}};G.hist=[];G.chalDone=[];G.chalShown=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
     delete b.dataset.armed;s.textContent=t("settings.reset");toast(t("toast.reset"));return}
   b.dataset.armed="1";s.textContent=t("settings.reset_confirm");
   setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent=t("settings.reset")}},3500);
@@ -42745,14 +42743,21 @@ $("go-stats").onclick=()=>go("stats");
 $("gear").onclick=()=>go("settings");     // 右上は「設定を開く」だけ（5.1）
 $("navback").onclick=()=>goBack();        // 左上は「戻る」だけ
 $("menu").onclick=()=>go("settings");   // プレイ画面の三本線。既存の設定シートを開く
+/* 平均時間は直近 30 問（9.8）。履歴 G.hist の新しい方から 30 件の秒 s の平均（30 件に満たなければ、ある分の平均）。
+   モードは分けない（履歴には全モードが入る）。秒が数でない行（壊れた保存データ）は数えない。1 件も無ければ null（「—」）。
+   9.7 までは全期間の平均（G.stats の sec / n）だった。sec と n は今も記録している */
+const AVG_RECENT=30;
+function recentAvg(){
+  const v=G.hist.slice(0,AVG_RECENT).map(h=>h&&h.s).filter(x=>typeof x==='number'&&isFinite(x)&&x>0);
+  return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null}
 function renderStats(){
-  const st=G.stats, avg=st.n?Math.round(st.sec/st.n):0;
+  const st=G.stats, avg=recentAvg();
   const rows=[
     // [名前, 数字, 単位]。数字が null なら記録が無い ―― 数字の場所に「—」を副次色で出す（7.4）。
     // 単位は辞書の複数形で引く（7.5）。n は単位が掛かる数（「137 / 1000 問」なら分母）
     [t("stats.solved"),G.seen.length,t("unit.puzzle",{n:G.seen.length})],
     [t("stats.course"),`${Math.min(G.ci,COURSE.length)} / ${COURSE.length}`,t("unit.puzzle",{n:COURSE.length})],
-    [t("stats.avg"),avg||null,t("unit.sec",{n:avg})],[t("stats.fastest"),st.best||null,t("unit.sec",{n:st.best||0})],
+    [t("stats.avg",{n:AVG_RECENT}),avg,t("unit.sec",{n:avg||0})],   // 「いちばん速かった」は 9.8 で消した
     [t("stats.chal"),`${G.chalDone.length} / ${CHAL.length}`,t("unit.puzzle",{n:CHAL.length})],
     [t("stats.hints"),G.hintStock,t("unit.times",{n:G.hintStock})]];   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
   // 2 列 × 3 段の「大きい数字＋小さい名前」（7.4。7.3 までは「名前 …… 値」の行 .kv）
