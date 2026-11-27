@@ -358,6 +358,7 @@ def stats_grid(ui):
     ui.check_no_errors("統計の 2 列で JS エラー 0")
     stats_recent(ui)
     stats_labels(ui)
+    seen_unbounded(ui)
 
 
 # 統計の上の 5 項目の文字（名前と数字と単位）と、画面に NaN・undefined・Infinity・null が出ていないか
@@ -449,3 +450,36 @@ def stats_labels(ui):
                        % json.dumps({"ja": "禁止", "en": "No "}[lang])),
                  [3, False, True])
     ui.check_no_errors("統計の名前で JS エラー 0")
+
+
+def seen_unbounded(ui):
+    """解いた問題（G.seen）に上限が無い（10.0。9.9 までは 5000 件で古い方から捨てていた）。
+    5000 件を超える保存データで、解くと「解いた問題」が増え続け、保存と読み直しで件数が変わらない。
+    捨てられた問題を解き直しても、初めて解いた扱いにならない（ホームの累計が二重に増えない）"""
+    c0, c1 = ui.ev("[codeOf(COURSE[0]),codeOf(COURSE[1])]")
+    others = ui.ev("[...INDEX.values()].map(codeOf).filter(c=>c!==%s&&c!==%s).slice(0,5000)" % (json.dumps(c0), json.dumps(c1)))
+    seen = [c1] + others                     # 5001 件。いちばん古いのが本編 2 問目
+    ui.open({"ci": 0, "cleared": 5001, "seen": seen})
+    ui.check("読み込み: 5000 件を超える seen をそのまま読む（5001 件）", ui.ev("G.seen.length"), 5001)
+    ui.ev("start('course')")
+    ui.solve()
+    ui.ev("advance()")                       # 「つぎへ」（本編の位置を 2 問目へ。保存もする）
+    time.sleep(0.3)                          # save() は 150ms 後に書く
+    ui.ev("go('stats')")
+    ui.check("解く（本編 1 問目）: 解いた問題は 5002 に増え、いちばん古い 1 件も残る・累計も 5002（10.0）",
+             ui.ev("[G.seen.length,G.seen[0]===%s,$('statlist').querySelector('.sv b').textContent,G.cleared]" % json.dumps(c1)),
+             [5002, True, "5002", 5002])
+    saved = json.loads(ui.ev("localStorage.getItem(%s)" % json.dumps("make10.progress.v4")))
+    ui.check("保存: seen は 5002 件のまま書く（捨てない）", [len(saved["seen"]), saved["seen"][0], saved["seen"][-1]], [5002, c1, c0])
+    ui.open(saved)
+    ui.ev("go('stats')")
+    ui.check("読み直し: 件数と中身が変わらない・統計の「解いた問題」も 5002",
+             [ui.ev("G.seen.length"), ui.ev("JSON.stringify(G.seen)") == json.dumps(saved["seen"], separators=(",", ":")),
+              ui.ev("$('statlist').querySelector('.sv b').textContent")], [5002, True, "5002"])
+    # いちばん古い 1 件（本編 2 問目）を解き直す。9.9 までは上限で捨てられていて、初めて解いた扱いになり累計が増えていた
+    ui.ev("go('home');start('course')")
+    ui.check("本編 2 問目へ進んでいる", ui.ev("codeOf(cur)"), c1)
+    ui.solve()
+    ui.check("解き直し（前から seen にある問題）: 解いた問題も累計も増えない（5002 のまま）",
+             ui.ev("[G.seen.length,G.cleared,G.seen.filter(c=>c===%s).length]" % json.dumps(c1)), [5002, 5002, 1])
+    ui.check_no_errors("5000 件を超える seen で JS エラー 0")

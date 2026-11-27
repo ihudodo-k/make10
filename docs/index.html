@@ -1086,7 +1086,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.9";
+const APP_VERSION="10.0";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -42154,7 +42154,10 @@ function win(){
      firstClear の判定は seen を積む**前に**取る ―― 順序を崩すと cleared が増えない */
   const firstClear=!G.seen.includes(code);
   if(firstClear){
-    G.seen.push(code); if(G.seen.length>5000)G.seen.shift();
+    /* 10.0 で 5000 件の上限（古い方から捨てる shift）を外した。上限があると、5000 問を超えたところで統計の「解いた問題」が
+       5000 で止まり、捨てた問題を解き直すと初めて解いた扱いになって cleared（ホームの累計）が二重に増えていた。
+       積むのは BLOB にある問題のコードだけ（17,907 問。5 文字）なので、それより増えない（GAME-SPEC 9 章） */
+    G.seen.push(code);
     G.cleared++;       // 挑戦モードの解放条件（CHAL_AT）もこれで進む（GAME-SPEC 7-2）
   }
   if(MODE==="chal"&&!G.chalDone.includes(code))G.chalDone.push(code);
