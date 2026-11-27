@@ -980,6 +980,16 @@ button.pressed,[role="button"].pressed{opacity:.5}
     <p data-i18n-html="help.m2_html"></p>
     <p data-i18n-html="help.m3_html"></p>
     <p data-i18n-html="help.m4_html"></p>
+    <!-- 統計（9.9）。統計の画面の項目を、画面の並びではなく指示の並びで 1 行ずつ。数え方は renderStats()・win()・record() と同じ（GAME-SPEC 9-2）-->
+    <h3 data-i18n="help.sec_stats"></h3>
+    <p data-i18n-html="help.st_course_html"></p>
+    <p data-i18n-html="help.st_chal_html"></p>
+    <p data-i18n-html="help.st_solved_html"></p>
+    <p data-i18n-html="help.st_avg_html"></p>
+    <p data-i18n-html="help.st_band_html"></p>
+    <p data-i18n-html="help.st_recent_html"></p>
+    <p data-i18n-html="help.st_hints_html"></p>
+    <p data-i18n="help.st_daily"></p>
     <h3 data-i18n="help.sec_daily"></h3>
     <p data-i18n="help.daily_once"></p>
     <p class="hico"><span class="hi" id="hi-dhint" aria-hidden="true"></span><span data-i18n-html="daily.help_hint_html"></span></p>
@@ -1076,7 +1086,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="9.8";
+const APP_VERSION="9.9";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1233,11 +1243,11 @@ const STR_APP={ja:{
   "share.text":"Make10 のこの問題、解ける？ コード {code}",
   "puzzle.missing":"（この試作には入っていない問題です）",
   "stats.title":"統計",
-  "stats.by_level":"難易度べつのクリア数",
+  "stats.by_level":"難易度別クリア数",
   "stats.recent":"最近解いた問題",
-  "stats.solved":"解いた問題（ユニーク）",
+  "stats.solved":"解いた問題",
   "stats.course":"クラシックの進み",
-  "stats.avg":"平均時間（直近 {n} 問）",
+  "stats.avg":"平均時間",
   "stats.chal":"挑戦モードの進み",
   "stats.hints":"ヒントの残り",
   "stats.band_easy":"やさしい",
@@ -1308,7 +1318,16 @@ const STR_APP={ja:{
   "help.code":"問題ごとにコードがあります。友達に送ると同じ問題が開きます。",
   "help.code_share_html":"<b>共有</b>：問題の画面の右上から、コードを送れます",
   "help.code_copy_html":"問題の画面の上の<b>コード</b>を押すと、コピーできます",
-  "help.code_open_html":"もらったコードは、ホームの欄に入れて<b>ひらく</b>を押します"
+  "help.code_open_html":"もらったコードは、ホームの欄に入れて<b>ひらく</b>を押します",
+  "help.sec_stats":"統計",
+  "help.st_course_html":"<b>クラシックの進み</b>：1000 問のうち、解いて先へ進んだ数",
+  "help.st_chal_html":"<b>挑戦モードの進み</b>：挑戦モードで解いた問題の数",
+  "help.st_solved_html":"<b>解いた問題</b>：解いた問題の数。同じ問題は何度解いても 1 回です",
+  "help.st_avg_html":"<b>平均時間</b>：最近解いた 30 回の、解けるまでの時間の平均。モードは分けません",
+  "help.st_band_html":"<b>難易度別クリア数</b>：難易度ごとの解いた回数。解き直しも数えます",
+  "help.st_recent_html":"<b>最近解いた問題</b>：新しい順に 30 件。押すとその問題が開きます",
+  "help.st_hints_html":"<b>ヒントの残り</b>：使えるヒントの数。新しい段階を開くと 1 つ減ります",
+  "help.st_daily":"デイリーの結果は、ここには入りません"
 },
 en:{
   "nav.back":"Back",
@@ -1400,9 +1419,9 @@ en:{
   "stats.title":"Stats",
   "stats.by_level":"Clears by difficulty",
   "stats.recent":"Recently solved",
-  "stats.solved":"Unique puzzles solved",
+  "stats.solved":"Puzzles solved",
   "stats.course":"Classic progress",
-  "stats.avg":"Avg. time (last {n})",
+  "stats.avg":"Avg. time",
   "stats.chal":"Challenge progress",
   "stats.hints":"Hints left",
   "stats.band_easy":"Easy",
@@ -1472,7 +1491,16 @@ en:{
   "help.code":"Every puzzle has a code. Send it to a friend to open the same puzzle.",
   "help.code_share_html":"<b>Share</b> · Send the code from the top right of the puzzle screen",
   "help.code_copy_html":"Tap the <b>code</b> at the top of the puzzle screen to copy it",
-  "help.code_open_html":"To open a code you got, enter it on Home and tap <b>Open</b>"
+  "help.code_open_html":"To open a code you got, enter it on Home and tap <b>Open</b>",
+  "help.sec_stats":"Stats",
+  "help.st_course_html":"<b>Classic progress</b> · How many of the 1000 puzzles you've finished",
+  "help.st_chal_html":"<b>Challenge progress</b> · Puzzles solved in Challenge mode",
+  "help.st_solved_html":"<b>Puzzles solved</b> · Each puzzle counts once, however many times you solve it",
+  "help.st_avg_html":"<b>Avg. time</b> · Average time of your last 30 solves, all modes together",
+  "help.st_band_html":"<b>Clears by difficulty</b> · Every solve by difficulty, re-solves included",
+  "help.st_recent_html":"<b>Recently solved</b> · Your last 30 solves, newest first. Tap one to open it",
+  "help.st_hints_html":"<b>Hints left</b> · Hints you can still use. Each new step uses one",
+  "help.st_daily":"Daily results are not counted here."
 }};
 /* ═══ 言語（7.6。GAME-SPEC 13 章）═══
    LANG = いま表示している言語。決めるのは pickLang()、当てるのは applyLang()（起動時と設定の切り替え）。
@@ -42757,7 +42785,7 @@ function renderStats(){
     // 単位は辞書の複数形で引く（7.5）。n は単位が掛かる数（「137 / 1000 問」なら分母）
     [t("stats.solved"),G.seen.length,t("unit.puzzle",{n:G.seen.length})],
     [t("stats.course"),`${Math.min(G.ci,COURSE.length)} / ${COURSE.length}`,t("unit.puzzle",{n:COURSE.length})],
-    [t("stats.avg",{n:AVG_RECENT}),avg,t("unit.sec",{n:avg||0})],   // 「いちばん速かった」は 9.8 で消した
+    [t("stats.avg"),avg,t("unit.sec",{n:avg||0})],   // 「いちばん速かった」は 9.8 で消した
     [t("stats.chal"),`${G.chalDone.length} / ${CHAL.length}`,t("unit.puzzle",{n:CHAL.length})],
     [t("stats.hints"),G.hintStock,t("unit.times",{n:G.hintStock})]];   // ここは丸めず実数（丸ボタンの数字は 1k 表記）
   // 2 列 × 3 段の「大きい数字＋小さい名前」（7.4。7.3 までは「名前 …… 値」の行 .kv）

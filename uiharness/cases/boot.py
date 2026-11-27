@@ -307,8 +307,8 @@ def stats_grid(ui):
     chal = "0 / %d" % ui.ev("CHAL.length")
     ui.check("統計: 上の 5 項目の名前・数字・単位（平均時間は直近 30 問。9.8）",
              [x[:3] for x in it],
-             [["解いた問題（ユニーク）", "1", "問"], ["クラシックの進み", "137 / 1000", "問"],
-              ["平均時間（直近 30 問）", "40", "秒"],
+             [["解いた問題", "1", "問"], ["クラシックの進み", "137 / 1000", "問"],
+              ["平均時間", "40", "秒"],
               ["挑戦モードの進み", chal, "問"], ["ヒントの残り", "87", "回"]])
     ui.check("統計: 2 列 × 3 段（左の列・右の列の左端がそれぞれ揃い、段の間隔が一定。最後の段は左だけ）",
              [len(it), it[0][3] == it[2][3] == it[4][3], it[1][3] == it[3][3], it[1][3] > it[0][3],
@@ -343,8 +343,8 @@ def stats_grid(ui):
     it0 = ui.ev(STAT_ITEMS)
     ui.check("統計（記録なし）: 平均時間は数字の場所に「—」・単位を出さない・ほかは 0 と初期値",
              [x[:3] for x in it0],
-             [["解いた問題（ユニーク）", "0", "問"], ["クラシックの進み", "0 / 1000", "問"],
-              ["平均時間（直近 30 問）", "—", ""],
+             [["解いた問題", "0", "問"], ["クラシックの進み", "0 / 1000", "問"],
+              ["平均時間", "—", ""],
               ["挑戦モードの進み", chal, "問"], ["ヒントの残り", str(ui.ev("HINT_START")), "回"]])
     ui.check("統計（記録なし）: 「—」は副次色・数字と同じ大きさ・位置は記録があるときと同じ",
              [ui.ev("(()=>{const n=[...$('statlist').querySelectorAll('.none')];return [n.length,"
@@ -353,10 +353,11 @@ def stats_grid(ui):
              [[1, True, "%dpx" % num_px], True])
     ui.check("統計（記録なし）: 文言は足していない（上の節の文字は名前・数字・単位・「—」だけ）",
              ui.ev(r"$('statlist').innerText.replace(/\s+/g,'')"),
-             "0問解いた問題（ユニーク）0/1000問クラシックの進み—平均時間（直近30問）%s問挑戦モードの進み%s回ヒントの残り"
+             "0問解いた問題0/1000問クラシックの進み—平均時間%s問挑戦モードの進み%s回ヒントの残り"
              % (chal.replace(" ", ""), ui.ev("HINT_START")))
     ui.check_no_errors("統計の 2 列で JS エラー 0")
     stats_recent(ui)
+    stats_labels(ui)
 
 
 # 統計の上の 5 項目の文字（名前と数字と単位）と、画面に NaN・undefined・Infinity・null が出ていないか
@@ -389,14 +390,14 @@ def stats_recent(ui):
         got = ui.ev(STAT_TEXT)
         ui.check("統計（%s）: 平均時間（直近 30 問）の値・NaN などが出ない（%s）" % (name, "上の 5 項目" if part else "画面全体"),
                  [[x for x in got[0] if x.startswith("平均時間")], got[2] if part else got[1], len(got[0])],
-                 [["平均時間（直近 30 問）=" + want], False, 5])
+                 [["平均時間=" + want], False, 5])
     ui.check_no_errors("統計の平均時間で JS エラー 0")
     # 英語の名前
     ui.open({"ci": 3, "cleared": 3, "hist": [row(42)]}, lang="en")
     ui.ev("go('stats')")
     ui.check("統計（英語）: 平均時間の名前と値・「Fastest」が無い",
              [[x for x in ui.ev(STAT_TEXT)[0] if x.startswith("Avg")], "Fastest" in ui.ev("$('stats').innerText")],
-             [["Avg. time (last 30)=42s"], False])
+             [["Avg. time=42s"], False])
     # 古い保存データ（best 入り）: 読み捨てて、次の保存で消える。ほかの記録は変わらない
     old = {"n": 4, "sec": 100, "best": 7, "band": {"3-8": 4}}
     ui.open({"ci": 3, "cleared": 3, "hist": [row(20), row(30)], "stats": old})
@@ -406,7 +407,7 @@ def stats_recent(ui):
     ui.check("統計（古い保存データ）: 「いちばん速かった」が無く、平均時間は履歴の 2 件から（25 秒）",
              [ui.ev("$('stats').innerText.includes('いちばん速かった')"),
               [x for x in ui.ev(STAT_TEXT)[0] if x.startswith("平均時間")]],
-             [False, ["平均時間（直近 30 問）=25秒"]])
+             [False, ["平均時間=25秒"]])
     ui.ev("start('course')")
     ui.solve()
     time.sleep(0.3)                     # save() は 150ms 後に書く
@@ -418,10 +419,33 @@ def stats_recent(ui):
     ui.open({"ci": 3, "cleared": 3, "hist": hist})
     ui.ev("go('stats')")
     ui.check("統計（履歴 31 件）: 平均は新しい方から 30 件（31 件目の 9999 秒は数えない）",
-             [x for x in ui.ev(STAT_TEXT)[0] if x.startswith("平均時間")], ["平均時間（直近 30 問）=10秒"])
+             [x for x in ui.ev(STAT_TEXT)[0] if x.startswith("平均時間")], ["平均時間=10秒"])
     ui.ev("go('home');start('course')")
     ui.solve()
     ui.ev("go('home');go('stats')")
     ui.check("統計: 解くと、平均時間はその場で新しい 30 件から数え直す（いちばん新しい行が先頭に入る）",
              ui.ev("[G.hist.length,recentAvg()===Math.round(G.hist.slice(0,30).reduce((a,h)=>a+h.s,0)/30)]"), [32, True])
     ui.check_no_errors("統計の平均時間（古い保存データ）で JS エラー 0")
+
+
+def stats_labels(ui):
+    """統計の画面の名前に括弧が無い（9.9。「解いた問題（ユニーク）」「平均時間（直近 30 問）」から括弧を外した）。
+    節の見出しは「難易度別クリア数」。履歴の行（禁止の印つきの問題を含む）も含めて、画面のどこにも括弧が無い"""
+    want = {"ja": [["解いた問題", "クラシックの進み", "平均時間", "挑戦モードの進み", "ヒントの残り"], ["難易度別クリア数", "最近解いた問題"]],
+            "en": [["Puzzles solved", "Classic progress", "Avg. time", "Challenge progress", "Hints left"],
+                   ["Clears by difficulty", "Recently solved"]]}
+    for lang in ("ja", "en"):
+        ui.open({"ci": 3, "cleared": 3}, lang=lang)
+        hist = ui.ev("[COURSE.find(p=>p.rc!=='N'),COURSE[0],CHAL[0]].map((p,i)=>({c:codeOf(p),d:p.d,s:30+i,m:['course','free','chal'][i]}))")
+        ui.open({"ci": 3, "cleared": 3, "hist": hist,
+                 "stats": {"n": 3, "sec": 93, "band": {"3-8": 2, "17+": 1}}}, lang=lang)
+        ui.ev("go('stats')")
+        ui.check("統計（%s）: 上の 5 項目と節の見出しの名前（括弧なし。9.9）" % lang,
+                 ui.ev("[[...$('statlist').querySelectorAll('.sk')].map(e=>e.textContent),"
+                       "[...document.querySelectorAll('#stats h3')].map(e=>e.textContent)]"), want[lang])
+        ui.check("統計（%s）: 画面のどこにも括弧が無い（履歴に禁止の印つきの行がある）" % lang,
+                 ui.ev("[$('stathist').querySelectorAll('.toggle').length,"
+                       "/[(){}\\[\\]（）［］「」]/.test($('stats').innerText),$('stats').innerText.includes(%s)]"
+                       % json.dumps({"ja": "禁止", "en": "No "}[lang])),
+                 [3, False, True])
+    ui.check_no_errors("統計の名前で JS エラー 0")

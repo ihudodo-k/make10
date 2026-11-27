@@ -39,6 +39,15 @@ HELP_LINES = {
            ["H3", "モード"],
            ["P", "クラシック ・・・ 1000問。だんだん難しくなります"], ["P", "フリープレイ ・・・ ランダムに出題。何問でも遊べます"],
            ["P", "挑戦モード ・・・ 100問クリアで解放。かなりの難問です"], ["P", "デイリー ・・・ 1 日 1 問。みんなが同じ問題を解きます"],
+           ["H3", "統計"],
+           ["P", "クラシックの進み：1000 問のうち、解いて先へ進んだ数"],
+           ["P", "挑戦モードの進み：挑戦モードで解いた問題の数"],
+           ["P", "解いた問題：解いた問題の数。同じ問題は何度解いても 1 回です"],
+           ["P", "平均時間：最近解いた 30 回の、解けるまでの時間の平均。モードは分けません"],
+           ["P", "難易度別クリア数：難易度ごとの解いた回数。解き直しも数えます"],
+           ["P", "最近解いた問題：新しい順に 30 件。押すとその問題が開きます"],
+           ["P", "ヒントの残り：使えるヒントの数。新しい段階を開くと 1 つ減ります"],
+           ["P", "デイリーの結果は、ここには入りません"],
            ["H3", "デイリー"],
            ["P", "1 日 1 回だけ解けます"], ["P", "ヒント：共有でもらえます（1 日 2 回まで）"],
            ["P", "ギブアップ：解答例を見て、その日を終えます"], ["P", "統計：解いた日数・連続日数とカレンダー"],
@@ -69,6 +78,15 @@ HELP_LINES = {
            ["P", "Classic — 1000 puzzles that get harder as you go"], ["P", "Free Play — random puzzles, as many as you like"],
            ["P", "Challenge — unlocks after 100 clears. Very tough puzzles"],
            ["P", "Daily — one puzzle a day, the same for everyone"],
+           ["H3", "Stats"],
+           ["P", "Classic progress · How many of the 1000 puzzles you've finished"],
+           ["P", "Challenge progress · Puzzles solved in Challenge mode"],
+           ["P", "Puzzles solved · Each puzzle counts once, however many times you solve it"],
+           ["P", "Avg. time · Average time of your last 30 solves, all modes together"],
+           ["P", "Clears by difficulty · Every solve by difficulty, re-solves included"],
+           ["P", "Recently solved · Your last 30 solves, newest first. Tap one to open it"],
+           ["P", "Hints left · Hints you can still use. Each new step uses one"],
+           ["P", "Daily results are not counted here."],
            ["H3", "Daily"],
            ["P", "One try a day."], ["P", "Hint · Share to get one (up to 2 a day)"],
            ["P", "Give up · See a solution and end the day's puzzle"], ["P", "Stats · Days solved, streaks and a calendar"],
@@ -276,6 +294,28 @@ def title_row(ui, size):
                      got, [[0, True, True, [], True]] * 3)
 
 
+def stats_section(ui):
+    """遊び方の統計の節（9.9）。モードの節のすぐ後。項目の名前は統計の画面と同じ文（辞書を引く）、
+    文の中の数（30 件・1000 問）はコードの数え方と同じ。文が統計の画面とずれたらここで止まる"""
+    for lang in ("ja", "en"):
+        ui.open(lang=lang)
+        ui.ev("go('help')")
+        got = ui.ev("(()=>{const h=[...document.querySelectorAll('#help h3')],i=h.findIndex(e=>e.textContent===t('help.sec_stats'));"
+                    "const ps=[];let e=h[i]&&h[i].nextElementSibling;while(e&&e.tagName==='P'){ps.push(e);e=e.nextElementSibling}"
+                    "return [h.map(e=>e.textContent),i>0&&h[i-1].textContent===t('help.sec_modes'),"
+                    "ps.slice(0,7).map(p=>(p.querySelector('b')||{}).textContent),"
+                    "['stats.course','stats.chal','stats.solved','stats.avg','stats.by_level','stats.recent','stats.hints'].map(k=>t(k)),"
+                    "ps.length,[AVG_RECENT,COURSE.length]]})()")
+        ui.check("遊び方（%s）: 統計の節はモードの節のすぐ後・8 行（9.9）" % lang, [got[1], got[4]], [True, 8])
+        ui.check("遊び方（%s）: 統計の節の各行の太字は、統計の画面の名前と同じ文（同じ並び）" % lang, got[2], got[3])
+        ui.check("遊び方（%s）: 文の中の数は、平均時間と最近解いた問題の 30・クラシックの 1000（コードの AVG_RECENT・COURSE の数）" % lang,
+                 got[5], [30, 1000])
+    # 最近解いた問題の一覧は 30 件まで（履歴は 100 件まで持つ）
+    ui.open(STATS_SAVE)
+    ui.ev("go('stats')")
+    ui.check("統計: 最近解いた問題の一覧は 30 件（遊び方の文と同じ）", ui.ev("$('stathist').querySelectorAll('.toggle').length"), 30)
+
+
 def run(ui):
     ui.open()
     ui.ev("go('help')")
@@ -284,9 +324,10 @@ def run(ui):
              ui.ev("(()=>{const c=getComputedStyle(document.querySelector('#help h3'));return [c.fontSize,c.fontWeight,"
                    "c.color===%s('--dim'),c.color===%s('--slate'),Math.round(parseFloat(c.letterSpacing)/13*100)]})()" % (V, V)),
              ["13px", "700", True, False, 4])
-    ui.check("遊び方: 節の見出しはどれも同じ様式（6 つ）",
+    ui.check("遊び方: 節の見出しはどれも同じ様式（7 つ。9.9 で統計を足した）",
              ui.ev("(()=>{const h=[...document.querySelectorAll('#help h3')];return [h.length,new Set(h.map(e=>{const c=getComputedStyle(e);"
-                   "return c.fontSize+c.fontWeight+c.color+c.letterSpacing})).size]})()"), [6, 1])
+                   "return c.fontSize+c.fontWeight+c.color+c.letterSpacing})).size]})()"), [7, 1])
+    stats_section(ui)
     ui.ev("go('settings')")
     ui.check("設定と統計の節見出しは 12px・500 のまま（9.7 で変えたのは遊び方だけ）",
              ui.ev("['#settings h3','#stats h3'].map(s=>{const c=getComputedStyle(document.querySelector(s));return c.fontSize+'/'+c.fontWeight})"),
