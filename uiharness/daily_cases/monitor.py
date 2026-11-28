@@ -47,6 +47,15 @@ def run(ui):
     ui.check("版はソースの定数から読む（無ければ None）",
              [cs.versions('const APP_VERSION="7.9";', 'x\nconst DAILY_VERSION="0.10";'), cs.versions("", "<html>")],
              [("7.9", "0.10"), (None, None)])
+    # ── デイリーの head の題・説明・canonical（D1.2）──
+    ui.check("今のページの head から、題・説明・canonical が読める",
+             cs.daily_head(dui.read(dui.DAILY_HTML)),
+             ["Make10 Daily — one number puzzle a day", "Use four digits, in order, to make 10. A new puzzle every day.",
+              "https://make10.app/daily/"])
+    ui.check("無いもの・空の題は None（head の外にある物は読まない）",
+             [cs.daily_head('<head><title data-i18n="x"></title></head>'), cs.daily_head(""),
+              cs.daily_head('<head></head><link rel="canonical" href="https://make10.app/daily/">')],
+             [[None, None, None], [None, None, None], [None, None, None]])
     good = {"n": 5, "s": 3, "g": 1, "s0": 2, "b": [1, 1, 1, 0, 0]}
     ui.check("集計の返事の形: 決めた形だけを通す",
              [cs.agg_ok(good, 5), cs.agg_ok(good, 6), cs.agg_ok(dict(good, b=[1, 2]), 5), cs.agg_ok(dict(good, s=-1), 5),

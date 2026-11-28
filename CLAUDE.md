@@ -11,6 +11,8 @@ Google Play で配布予定。
 | docs/index.html | ゲーム本体。単一 HTML の試作。GitHub Pages の配信元。**8.8 から、デイリーの問題の列も持つ**（`const DAILY_START`・`const DAILY`。中身は Web のデイリーと同じで、`python make10.py daily` が書く。手で書き換えない。DAILY-SPEC 21 章） |
 | docs/daily/index.html | **デイリー（1 日 1 問）のページ（D0.2〜）。** 単一 HTML。盤・辞書・CSS は本編から 1 文字も変えずに複製してある（DAILY-SPEC 18-3）。版は `DAILY_VERSION`（本編とは別）。問題の列と起点日は `python make10.py daily` が埋め込む（手で書き換えない）。起点日は **2026-10-26（月）**（D1.0。それより前に開くと「問題がありません」）。ほかの日の確かめは `?date=2099-01-05` のように日付を付ける |
 | docs/daily/og.png | **デイリーのリンクを貼ったときに出る画像（OGP。D0.20）。** 1200×630 の PNG・どの日も同じ 1 枚。`docs/daily/index.html` の head の `og:image` が指す。**名前を変えない**（貼られた先が覚えている URL を壊さないため）。絵の決まりと作り方は DAILY-SPEC 9 章。寸法と大きさ（300KB 以下）は `verify_daily.py` のケース `ogp` が見る |
+| docs/robots.txt・docs/sitemap.xml | **検索のため（D1.2。DAILY-SPEC 2 章）。** robots.txt は全部を許し、sitemap の場所を書く。sitemap はデイリー `https://make10.app/daily/` の 1 件だけ（lastmod は書かない）。公開サイトにあることは `check_site.py` が見る |
+| docs/favicon.ico・docs/icon-192.png・docs/apple-touch-icon.png | **サイトのアイコン（D1.2）。** 暗い地に金の「10」。デイリーの head から指す（お試し版は指さない）。サイトの一番上に置く（`favicon.ico` は Google がそこへ探しに来る）。**名前を変えない**。絵の決まりと作り方（色・字・寸法ごとの幅・元の道具 `Documents\make10_daily_screens\icon\`）は DAILY-SPEC 2 章。寸法と中身はケース `ogp` が見る |
 | CHANGELOG.md | **変更履歴の全部（1.4〜）。** この `CLAUDE.md` の「変更履歴」には最新 5 件だけを残してある。新しい版は両方に書く。過去の行は書き換えない |
 | GAME-SPEC.md | ゲームの仕様書 |
 | BRAND.md | **デザインの基準（7.3）。** 誰に向けて、どんな印象にするか（ターゲット・避ける方向・配色の方針・7 つの確認の観点）。デザインを変えるときはまずこれを読む |
