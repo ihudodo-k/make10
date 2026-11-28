@@ -653,8 +653,10 @@ button.pressed,[role="button"].pressed{opacity:.5}
 #toast.atfoot.show{transform:translate(-50%,-50%)}
 /* 文の中の改行で 2 行に分けて出すトースト（10.1。ロック中の挑戦。toast(msg,{lines:true})）。
    #toast は 1 行（nowrap）の決まりで、上の 4 つの規則は Web のデイリーと同じ文のまま（同期の照合）。
-   これは本編だけの規則。日本語の 1 行は 402px あり、360・390 の幅からはみ出したため */
-#toast.lines{white-space:pre-line;text-align:center}
+   これは本編だけの規則。日本語の 1 行は 402px あり、360・390 の幅からはみ出したため。
+   幅は中身に合わせる（max-content）。left:50% の固定配置では、幅を決めないと箱が画面の半分（360 で 180px）までしか
+   広がらず、4 行に割れていた（10.2 で直した。10.1 の誤り）*/
+#toast.lines{white-space:pre-line;text-align:center;width:max-content;max-width:calc(100vw - 32px)}
 /* 広告 52px を引いても収まるよう、低い端末では各所を詰める */
 @media (max-height:700px){
   .rule{min-height:38px;padding:8px 12px;font-size:13px;margin-bottom:8px}
@@ -1090,7 +1092,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="10.1";
+const APP_VERSION="10.2";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1292,7 +1294,7 @@ const STR_APP={ja:{
   "help.r4":"0 で割る式は正解になりません",
   "help.sec_modes":"モード",
   "help.m1_html":"<b>クラシック</b> ・・・ 1000問。だんだん難しくなります",
-  "help.m2_html":"<b>フリープレイ</b> ・・・ ランダムに出題。何問でも遊べます",
+  "help.m2_html":"<b>フリープレイ</b> ・・・ ランダムに出題。まだ解いていない問題から出ます。挑戦モードで解いた問題も出ます",
   "help.m3_html":"<b>挑戦モード</b> ・・・ 100問クリアで解放。かなりの難問です",
   "help.m4_html":"<b>デイリー</b> ・・・ 1 日 1 問。みんなが同じ問題を解きます",
   "help.sec_daily":"デイリー",
@@ -1326,7 +1328,7 @@ const STR_APP={ja:{
   "help.code_open_html":"もらったコードは、ホームの欄に入れて<b>ひらく</b>を押します",
   "help.sec_stats":"統計",
   "help.st_course_html":"<b>クラシックの進み</b>：1000 問のうち、解いて先へ進んだ数",
-  "help.st_chal_html":"<b>挑戦モードの進み</b>：挑戦モードで解いた問題の数",
+  "help.st_chal_html":"<b>挑戦モードの進み</b>：挑戦モードで解いた問題の数。フリープレイで解いても数えません",
   "help.st_solved_html":"<b>解いた問題</b>：解いた問題の数。同じ問題は何度解いても 1 回です",
   "help.st_avg_html":"<b>平均時間</b>：最近解いた 30 回の、解けるまでの時間の平均。モードは分けません",
   "help.st_band_html":"<b>難易度別クリア数</b>：難易度ごとの解いた回数。解き直しも数えます",
@@ -1467,7 +1469,7 @@ en:{
   "help.r4":"Dividing by 0 never counts as correct",
   "help.sec_modes":"Modes",
   "help.m1_html":"<b>Classic</b> — 1000 puzzles that get harder as you go",
-  "help.m2_html":"<b>Free Play</b> — random puzzles, as many as you like",
+  "help.m2_html":"<b>Free Play</b> — random puzzles, unsolved ones first. Challenge puzzles you've solved show up too",
   "help.m3_html":"<b>Challenge</b> — unlocks after 100 clears. Very tough puzzles",
   "help.m4_html":"<b>Daily</b> — one puzzle a day, the same for everyone",
   "help.sec_daily":"Daily",
@@ -1500,7 +1502,7 @@ en:{
   "help.code_open_html":"To open a code you got, enter it on Home and tap <b>Open</b>",
   "help.sec_stats":"Stats",
   "help.st_course_html":"<b>Classic progress</b> · How many of the 1000 puzzles you've finished",
-  "help.st_chal_html":"<b>Challenge progress</b> · Puzzles solved in Challenge mode",
+  "help.st_chal_html":"<b>Challenge progress</b> · Puzzles solved in Challenge mode. Free Play solves don't count",
   "help.st_solved_html":"<b>Puzzles solved</b> · Each puzzle counts once, however many times you solve it",
   "help.st_avg_html":"<b>Avg. time</b> · Average time of your last 30 solves, all modes together",
   "help.st_band_html":"<b>Clears by difficulty</b> · Every solve by difficulty, re-solves included",
@@ -41472,6 +41474,11 @@ const G={ci:0,cleared:0,tap:false,fact:false,vib:true,easy:false,theme:'ai',
   // と同じ形の配列。抽選はこちらを除外するので、解かずに送った問題も二度は出ない
   // （GAME-SPEC 7）
   chalShown:[],
+  // 挑戦の問題のうち、フリープレイで解いたもののコード（10.2。最大 CHAL.length 件）。
+  // フリープレイは挑戦で解いた問題（chalDone）も出し、ここに無ければ「まだ解いていない」として先に出す。
+  // 挑戦で解いた時点で seen には入っているので、挑戦の問題の「フリープレイで解いたか」は seen では分からない。
+  // 挑戦の進み（chalDone）には数えない（GAME-SPEC 7-5）
+  freeChal:[],
   // 挑戦の報酬（5.0）。次のヒントまでの端数（0 か 1）だけを持つ。
   // 「導入時点より後のクリアだけ数える」は、この項目を持たない保存データを 0 で
   // 始めることで成り立つ ―― 基準となるクリア数を別に保存する必要はない。
@@ -41502,6 +41509,8 @@ function load(){
       // 7.6 で追加。項目が無い（か、知らない値の）保存データは "auto" で始める
       G.lang=LANGS.includes(s.lang)?s.lang:"auto";
       if(Array.isArray(s.seen))G.seen=s.seen;
+      // 10.2 で追加。項目が無い（か、配列でない）保存データは空から始める。seen と同じ「解いた事実」なので捨てない（9-1）
+      if(Array.isArray(s.freeChal))G.freeChal=s.freeChal;
       if(s.hints&&typeof s.hints==='object')G.hints=s.hints;
       // 4.7 で追加。項目が無い保存データは初期値で始める（0 にはしない）
       G.hintStock=typeof s.hintStock==="number"&&isFinite(s.hintStock)
@@ -42167,6 +42176,8 @@ function win(){
     G.cleared++;       // 挑戦モードの解放条件（CHAL_AT）もこれで進む（GAME-SPEC 7-2）
   }
   if(MODE==="chal"&&!G.chalDone.includes(code))G.chalDone.push(code);
+  // フリープレイで解いた挑戦の問題（10.2）。挑戦の進み（chalDone）・報酬には数えない
+  if(MODE==="free"&&CHAL.includes(cur)&&!G.freeChal.includes(code))G.freeChal.push(code);
   record(); save();               // 記録はここで 1 回だけ確定する（GAME-SPEC 3）
   document.querySelectorAll(".tok.op,.tok.fac").forEach((t,i)=>{
     if(lv>=2)setTimeout(()=>t.classList.add("shine"),120+i*70)});
@@ -42253,6 +42264,19 @@ function chalRemain(){
   const shown=new Set(G.chalShown);
   return CHAL.filter(p=>!shown.has(codeOf(p)));
 }
+/* フリープレイの出題（10.2。GAME-SPEC 7-5）。
+   ①組を決める: 2 割は FREE 全体・8 割は FREE9（9.9 までと同じ分け方。Math.random は組で 1 回・組の中で 1 回）
+   ②どちらの組にも、挑戦モードで解いた問題（chalDone。どれも難易度 17 以上）を足す
+   ③組の中の「まだ解いていない問題」から選ぶ。無ければ組の全体から選ぶ。
+     解いていない = FREE の問題は seen に無いこと・挑戦の問題は freeChal に無いこと
+     （挑戦で解いただけの問題は seen に入っているが、フリープレイでは未解決として出す） */
+function freePick(){
+  const pool=Math.random()<.2?FREE:FREE9;
+  const seen=new Set(G.seen), fc=new Set(G.freeChal);
+  const chal=[...new Set(G.chalDone)].map(byCode).filter(Boolean);
+  const left=pool.filter(p=>!seen.has(codeOf(p))).concat(chal.filter(p=>!fc.has(codeOf(p))));
+  return rnd(left.length?left:pool.concat(chal));
+}
 function nextOf(mode){
   if(mode==="course"){
     // swap のコードが今の BLOB に無ければ差し替えを無かったことにして既定へ戻す。
@@ -42260,7 +42284,7 @@ function nextOf(mode){
     const sw=G.swap&&G.swap[G.ci], p=sw&&byCode(sw);
     return p||COURSE[Math.min(G.ci,COURSE.length-1)];
   }
-  if(mode==="free")return Math.random()<.2?rnd(FREE):rnd(FREE9);
+  if(mode==="free")return freePick();
   if(mode==="chal"){const r=chalRemain();return r.length?rnd(r):null}   // null = 全問出題ずみ
   return rnd(FREE)}
 function record(){
@@ -42419,7 +42443,7 @@ function renderHome(){
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
-    G.ci=0;G.cleared=0;G.stats={n:0,sec:0,band:{}};G.hist=[];G.chalDone=[];G.chalShown=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
+    G.ci=0;G.cleared=0;G.stats={n:0,sec:0,band:{}};G.hist=[];G.chalDone=[];G.chalShown=[];G.freeChal=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
     delete b.dataset.armed;s.textContent=t("settings.reset");toast(t("toast.reset"));return}
   b.dataset.armed="1";s.textContent=t("settings.reset_confirm");
   setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent=t("settings.reset")}},3500);

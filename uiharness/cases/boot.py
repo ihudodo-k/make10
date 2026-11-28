@@ -265,10 +265,12 @@ def home_layout(ui):
     ui.check("ホーム: ロック中でも行の大きさ・位置は同じ形", ui.ev(MODE_ROWS), [row, row, row, row])
     ui.click("m-chal")
     ui.check("ホーム: ロック中の挑戦は押しても始まらない", ui.ev("SCR"), "home")
-    # 10.1: ロック中に押すと、解放までの残り（CHAL_AT − 累計）をトーストで出す。ホームのトーストは画面の下の決まりの位置
+    # 10.1: ロック中に押すと、解放までの残り（CHAL_AT − 累計）をトーストで出す。ホームのトーストは画面の下の決まりの位置。
+    # 行の数はちょうど 2 行（10.2。10.1 は箱の幅が画面の半分までしか広がらず、4 行に割れていた）
     LOCK_TOAST = ("(()=>{const e=$('toast');if(!e)return null;const r=e.getBoundingClientRect(),c=getComputedStyle(e);"
                   "return [e.textContent,c.opacity!=='0'&&c.display!=='none',r.left>=0&&r.right<=innerWidth,"
-                  "Math.round(r.height/parseFloat(c.lineHeight==='normal'?17:c.lineHeight))>=2,c.whiteSpace]})()")
+                  "(()=>{const g=document.createRange();g.selectNodeContents(e);return new Set([...g.getClientRects()].map(q=>Math.round(q.top))).size===2})(),"
+                  "c.whiteSpace]})()")
     time.sleep(0.2)
     ui.check("ホーム（0 問）: ロック中の挑戦を押すと、あと 100 問のトーストを 1 回出す（10.1）",
              [ui.toasts(), ui.ev(LOCK_TOAST)],
