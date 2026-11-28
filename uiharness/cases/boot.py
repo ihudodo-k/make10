@@ -265,6 +265,34 @@ def home_layout(ui):
     ui.check("ホーム: ロック中でも行の大きさ・位置は同じ形", ui.ev(MODE_ROWS), [row, row, row, row])
     ui.click("m-chal")
     ui.check("ホーム: ロック中の挑戦は押しても始まらない", ui.ev("SCR"), "home")
+    # 10.1: ロック中に押すと、解放までの残り（CHAL_AT − 累計）をトーストで出す。ホームのトーストは画面の下の決まりの位置
+    LOCK_TOAST = ("(()=>{const e=$('toast');if(!e)return null;const r=e.getBoundingClientRect(),c=getComputedStyle(e);"
+                  "return [e.textContent,c.opacity!=='0'&&c.display!=='none',r.left>=0&&r.right<=innerWidth,"
+                  "Math.round(r.height/parseFloat(c.lineHeight==='normal'?17:c.lineHeight))>=2,c.whiteSpace]})()")
+    time.sleep(0.2)
+    ui.check("ホーム（0 問）: ロック中の挑戦を押すと、あと 100 問のトーストを 1 回出す（10.1）",
+             [ui.toasts(), ui.ev(LOCK_TOAST)],
+             [["あと 100 問解くと解放されます\n（クラシック・フリープレイ）"],
+              ["あと 100 問解くと解放されます\n（クラシック・フリープレイ）", True, True, True, "pre-line"]])
+    for lang, cl, want in [("ja", 99, "あと 1 問解くと解放されます\n（クラシック・フリープレイ）"),
+                           ("en", 99, "Solve 1 more puzzle to unlock\n(Classic or Free Play)"),
+                           ("en", 37, "Solve 63 more puzzles to unlock\n(Classic or Free Play)")]:
+        ui.open({"ci": 0, "cleared": cl}, lang=lang)
+        ui.click("m-chal")
+        time.sleep(0.2)
+        ui.check("ホーム（%s・%d 問）: ロック中のトーストの数は CHAL_AT − 累計・2 行で画面に収まる・始まらない" % (lang, cl),
+                 [ui.toasts(), ui.ev(LOCK_TOAST), ui.ev("SCR")], [[want], [want, True, True, True, "pre-line"], "home"])
+    # ほかのトーストは今までどおり 1 行（lines の印が残らない）
+    ui.ev("toast(t('toast.reset'))")
+    ui.check("ホーム: ほかのトーストは 1 行のまま（lines が外れる）",
+             ui.ev("[$('toast').classList.contains('lines'),getComputedStyle($('toast')).whiteSpace]"), [False, "nowrap"])
+    # 開発者モードの解放は変えない: 合言葉で解放すると、押せば挑戦が始まり、ロックのトーストは出ない
+    ui.open({"ci": 0, "cleared": 5})
+    ui.ev("devCode('MAKE10DEV')")
+    ui.click("m-chal")
+    ui.check("ホーム: 開発者モードで解放した挑戦は押すと始まり、ロックのトーストを出さない",
+             [ui.ev("SCR"), ui.ev("MODE"), [m for m in ui.toasts() if "解放" in m]], ["play", "chal", []])
+    ui.open({"ci": 0, "cleared": 0})
     ui.check("ホーム（0 問）: はみ出さない", ui.ev(HOME_FIT), [True, True, 0])
     # 全部解いた後（4 桁の 1000・挑戦も全問クリア）
     ui.open({"ci": 1000, "cleared": 1040})

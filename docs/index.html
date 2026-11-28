@@ -651,6 +651,10 @@ button.pressed,[role="button"].pressed{opacity:.5}
    出す（6.5。top は toast() が入れる）*/
 #toast.atfoot{bottom:auto;transform:translate(-50%,-50%) translateY(12px)}
 #toast.atfoot.show{transform:translate(-50%,-50%)}
+/* 文の中の改行で 2 行に分けて出すトースト（10.1。ロック中の挑戦。toast(msg,{lines:true})）。
+   #toast は 1 行（nowrap）の決まりで、上の 4 つの規則は Web のデイリーと同じ文のまま（同期の照合）。
+   これは本編だけの規則。日本語の 1 行は 402px あり、360・390 の幅からはみ出したため */
+#toast.lines{white-space:pre-line;text-align:center}
 /* 広告 52px を引いても収まるよう、低い端末では各所を詰める */
 @media (max-height:700px){
   .rule{min-height:38px;padding:8px 12px;font-size:13px;margin-bottom:8px}
@@ -1086,7 +1090,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="10.0";
+const APP_VERSION="10.1";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1237,6 +1241,7 @@ const STR_APP={ja:{
   "toast.copy_failed":"コピーできません　{code}",
   "toast.hint_reward":"ヒント +1（残り {stock}）",
   "toast.chal_end":"挑戦モードは全問出題しました（クリア {done}/{total}）",
+  "toast.chal_locked":{other:"あと {n} 問解くと解放されます\n（クラシック・フリープレイ）"},
   "toast.reset":"リセットしました",
   "toast.exit_confirm":"もう一度タップでゲームを終了します",
   "toast.exit_app":"（アプリ版ではここで終了します）",
@@ -1411,6 +1416,7 @@ en:{
   "toast.copy_failed":"Couldn't copy · {code}",
   "toast.hint_reward":"Hint +1 ({stock} left)",
   "toast.chal_end":"All Challenge puzzles played ({done}/{total} cleared)",
+  "toast.chal_locked":{one:"Solve {n} more puzzle to unlock\n(Classic or Free Play)",other:"Solve {n} more puzzles to unlock\n(Classic or Free Play)"},
   "toast.reset":"Progress reset",
   "toast.exit_confirm":"Tap again to exit",
   "toast.exit_app":"(The app would close here)",
@@ -42351,6 +42357,7 @@ function toast(msg,opts={}){
     t.style.top=(above?c.top-TOAST_FOOT_GAP-t.offsetHeight/2:(c.top+c.bottom)/2)+"px";
   }else{t.style.left="";t.style.top=""}
   t.classList.toggle("atfoot",foot);
+  t.classList.toggle("lines",!!opts.lines);
   t.classList.add("show");
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),opts.ms||TOAST_MS);
 }
@@ -42818,7 +42825,10 @@ function renderStats(){
 $("m-course").onclick=()=>start("course");
 $("m-free").onclick=()=>start("free");
 $("m-daily").onclick=()=>dlyOpen();
-$("m-chal").onclick=()=>{if(G.cleared<CHAL_AT)return;   // ロック中は反応しない（揺れ演出は廃止）
+$("m-chal").onclick=()=>{
+  // ロック中は、解放までの残りをトーストで知らせる（10.1。9.9 までは何も起きなかった。揺れ演出は廃止）。
+  // 残りは解放の条件そのもの（CHAL_AT − 累計 G.cleared）。条件は変えていない
+  if(G.cleared<CHAL_AT){toast(t("toast.chal_locked",{n:CHAL_AT-G.cleared}),{lines:true});return}
   // 判定は抽選と同じ chalRemain()（出題済みで数える）。クリア済みの数とは違う
   if(!chalRemain().length){
     toast(t("toast.chal_end",{done:G.chalDone.length,total:CHAL.length}));return}
