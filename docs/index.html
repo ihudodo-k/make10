@@ -1092,7 +1092,7 @@ button.pressed,[role="button"].pressed{opacity:.5}
 <script>
 /* アプリのバージョン。index.html に変更を加えたら必ず上げる（小数第一位を +1）。
    設定画面の表示はこの値から描画する。CLAUDE.md の変更履歴にも 1 行足すこと */
-const APP_VERSION="10.2";
+const APP_VERSION="10.3";
 /* ═══ 画面の文の辞書（7.5。GAME-SPEC 13 章）═══
    画面に出る文はここに入れ、HTML と JS には直書きしない（CLAUDE.md 実装のルール）。
    キーは「場所.中身」。文に数字や記号が入るときは {名前} の印を入れて、t(key,{名前:値}) で置き換える。
@@ -1276,7 +1276,7 @@ const STR_APP={ja:{
   "settings.help":"遊び方",
   "settings.stats":"統計",
   "settings.reset":"進捗をリセット",
-  "settings.reset_confirm":"もう一度押すと消えます",
+  "settings.reset_confirm":"もう一度押すと消えます（デイリー以外）",
   "settings.lang":"言語 / Language",
   "settings.lang_auto":"自動",
   "settings.lang_auto_now":"{auto}（{lang}）",
@@ -1451,7 +1451,7 @@ en:{
   "settings.help":"How to play",
   "settings.stats":"Stats",
   "settings.reset":"Reset progress",
-  "settings.reset_confirm":"Tap again to erase",
+  "settings.reset_confirm":"Tap again to erase (except Daily)",
   "settings.lang":"言語 / Language",
   "settings.lang_auto":"Auto",
   "settings.lang_auto_now":"{auto} ({lang})",
@@ -41539,7 +41539,7 @@ function load(){
          - chalDone / chalShown … 分母が CHAL.length の「N / 1929」の分子なので、
            分母に無いものを数えると分数の意味が壊れる。捨てても失うのは
            「もう出題しない」という抑制だけで、その問題自体がもう存在しない
-         **seen / hist / hints は捨てない。** 「解いた事実」は
+         **seen / hist / hints は捨てない**（問題データの組み替えに対して。「進捗をリセット」では消す。10.3）。「解いた事実」は
          記録そのもので、BLOB の組み替えで消してよいものではない（消えた問題が
          後の版で戻ってくることもある）
          捨てるのは **読み込んだ G の中だけ**で、保存 JSON は書き換えない。
@@ -42443,7 +42443,10 @@ function renderHome(){
 $("reset").onclick=()=>{
   const b=$("reset"),s=b.querySelector("span");
   if(b.dataset.armed){localStorage.removeItem(SAVE_KEY);
-    G.ci=0;G.cleared=0;G.stats={n:0,sec:0,band:{}};G.hist=[];G.chalDone=[];G.chalShown=[];G.freeChal=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
+    // 10.3 で seen（解いた問題）も空にした。10.2 までは残していたので、累計 cleared（seen に無い問題を解いたときだけ増える）が
+    // リセットの後に解き直しても 0 のまま増えず、挑戦が解放されなかった。統計の「解いた問題」も前の数のままだった。
+    // デイリーの記録（make10.daily.v1）は別のキーなので消さない（GAME-SPEC 9 章）
+    G.ci=0;G.cleared=0;G.seen=[];G.stats={n:0,sec:0,band:{}};G.hist=[];G.chalDone=[];G.chalShown=[];G.freeChal=[];G.chalRem=0;G.hints={};G.hintStock=HINT_START;save();
     delete b.dataset.armed;s.textContent=t("settings.reset");toast(t("toast.reset"));return}
   b.dataset.armed="1";s.textContent=t("settings.reset_confirm");
   setTimeout(()=>{if(b.dataset.armed){delete b.dataset.armed;s.textContent=t("settings.reset")}},3500);
